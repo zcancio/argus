@@ -13,7 +13,7 @@ from api._lib.core import (
     Task, Response, EpisodeResult, ExperimentConfig, ExperimentResult, Action
 )
 from api._lib.protocols import (
-    TrustedMonitoringProtocol, ThresholdPolicy, SimulatedMonitor, HumanMonitor
+    TrustedMonitoringProtocol, ThresholdPolicy, SimulatedMonitor
 )
 from api._lib.environments import (
     CodeGenerationEnvironment, RandomAttackStrategy,
@@ -50,12 +50,6 @@ class ExperimentRequest(BaseModel):
     attack_probability: float = 0.1
     num_episodes: int = 100
     seed: Optional[int] = None
-    # Human monitor specific parameters
-    human_accuracy: float = 0.9
-    human_fatigue_rate: float = 0.1
-    human_thoroughness: float = 0.8
-    human_is_llm: bool = False
-    human_llm_provider: Optional[str] = None
 
 
 class ValidateKeyRequest(BaseModel):
@@ -79,7 +73,7 @@ def get_config_options():
     return {
         "policy_types": ["threshold"],
         "attack_strategies": ["random", "strategic"],
-        "providers": ["simulated", "human", "anthropic", "openai"],
+        "providers": ["simulated", "anthropic", "openai"],
         "default_config": ExperimentRequest().model_dump()
     }
 
@@ -140,20 +134,10 @@ def run_experiment(
             random.seed(config.seed)
         
         # Create components
-        if config.monitor_provider == "human":
-            monitor = HumanMonitor(
-                accuracy=config.human_accuracy,
-                fatigue_rate=config.human_fatigue_rate,
-                false_positive_rate=config.monitor_fpr,
-                review_thoroughness=config.human_thoroughness,
-                is_llm=config.human_is_llm,
-                llm_provider=config.human_llm_provider
-            )
-        else:
-            monitor = SimulatedMonitor(
-                true_positive_rate=config.monitor_tpr,
-                false_positive_rate=config.monitor_fpr
-            )
+        monitor = SimulatedMonitor(
+            true_positive_rate=config.monitor_tpr,
+            false_positive_rate=config.monitor_fpr
+        )
         policy = ThresholdPolicy(
             block_threshold=config.block_threshold,
             audit_threshold=config.audit_threshold
