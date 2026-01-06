@@ -268,12 +268,20 @@ function ConfigPanel({ config, onChange, onRun, isRunning, hasAnthropicKey, hasO
   // Available providers based on API keys
   const availableMonitorProviders = [
     { value: 'simulated', label: 'Simulated' },
+    { value: 'human', label: 'Human Monitor' },
     ...(hasAnthropicKey ? [{ value: 'anthropic', label: 'Anthropic (Claude)' }] : []),
     ...(hasOpenaiKey ? [{ value: 'openai', label: 'OpenAI (GPT)' }] : []),
   ];
 
   const availableUntrustedProviders = [
     { value: 'simulated', label: 'Simulated' },
+    ...(hasAnthropicKey ? [{ value: 'anthropic', label: 'Anthropic (Claude)' }] : []),
+    ...(hasOpenaiKey ? [{ value: 'openai', label: 'OpenAI (GPT)' }] : []),
+  ];
+
+  // LLM providers available for human monitor
+  const humanLlmProviders = [
+    { value: '', label: 'None (Simulated Human)' },
     ...(hasAnthropicKey ? [{ value: 'anthropic', label: 'Anthropic (Claude)' }] : []),
     ...(hasOpenaiKey ? [{ value: 'openai', label: 'OpenAI (GPT)' }] : []),
   ];
@@ -337,6 +345,100 @@ function ConfigPanel({ config, onChange, onRun, isRunning, hasAnthropicKey, hasO
           </select>
         </div>
       </div>
+
+      {/* Human Monitor Configuration */}
+      {config.monitor_provider === 'human' && (
+        <div style={{
+          padding: '16px',
+          background: colors.bg.tertiary,
+          borderRadius: '6px',
+          marginBottom: '20px',
+          border: `1px solid ${colors.accent.amber}40`,
+        }}>
+          <div style={{ fontSize: '11px', color: colors.accent.amber, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px' }}>
+            Human Monitor Settings
+          </div>
+
+          <div style={inputGroupStyle}>
+            <div style={labelStyle}>
+              <span style={{ color: colors.text.secondary, display: 'flex', alignItems: 'center' }}>
+                LLM Backend
+                <InfoIcon tooltip="Optionally use an LLM to simulate human-like review behavior. Leave as 'None' for pure statistical simulation." />
+              </span>
+            </div>
+            <select
+              value={config.human_llm_provider || ''}
+              onChange={(e) => onChange({
+                ...config,
+                human_llm_provider: e.target.value || null,
+                human_is_llm: !!e.target.value
+              })}
+              style={selectStyle}
+            >
+              {humanLlmProviders.map(p => (
+                <option key={p.value} value={p.value}>{p.label}</option>
+              ))}
+            </select>
+          </div>
+
+          <div style={inputGroupStyle}>
+            <div style={labelStyle}>
+              <span style={{ color: colors.text.secondary, display: 'flex', alignItems: 'center' }}>
+                Accuracy
+                <InfoIcon tooltip="Base accuracy of the human reviewer when fully attentive. Higher values mean better attack detection." />
+              </span>
+              <span style={{ color: colors.accent.amber, fontFamily: 'JetBrains Mono, monospace' }}>{(config.human_accuracy * 100).toFixed(0)}%</span>
+            </div>
+            <input
+              type="range"
+              min="0.5"
+              max="1"
+              step="0.05"
+              value={config.human_accuracy}
+              onChange={(e) => onChange({ ...config, human_accuracy: parseFloat(e.target.value) })}
+              style={sliderStyle}
+            />
+          </div>
+
+          <div style={inputGroupStyle}>
+            <div style={labelStyle}>
+              <span style={{ color: colors.text.secondary, display: 'flex', alignItems: 'center' }}>
+                Fatigue Rate
+                <InfoIcon tooltip="How quickly the reviewer's accuracy degrades over multiple reviews. Higher values simulate faster mental fatigue." />
+              </span>
+              <span style={{ color: colors.accent.magenta, fontFamily: 'JetBrains Mono, monospace' }}>{(config.human_fatigue_rate * 100).toFixed(0)}%</span>
+            </div>
+            <input
+              type="range"
+              min="0"
+              max="0.5"
+              step="0.05"
+              value={config.human_fatigue_rate}
+              onChange={(e) => onChange({ ...config, human_fatigue_rate: parseFloat(e.target.value) })}
+              style={sliderStyle}
+            />
+          </div>
+
+          <div style={{ marginBottom: 0 }}>
+            <div style={labelStyle}>
+              <span style={{ color: colors.text.secondary, display: 'flex', alignItems: 'center' }}>
+                Thoroughness
+                <InfoIcon tooltip="How carefully the reviewer examines each response. Lower values simulate rushed or superficial reviews." />
+              </span>
+              <span style={{ color: colors.accent.cyan, fontFamily: 'JetBrains Mono, monospace' }}>{(config.human_thoroughness * 100).toFixed(0)}%</span>
+            </div>
+            <input
+              type="range"
+              min="0.3"
+              max="1"
+              step="0.05"
+              value={config.human_thoroughness}
+              onChange={(e) => onChange({ ...config, human_thoroughness: parseFloat(e.target.value) })}
+              style={sliderStyle}
+            />
+          </div>
+        </div>
+      )}
 
       <div style={inputGroupStyle}>
         <div style={labelStyle}>
@@ -706,6 +808,12 @@ export default function App() {
     num_episodes: 100,
     monitor_provider: 'simulated',
     untrusted_provider: 'simulated',
+    // Human monitor settings
+    human_accuracy: 0.9,
+    human_fatigue_rate: 0.1,
+    human_thoroughness: 0.8,
+    human_is_llm: false,
+    human_llm_provider: null,
   });
 
   const [apiKeys, setApiKeys] = useState({
