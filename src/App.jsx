@@ -265,17 +265,18 @@ function ConfigPanel({ config, onChange, onRun, isRunning, hasAnthropicKey, hasO
     fontSize: '14px',
   };
 
-  // Available providers based on API keys
-  const availableMonitorProviders = [
+  // Available models for each role
+  const availableModels = [
     { value: 'simulated', label: 'Simulated' },
-    ...(hasAnthropicKey ? [{ value: 'anthropic', label: 'Anthropic (Claude)' }] : []),
-    ...(hasOpenaiKey ? [{ value: 'openai', label: 'OpenAI (GPT)' }] : []),
-  ];
-
-  const availableUntrustedProviders = [
-    { value: 'simulated', label: 'Simulated' },
-    ...(hasAnthropicKey ? [{ value: 'anthropic', label: 'Anthropic (Claude)' }] : []),
-    ...(hasOpenaiKey ? [{ value: 'openai', label: 'OpenAI (GPT)' }] : []),
+    ...(hasAnthropicKey ? [
+      { value: 'haiku', label: 'Haiku' },
+      { value: 'sonnet', label: 'Sonnet' },
+      { value: 'opus', label: 'Opus' },
+    ] : []),
+    ...(hasOpenaiKey ? [
+      { value: 'gpt-3.5-turbo', label: 'GPT-3.5-Turbo' },
+      { value: 'gpt-4o', label: 'GPT-4o' },
+    ] : []),
   ];
 
   return (
@@ -290,30 +291,74 @@ function ConfigPanel({ config, onChange, onRun, isRunning, hasAnthropicKey, hasO
       </h3>
 
       {/* Model Providers Section */}
-      <div style={{ 
-        padding: '16px', 
-        background: colors.bg.tertiary, 
-        borderRadius: '6px', 
+      <div style={{
+        padding: '16px',
+        background: colors.bg.tertiary,
+        borderRadius: '6px',
         marginBottom: '20px',
         border: `1px solid ${colors.border}`,
       }}>
         <div style={{ fontSize: '11px', color: colors.text.muted, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px' }}>
           Model Providers
         </div>
-        
+
         <div style={inputGroupStyle}>
           <div style={labelStyle}>
             <span style={{ color: colors.text.secondary, display: 'flex', alignItems: 'center' }}>
-              Monitor (Trusted)
+              <span style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '20px',
+                height: '20px',
+                borderRadius: '4px',
+                background: colors.accent.amber + '30',
+                color: colors.accent.amber,
+                fontSize: '11px',
+                fontWeight: '600',
+                marginRight: '8px',
+              }}>H</span>
+              Human Monitor
+              <InfoIcon tooltip="The human reviewer (or LLM simulating human review) that performs final verification on flagged responses." />
+            </span>
+          </div>
+          <select
+            value={config.human_model}
+            onChange={(e) => onChange({ ...config, human_model: e.target.value })}
+            style={selectStyle}
+          >
+            {availableModels.map(p => (
+              <option key={p.value} value={p.value}>{p.label}</option>
+            ))}
+          </select>
+        </div>
+
+        <div style={inputGroupStyle}>
+          <div style={labelStyle}>
+            <span style={{ color: colors.text.secondary, display: 'flex', alignItems: 'center' }}>
+              <span style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '20px',
+                height: '20px',
+                borderRadius: '4px',
+                background: colors.accent.green + '30',
+                color: colors.accent.green,
+                fontSize: '11px',
+                fontWeight: '600',
+                marginRight: '8px',
+              }}>T</span>
+              Trusted Monitor
               <InfoIcon tooltip="The trusted model that evaluates responses from the untrusted model for potential attacks or policy violations." />
             </span>
           </div>
           <select
-            value={config.monitor_provider}
-            onChange={(e) => onChange({ ...config, monitor_provider: e.target.value })}
+            value={config.trusted_model}
+            onChange={(e) => onChange({ ...config, trusted_model: e.target.value })}
             style={selectStyle}
           >
-            {availableMonitorProviders.map(p => (
+            {availableModels.map(p => (
               <option key={p.value} value={p.value}>{p.label}</option>
             ))}
           </select>
@@ -322,16 +367,29 @@ function ConfigPanel({ config, onChange, onRun, isRunning, hasAnthropicKey, hasO
         <div style={{ marginBottom: 0 }}>
           <div style={labelStyle}>
             <span style={{ color: colors.text.secondary, display: 'flex', alignItems: 'center' }}>
+              <span style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '20px',
+                height: '20px',
+                borderRadius: '4px',
+                background: colors.accent.magenta + '30',
+                color: colors.accent.magenta,
+                fontSize: '11px',
+                fontWeight: '600',
+                marginRight: '8px',
+              }}>U</span>
               Untrusted Model
               <InfoIcon tooltip="The AI model being monitored. This model generates responses that may contain attacks, which the monitor tries to detect." />
             </span>
           </div>
           <select
-            value={config.untrusted_provider}
-            onChange={(e) => onChange({ ...config, untrusted_provider: e.target.value })}
+            value={config.untrusted_model}
+            onChange={(e) => onChange({ ...config, untrusted_model: e.target.value })}
             style={selectStyle}
           >
-            {availableUntrustedProviders.map(p => (
+            {availableModels.map(p => (
               <option key={p.value} value={p.value}>{p.label}</option>
             ))}
           </select>
@@ -704,8 +762,10 @@ export default function App() {
     monitor_tpr: 0.8,
     monitor_fpr: 0.1,
     num_episodes: 100,
-    monitor_provider: 'simulated',
-    untrusted_provider: 'simulated',
+    // Model providers (H/T/U)
+    human_model: 'simulated',
+    trusted_model: 'simulated',
+    untrusted_model: 'simulated',
   });
 
   const [apiKeys, setApiKeys] = useState({
@@ -932,7 +992,7 @@ export default function App() {
             ✓ Persistent Storage
           </div>
         )}
-        {config.monitor_provider === 'simulated' && config.untrusted_provider === 'simulated' && (
+        {config.human_model === 'simulated' && config.trusted_model === 'simulated' && config.untrusted_model === 'simulated' && (
           <div style={{
             padding: '6px 12px',
             background: colors.accent.amber + '20',
