@@ -8,18 +8,18 @@ from pydantic import BaseModel
 from typing import Optional
 import random
 
-# Import from local lib
-from _lib.core import (
+# Import from local lib (relative imports for Vercel)
+from api._lib.core import (
     Task, Response, EpisodeResult, ExperimentConfig, ExperimentResult, Action
 )
-from _lib.protocols import (
+from api._lib.protocols import (
     TrustedMonitoringProtocol, ThresholdPolicy, SimulatedMonitor
 )
-from _lib.environments import (
-    CodeGenerationEnvironment, RandomAttackStrategy, 
+from api._lib.environments import (
+    CodeGenerationEnvironment, RandomAttackStrategy,
     StrategicCoupStrategy, SimulatedUntrustedModel
 )
-from _lib.storage import store
+from api._lib.storage import store
 
 # FastAPI app
 app = FastAPI(

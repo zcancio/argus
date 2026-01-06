@@ -3,7 +3,7 @@
 from dataclasses import dataclass, field
 import random
 
-from .core import Task, Response, EpisodeResult
+from api._lib.core import Task, Response, EpisodeResult
 
 
 SAMPLE_TASKS = [

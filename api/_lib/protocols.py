@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Optional
 import random
 
-from .core import Task, Response, MonitorOutput, Action
+from api._lib.core import Task, Response, MonitorOutput, Action
 
 
 @dataclass
@@ -74,7 +74,7 @@ class TrustedMonitoringProtocol:
         return f"trusted_monitoring({self.monitor.name}, {self.policy.name})"
     
     def process(self, task: Task, untrusted_response: Response):
-        from .core import ProtocolDecision
+        from api._lib.core import ProtocolDecision
         
         monitor_output = self.monitor.evaluate(task, untrusted_response)
         action = self.policy.decide(monitor_output, task)
