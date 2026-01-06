@@ -140,6 +140,66 @@ function ApiKeyPanel({ apiKeys, onChange, onValidate, validationStatus }) {
   );
 }
 
+function InfoIcon({ tooltip }) {
+  const [showTooltip, setShowTooltip] = useState(false);
+
+  return (
+    <div
+      style={{ position: 'relative', display: 'inline-flex', marginLeft: '6px' }}
+      onMouseEnter={() => setShowTooltip(true)}
+      onMouseLeave={() => setShowTooltip(false)}
+    >
+      <svg
+        width="14"
+        height="14"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke={colors.text.muted}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        style={{ cursor: 'help' }}
+      >
+        <circle cx="12" cy="12" r="10" />
+        <path d="M12 16v-4" />
+        <path d="M12 8h.01" />
+      </svg>
+      {showTooltip && (
+        <div style={{
+          position: 'absolute',
+          bottom: '100%',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          marginBottom: '8px',
+          padding: '10px 12px',
+          background: colors.bg.elevated,
+          border: `1px solid ${colors.border}`,
+          borderRadius: '6px',
+          fontSize: '12px',
+          color: colors.text.secondary,
+          width: '220px',
+          zIndex: 1000,
+          boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+          lineHeight: '1.4',
+        }}>
+          {tooltip}
+          <div style={{
+            position: 'absolute',
+            top: '100%',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            width: 0,
+            height: 0,
+            borderLeft: '6px solid transparent',
+            borderRight: '6px solid transparent',
+            borderTop: `6px solid ${colors.border}`,
+          }} />
+        </div>
+      )}
+    </div>
+  );
+}
+
 function MetricCard({ label, value, subvalue, color = colors.accent.cyan }) {
   return (
     <div style={{
@@ -243,7 +303,10 @@ function ConfigPanel({ config, onChange, onRun, isRunning, hasAnthropicKey, hasO
         
         <div style={inputGroupStyle}>
           <div style={labelStyle}>
-            <span style={{ color: colors.text.secondary }}>Monitor (Trusted)</span>
+            <span style={{ color: colors.text.secondary, display: 'flex', alignItems: 'center' }}>
+              Monitor (Trusted)
+              <InfoIcon tooltip="The trusted model that evaluates responses from the untrusted model for potential attacks or policy violations." />
+            </span>
           </div>
           <select
             value={config.monitor_provider}
@@ -258,7 +321,10 @@ function ConfigPanel({ config, onChange, onRun, isRunning, hasAnthropicKey, hasO
 
         <div style={{ marginBottom: 0 }}>
           <div style={labelStyle}>
-            <span style={{ color: colors.text.secondary }}>Untrusted Model</span>
+            <span style={{ color: colors.text.secondary, display: 'flex', alignItems: 'center' }}>
+              Untrusted Model
+              <InfoIcon tooltip="The AI model being monitored. This model generates responses that may contain attacks, which the monitor tries to detect." />
+            </span>
           </div>
           <select
             value={config.untrusted_provider}
@@ -274,7 +340,10 @@ function ConfigPanel({ config, onChange, onRun, isRunning, hasAnthropicKey, hasO
 
       <div style={inputGroupStyle}>
         <div style={labelStyle}>
-          <span style={{ color: colors.text.secondary }}>Policy Type</span>
+          <span style={{ color: colors.text.secondary, display: 'flex', alignItems: 'center' }}>
+            Policy Type
+            <InfoIcon tooltip="How the system decides to handle responses. Threshold uses suspicion scores, Audit Top-K reviews the most suspicious, Defer always uses the trusted model." />
+          </span>
         </div>
         <select
           value={config.policy_type}
@@ -289,7 +358,10 @@ function ConfigPanel({ config, onChange, onRun, isRunning, hasAnthropicKey, hasO
 
       <div style={inputGroupStyle}>
         <div style={labelStyle}>
-          <span style={{ color: colors.text.secondary }}>Block Threshold</span>
+          <span style={{ color: colors.text.secondary, display: 'flex', alignItems: 'center' }}>
+            Block Threshold
+            <InfoIcon tooltip="Suspicion score above which responses are automatically blocked. Higher values mean fewer blocks but more potential attacks slip through." />
+          </span>
           <span style={{ color: colors.accent.cyan, fontFamily: 'JetBrains Mono, monospace' }}>{config.block_threshold.toFixed(2)}</span>
         </div>
         <input
@@ -305,7 +377,10 @@ function ConfigPanel({ config, onChange, onRun, isRunning, hasAnthropicKey, hasO
 
       <div style={inputGroupStyle}>
         <div style={labelStyle}>
-          <span style={{ color: colors.text.secondary }}>Audit Threshold</span>
+          <span style={{ color: colors.text.secondary, display: 'flex', alignItems: 'center' }}>
+            Audit Threshold
+            <InfoIcon tooltip="Suspicion score above which responses are sent for human review. Set lower than block threshold to catch borderline cases." />
+          </span>
           <span style={{ color: colors.accent.amber, fontFamily: 'JetBrains Mono, monospace' }}>{config.audit_threshold.toFixed(2)}</span>
         </div>
         <input
@@ -321,7 +396,10 @@ function ConfigPanel({ config, onChange, onRun, isRunning, hasAnthropicKey, hasO
 
       <div style={inputGroupStyle}>
         <div style={labelStyle}>
-          <span style={{ color: colors.text.secondary }}>Attack Strategy</span>
+          <span style={{ color: colors.text.secondary, display: 'flex', alignItems: 'center' }}>
+            Attack Strategy
+            <InfoIcon tooltip="How the simulated attacker behaves. Random attacks randomly, Strategic waits for opportunities, Subtle uses obfuscation techniques." />
+          </span>
         </div>
         <select
           value={config.attack_strategy}
@@ -337,7 +415,10 @@ function ConfigPanel({ config, onChange, onRun, isRunning, hasAnthropicKey, hasO
 
       <div style={inputGroupStyle}>
         <div style={labelStyle}>
-          <span style={{ color: colors.text.secondary }}>Attack Probability</span>
+          <span style={{ color: colors.text.secondary, display: 'flex', alignItems: 'center' }}>
+            Attack Probability
+            <InfoIcon tooltip="Base probability that the untrusted model attempts an attack on any given task. Higher values test the monitor's ability to catch frequent attacks." />
+          </span>
           <span style={{ color: colors.accent.magenta, fontFamily: 'JetBrains Mono, monospace' }}>{(config.attack_probability * 100).toFixed(0)}%</span>
         </div>
         <input
@@ -353,7 +434,10 @@ function ConfigPanel({ config, onChange, onRun, isRunning, hasAnthropicKey, hasO
 
       <div style={inputGroupStyle}>
         <div style={labelStyle}>
-          <span style={{ color: colors.text.secondary }}>Monitor TPR (simulated)</span>
+          <span style={{ color: colors.text.secondary, display: 'flex', alignItems: 'center' }}>
+            Monitor TPR (simulated)
+            <InfoIcon tooltip="True Positive Rate - the probability that the simulated monitor correctly identifies an actual attack. Only applies in simulated mode." />
+          </span>
           <span style={{ color: colors.accent.green, fontFamily: 'JetBrains Mono, monospace' }}>{(config.monitor_tpr * 100).toFixed(0)}%</span>
         </div>
         <input
@@ -370,7 +454,10 @@ function ConfigPanel({ config, onChange, onRun, isRunning, hasAnthropicKey, hasO
 
       <div style={inputGroupStyle}>
         <div style={labelStyle}>
-          <span style={{ color: colors.text.secondary }}>Episodes</span>
+          <span style={{ color: colors.text.secondary, display: 'flex', alignItems: 'center' }}>
+            Episodes
+            <InfoIcon tooltip="Number of task-response cycles to run in the experiment. More episodes give more statistically reliable results but take longer." />
+          </span>
           <span style={{ color: colors.text.primary, fontFamily: 'JetBrains Mono, monospace' }}>{config.num_episodes}</span>
         </div>
         <input
