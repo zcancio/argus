@@ -391,6 +391,34 @@ def get_pareto_data():
 # PRE-COMPUTATION ENDPOINTS
 # =============================================================================
 
+class PromptTemplates(BaseModel):
+    """Custom prompt templates for pre-computation phases"""
+    # Phase 1 - Baseline Solutions
+    U_SOLUTION_PROMPT: Optional[str] = None
+    T_SOLUTION_PROMPT: Optional[str] = None
+
+    # Phase 2 - Generate Backdoors
+    DIFFICULTY_RATING_PROMPT: Optional[str] = None
+    BACKDOOR_IDEAS_PROMPT: Optional[str] = None
+    IMPLEMENT_BACKDOOR_PROMPT: Optional[str] = None
+    CLEANUP_BACKDOOR_PROMPT: Optional[str] = None
+    RATE_SNEAKINESS_PROMPT: Optional[str] = None
+    ESTIMATE_TRIGGER_RATE_PROMPT: Optional[str] = None
+
+    # Phase 3 - Find Exploits
+    SUSPICION_CHECK_PROMPT: Optional[str] = None
+    IDENTIFY_SNIPPET_PROMPT: Optional[str] = None
+    RECONSTRUCT_ORIGINAL_PROMPT: Optional[str] = None
+    EXPLOIT_PROPERTIES_PROMPT: Optional[str] = None
+    EXPLOIT_POSSIBLE_PROMPT: Optional[str] = None
+    CONSTRUCT_EXPLOIT_PROMPT: Optional[str] = None
+    VERIFY_EXPLOIT_PROMPT: Optional[str] = None
+
+    # Phase 5 - Monitoring Scores
+    T_SUSPICION_PROMPT: Optional[str] = None
+    H_SUSPICION_PROMPT: Optional[str] = None
+
+
 class PrecomputeRequest(BaseModel):
     num_problems: int = 75
     num_backdoor_ideas: int = 3
@@ -398,6 +426,7 @@ class PrecomputeRequest(BaseModel):
     human_model: str = "simulated"
     trusted_model: str = "simulated"
     untrusted_model: str = "simulated"
+    prompts: Optional[PromptTemplates] = None
 
 
 @app.post("/api/precompute/start")
@@ -408,8 +437,20 @@ def start_precompute(
 ):
     """Start a pre-computation job."""
     try:
+        # Convert prompts to dict if provided
+        job_config = config.model_dump()
+        if config.prompts:
+            # Extract only non-None prompts
+            prompts_dict = {
+                k: v for k, v in config.prompts.model_dump().items()
+                if v is not None
+            }
+            job_config['prompts'] = prompts_dict if prompts_dict else None
+        else:
+            job_config['prompts'] = None
+
         # Create the job
-        job = create_job(config.model_dump())
+        job = create_job(job_config)
 
         # Run it (synchronously for now - could be async in production)
         result = run_job(job.job_id)

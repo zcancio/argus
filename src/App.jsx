@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ScatterChart, Scatter, Legend, ReferenceLine } from 'recharts';
+import { DEFAULT_PROMPTS } from './promptDefaults';
 
 // API is same-origin on Vercel, use relative paths
 const API_BASE = '';
@@ -137,6 +138,341 @@ function ApiKeyPanel({ apiKeys, onChange, onValidate, validationStatus }) {
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function PromptEditor({
+  promptKey,
+  label,
+  description,
+  variables,
+  defaultValue,
+  value,
+  isModified,
+  onChange,
+  onReset
+}) {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  return (
+    <div style={{
+      background: colors.bg.tertiary,
+      border: `1px solid ${isModified ? colors.accent.amber + '60' : colors.border}`,
+      borderRadius: '6px',
+      overflow: 'hidden',
+    }}>
+      {/* Header */}
+      <div
+        onClick={() => setIsExpanded(!isExpanded)}
+        style={{
+          padding: '12px 16px',
+          cursor: 'pointer',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+        }}
+      >
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{
+              color: colors.text.primary,
+              fontSize: '13px',
+              fontWeight: '500'
+            }}>
+              {label}
+            </span>
+            {isModified && (
+              <span style={{
+                padding: '1px 6px',
+                background: colors.accent.amber + '20',
+                borderRadius: '3px',
+                fontSize: '10px',
+                color: colors.accent.amber,
+              }}>
+                modified
+              </span>
+            )}
+          </div>
+          <p style={{
+            color: colors.text.muted,
+            fontSize: '11px',
+            margin: '4px 0 0 0'
+          }}>
+            {description}
+          </p>
+        </div>
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke={colors.text.muted}
+          strokeWidth="2"
+          style={{
+            transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+            transition: 'transform 0.2s',
+          }}
+        >
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </div>
+
+      {/* Editor */}
+      {isExpanded && (
+        <div style={{
+          padding: '0 16px 16px 16px',
+          borderTop: `1px solid ${colors.border}`,
+        }}>
+          {/* Variables */}
+          <div style={{
+            padding: '12px 0',
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: '6px',
+          }}>
+            <span style={{
+              color: colors.text.muted,
+              fontSize: '11px',
+              marginRight: '4px'
+            }}>
+              Variables:
+            </span>
+            {variables.map(v => (
+              <code
+                key={v}
+                style={{
+                  padding: '2px 6px',
+                  background: colors.bg.primary,
+                  borderRadius: '3px',
+                  fontSize: '11px',
+                  color: colors.accent.cyan,
+                  fontFamily: 'JetBrains Mono, monospace',
+                }}
+              >
+                {v}
+              </code>
+            ))}
+          </div>
+
+          {/* Textarea */}
+          <textarea
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            style={{
+              width: '100%',
+              minHeight: '150px',
+              padding: '12px',
+              background: colors.bg.primary,
+              border: `1px solid ${colors.border}`,
+              borderRadius: '4px',
+              color: colors.text.primary,
+              fontSize: '12px',
+              fontFamily: 'JetBrains Mono, monospace',
+              lineHeight: '1.5',
+              resize: 'vertical',
+              boxSizing: 'border-box',
+            }}
+          />
+
+          {/* Actions */}
+          {isModified && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onReset(); }}
+              style={{
+                marginTop: '8px',
+                padding: '6px 12px',
+                background: 'transparent',
+                border: `1px solid ${colors.border}`,
+                borderRadius: '4px',
+                color: colors.text.secondary,
+                fontSize: '11px',
+                cursor: 'pointer',
+              }}
+            >
+              Reset to Default
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PromptTemplatesPanel({ prompts, onChange, defaultPrompts }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [activePhase, setActivePhase] = useState('phase1');
+
+  const phases = [
+    { key: 'phase1', label: 'Phase 1', fullLabel: 'Baseline Solutions', count: 2 },
+    { key: 'phase2', label: 'Phase 2', fullLabel: 'Generate Backdoors', count: 6 },
+    { key: 'phase3', label: 'Phase 3', fullLabel: 'Find Exploits', count: 7 },
+    { key: 'phase5', label: 'Phase 5', fullLabel: 'Monitoring Scores', count: 2 },
+  ];
+
+  const handlePromptChange = (key, value) => {
+    onChange({
+      ...prompts,
+      [key]: value
+    });
+  };
+
+  const handleReset = (key) => {
+    const newPrompts = { ...prompts };
+    delete newPrompts[key];
+    onChange(newPrompts);
+  };
+
+  const handleResetAll = () => {
+    onChange({});
+  };
+
+  const getPromptValue = (key, defaultValue) => {
+    return prompts[key] !== undefined ? prompts[key] : defaultValue;
+  };
+
+  const isModified = (key) => {
+    return prompts[key] !== undefined;
+  };
+
+  const modifiedCount = Object.keys(prompts).length;
+
+  return (
+    <div style={{
+      background: colors.bg.secondary,
+      border: `1px solid ${colors.border}`,
+      borderRadius: '8px',
+      marginBottom: '24px',
+    }}>
+      {/* Collapsible Header */}
+      <div
+        onClick={() => setIsExpanded(!isExpanded)}
+        style={{
+          padding: '16px 24px',
+          cursor: 'pointer',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          borderBottom: isExpanded ? `1px solid ${colors.border}` : 'none',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <h3 style={{
+            color: colors.text.primary,
+            margin: 0,
+            fontSize: '14px',
+            textTransform: 'uppercase',
+            letterSpacing: '1px'
+          }}>
+            Prompt Templates
+          </h3>
+          {modifiedCount > 0 && (
+            <span style={{
+              padding: '2px 8px',
+              background: colors.accent.amber + '20',
+              border: `1px solid ${colors.accent.amber}`,
+              borderRadius: '4px',
+              fontSize: '11px',
+              color: colors.accent.amber,
+            }}>
+              {modifiedCount} customized
+            </span>
+          )}
+        </div>
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke={colors.text.secondary}
+          strokeWidth="2"
+          style={{
+            transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+            transition: 'transform 0.2s',
+          }}
+        >
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </div>
+
+      {/* Expanded Content */}
+      {isExpanded && (
+        <div style={{ padding: '24px' }}>
+          <p style={{
+            color: colors.text.muted,
+            fontSize: '12px',
+            marginBottom: '16px',
+            lineHeight: '1.5'
+          }}>
+            Customize prompts for each phase. Leave unchanged to use defaults.
+            Template variables are shown in curly braces.
+          </p>
+
+          {/* Reset All Button */}
+          {modifiedCount > 0 && (
+            <button
+              onClick={(e) => { e.stopPropagation(); handleResetAll(); }}
+              style={{
+                padding: '6px 12px',
+                background: colors.bg.tertiary,
+                border: `1px solid ${colors.border}`,
+                borderRadius: '4px',
+                color: colors.text.secondary,
+                fontSize: '12px',
+                cursor: 'pointer',
+                marginBottom: '16px',
+              }}
+            >
+              Reset All to Defaults
+            </button>
+          )}
+
+          {/* Phase Tabs */}
+          <div style={{
+            display: 'flex',
+            gap: '4px',
+            marginBottom: '16px',
+            flexWrap: 'wrap',
+          }}>
+            {phases.map(phase => (
+              <button
+                key={phase.key}
+                onClick={(e) => { e.stopPropagation(); setActivePhase(phase.key); }}
+                style={{
+                  padding: '8px 16px',
+                  background: activePhase === phase.key ? colors.bg.tertiary : 'transparent',
+                  border: `1px solid ${activePhase === phase.key ? colors.accent.cyan : colors.border}`,
+                  borderRadius: '4px',
+                  color: activePhase === phase.key ? colors.accent.cyan : colors.text.secondary,
+                  fontSize: '12px',
+                  cursor: 'pointer',
+                }}
+                title={phase.fullLabel}
+              >
+                {phase.label} ({phase.count})
+              </button>
+            ))}
+          </div>
+
+          {/* Prompt Editors */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {Object.entries(defaultPrompts[activePhase] || {}).map(([key, promptDef]) => (
+              <PromptEditor
+                key={key}
+                promptKey={key}
+                label={promptDef.label}
+                description={promptDef.description}
+                variables={promptDef.variables}
+                defaultValue={promptDef.default}
+                value={getPromptValue(key, promptDef.default)}
+                isModified={isModified(key)}
+                onChange={(value) => handlePromptChange(key, value)}
+                onReset={() => handleReset(key)}
+              />
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -738,6 +1074,7 @@ function PreComputePage({ apiKeys, validationStatus, onApiKeysChange, onValidate
   const [progress, setProgress] = useState(null);
   const [jobs, setJobs] = useState([]);
   const [error, setError] = useState(null);
+  const [customPrompts, setCustomPrompts] = useState({});
 
   // Cost estimate calculation based on spec
   const estimateCost = () => {
@@ -792,10 +1129,16 @@ function PreComputePage({ apiKeys, validationStatus, onApiKeysChange, onValidate
         headers['X-OpenAI-Key'] = apiKeys.openai;
       }
 
+      // Include custom prompts if any were modified
+      const requestBody = {
+        ...precomputeConfig,
+        prompts: Object.keys(customPrompts).length > 0 ? customPrompts : null,
+      };
+
       const response = await fetch(`${API_BASE}/api/precompute/start`, {
         method: 'POST',
         headers,
-        body: JSON.stringify(precomputeConfig),
+        body: JSON.stringify(requestBody),
       });
 
       if (!response.ok) {
@@ -909,6 +1252,11 @@ function PreComputePage({ apiKeys, validationStatus, onApiKeysChange, onValidate
           onChange={onApiKeysChange}
           onValidate={onValidateKey}
           validationStatus={validationStatus}
+        />
+        <PromptTemplatesPanel
+          prompts={customPrompts}
+          onChange={setCustomPrompts}
+          defaultPrompts={DEFAULT_PROMPTS}
         />
         <div style={{
           background: colors.bg.secondary,
