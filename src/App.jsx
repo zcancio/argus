@@ -234,7 +234,7 @@ function MetricCard({ label, value, subvalue, color = colors.accent.cyan }) {
   );
 }
 
-function ConfigPanel({ config, onChange, onRun, isRunning, hasAnthropicKey, hasOpenaiKey }) {
+function ConfigPanel({ config, onChange, onRun, isRunning }) {
   const sliderStyle = {
     width: '100%',
     height: '4px',
@@ -266,20 +266,6 @@ function ConfigPanel({ config, onChange, onRun, isRunning, hasAnthropicKey, hasO
     fontSize: '14px',
   };
 
-  // Available models for each role
-  const availableModels = [
-    { value: 'simulated', label: 'Simulated' },
-    ...(hasAnthropicKey ? [
-      { value: 'haiku', label: 'Haiku' },
-      { value: 'sonnet', label: 'Sonnet' },
-      { value: 'opus', label: 'Opus' },
-    ] : []),
-    ...(hasOpenaiKey ? [
-      { value: 'gpt-3.5-turbo', label: 'GPT-3.5-Turbo' },
-      { value: 'gpt-4o', label: 'GPT-4o' },
-    ] : []),
-  ];
-
   return (
     <div style={{
       background: colors.bg.secondary,
@@ -290,112 +276,6 @@ function ConfigPanel({ config, onChange, onRun, isRunning, hasAnthropicKey, hasO
       <h3 style={{ color: colors.text.primary, margin: '0 0 24px 0', fontSize: '14px', textTransform: 'uppercase', letterSpacing: '1px' }}>
         Experiment Configuration
       </h3>
-
-      {/* Model Providers Section */}
-      <div style={{
-        padding: '16px',
-        background: colors.bg.tertiary,
-        borderRadius: '6px',
-        marginBottom: '20px',
-        border: `1px solid ${colors.border}`,
-      }}>
-        <div style={{ fontSize: '11px', color: colors.text.muted, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px' }}>
-          Model Providers
-        </div>
-
-        <div style={inputGroupStyle}>
-          <div style={labelStyle}>
-            <span style={{ color: colors.text.secondary, display: 'flex', alignItems: 'center' }}>
-              <span style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: '20px',
-                height: '20px',
-                borderRadius: '4px',
-                background: colors.accent.amber + '30',
-                color: colors.accent.amber,
-                fontSize: '11px',
-                fontWeight: '600',
-                marginRight: '8px',
-              }}>H</span>
-              Human Monitor
-              <InfoIcon tooltip="The human reviewer (or LLM simulating human review) that performs final verification on flagged responses." />
-            </span>
-          </div>
-          <select
-            value={config.human_model}
-            onChange={(e) => onChange({ ...config, human_model: e.target.value })}
-            style={selectStyle}
-          >
-            {availableModels.map(p => (
-              <option key={p.value} value={p.value}>{p.label}</option>
-            ))}
-          </select>
-        </div>
-
-        <div style={inputGroupStyle}>
-          <div style={labelStyle}>
-            <span style={{ color: colors.text.secondary, display: 'flex', alignItems: 'center' }}>
-              <span style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: '20px',
-                height: '20px',
-                borderRadius: '4px',
-                background: colors.accent.green + '30',
-                color: colors.accent.green,
-                fontSize: '11px',
-                fontWeight: '600',
-                marginRight: '8px',
-              }}>T</span>
-              Trusted Monitor
-              <InfoIcon tooltip="The trusted model that evaluates responses from the untrusted model for potential attacks or policy violations." />
-            </span>
-          </div>
-          <select
-            value={config.trusted_model}
-            onChange={(e) => onChange({ ...config, trusted_model: e.target.value })}
-            style={selectStyle}
-          >
-            {availableModels.map(p => (
-              <option key={p.value} value={p.value}>{p.label}</option>
-            ))}
-          </select>
-        </div>
-
-        <div style={{ marginBottom: 0 }}>
-          <div style={labelStyle}>
-            <span style={{ color: colors.text.secondary, display: 'flex', alignItems: 'center' }}>
-              <span style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: '20px',
-                height: '20px',
-                borderRadius: '4px',
-                background: colors.accent.magenta + '30',
-                color: colors.accent.magenta,
-                fontSize: '11px',
-                fontWeight: '600',
-                marginRight: '8px',
-              }}>U</span>
-              Untrusted Model
-              <InfoIcon tooltip="The AI model being monitored. This model generates responses that may contain attacks, which the monitor tries to detect." />
-            </span>
-          </div>
-          <select
-            value={config.untrusted_model}
-            onChange={(e) => onChange({ ...config, untrusted_model: e.target.value })}
-            style={selectStyle}
-          >
-            {availableModels.map(p => (
-              <option key={p.value} value={p.value}>{p.label}</option>
-            ))}
-          </select>
-        </div>
-      </div>
 
       {/* Blue Team Strategy */}
       <div style={{
@@ -844,7 +724,7 @@ function ExperimentHistory({ experiments, onSelect }) {
 // PRE-COMPUTE PAGE
 // ============================================================================
 
-function PreComputePage({ apiKeys, validationStatus }) {
+function PreComputePage({ apiKeys, validationStatus, onApiKeysChange, onValidateKey }) {
   const [precomputeConfig, setPrecomputeConfig] = useState({
     num_problems: 75,
     num_backdoor_ideas: 3,
@@ -1024,6 +904,12 @@ function PreComputePage({ apiKeys, validationStatus }) {
     <div style={{ display: 'grid', gridTemplateColumns: '400px 1fr', gap: '32px' }}>
       {/* Left Panel - Configuration */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+        <ApiKeyPanel
+          apiKeys={apiKeys}
+          onChange={onApiKeysChange}
+          onValidate={onValidateKey}
+          validationStatus={validationStatus}
+        />
         <div style={{
           background: colors.bg.secondary,
           border: `1px solid ${colors.border}`,
@@ -1474,11 +1360,6 @@ function AppContent() {
 
     // Experiment settings
     num_episodes: 100,
-
-    // Model providers (H/T/U)
-    human_model: 'simulated',
-    trusted_model: 'simulated',
-    untrusted_model: 'simulated',
   });
 
   const [apiKeys, setApiKeys] = useState({
@@ -1742,18 +1623,6 @@ function AppContent() {
               ✓ Persistent Storage
             </div>
           )}
-          {config.human_model === 'simulated' && config.trusted_model === 'simulated' && config.untrusted_model === 'simulated' && activeTab === 'experiments' && (
-            <div style={{
-              padding: '6px 12px',
-              background: colors.accent.amber + '20',
-              border: `1px solid ${colors.accent.amber}`,
-              borderRadius: '4px',
-              fontSize: '12px',
-              color: colors.accent.amber,
-            }}>
-              Simulated Mode
-            </div>
-          )}
           {(validationStatus.anthropic === 'valid' || validationStatus.openai === 'valid') && (
             <div style={{
               padding: '6px 12px',
@@ -1797,19 +1666,11 @@ function AppContent() {
             }}>
               {/* Left Panel - Config */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                <ApiKeyPanel
-                  apiKeys={apiKeys}
-                  onChange={setApiKeys}
-                  onValidate={validateApiKey}
-                  validationStatus={validationStatus}
-                />
                 <ConfigPanel
                   config={config}
                   onChange={setConfig}
                   onRun={runExperiment}
                   isRunning={isRunning}
-                  hasAnthropicKey={validationStatus.anthropic === 'valid'}
-                  hasOpenaiKey={validationStatus.openai === 'valid'}
                 />
                 <ExperimentHistory
                   experiments={experiments}
@@ -1899,7 +1760,12 @@ function AppContent() {
         )}
 
         {activeTab === 'precompute' && (
-          <PreComputePage apiKeys={apiKeys} validationStatus={validationStatus} />
+          <PreComputePage
+            apiKeys={apiKeys}
+            validationStatus={validationStatus}
+            onApiKeysChange={setApiKeys}
+            onValidateKey={validateApiKey}
+          />
         )}
       </main>
     </div>
