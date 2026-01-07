@@ -25,6 +25,10 @@ from api._lib.environments import (
     SimulatedUntrustedModel, SimulatedTrustedModel
 )
 from api._lib.storage import store
+from api._lib.precompute import (
+    create_job, get_job, list_jobs, run_job,
+    PrecomputeJob
+)
 
 # FastAPI app
 app = FastAPI(
@@ -379,3 +383,83 @@ def delete_experiment(experiment_id: str):
 def get_pareto_data():
     """Get data for Pareto frontier visualization."""
     return {"points": store.get_pareto_data()}
+
+
+# =============================================================================
+# PRE-COMPUTATION ENDPOINTS
+# =============================================================================
+
+class PrecomputeRequest(BaseModel):
+    num_problems: int = 75
+    num_backdoor_ideas: int = 3
+    max_difficulty: int = 6
+    human_model: str = "simulated"
+    trusted_model: str = "simulated"
+    untrusted_model: str = "simulated"
+
+
+@app.post("/api/precompute/start")
+def start_precompute(
+    config: PrecomputeRequest,
+    x_anthropic_key: Optional[str] = Header(None, alias="X-Anthropic-Key"),
+    x_openai_key: Optional[str] = Header(None, alias="X-OpenAI-Key"),
+):
+    """Start a pre-computation job."""
+    try:
+        # Create the job
+        job = create_job(config.model_dump())
+
+        # Run it (synchronously for now - could be async in production)
+        result = run_job(job.job_id)
+
+        if not result:
+            raise HTTPException(status_code=500, detail="Failed to start job")
+
+        return {
+            "job_id": result.job_id,
+            "status": result.status,
+            "num_problems": result.num_problems,
+            "num_backdoor_ideas": result.num_backdoor_ideas,
+            "human_model": result.human_model,
+            "trusted_model": result.trusted_model,
+            "untrusted_model": result.untrusted_model,
+            "created_at": result.created_at,
+            "current_phase": result.current_phase,
+            "progress_percent": result.progress_percent,
+        }
+
+    except Exception as e:
+        import traceback
+        raise HTTPException(status_code=400, detail=f"{str(e)}\n{traceback.format_exc()}")
+
+
+@app.get("/api/precompute/jobs")
+def list_precompute_jobs():
+    """List all pre-computation jobs."""
+    return {"jobs": list_jobs()}
+
+
+@app.get("/api/precompute/jobs/{job_id}")
+def get_precompute_job(job_id: str):
+    """Get details of a specific pre-computation job."""
+    job = get_job(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    return {
+        "job_id": job.job_id,
+        "status": job.status,
+        "num_problems": job.num_problems,
+        "num_backdoor_ideas": job.num_backdoor_ideas,
+        "human_model": job.human_model,
+        "trusted_model": job.trusted_model,
+        "untrusted_model": job.untrusted_model,
+        "created_at": job.created_at,
+        "current_phase": job.current_phase,
+        "progress_percent": job.progress_percent,
+        "details": job.details,
+        "error": job.error,
+        "audit_threshold": job.audit_threshold,
+        "defer_threshold": job.defer_threshold,
+        "problem_count": len(job.problems) if job.problems else 0,
+    }

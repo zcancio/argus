@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ScatterChart, Scatter, Legend, ReferenceLine } from 'recharts';
 
 // API is same-origin on Vercel, use relative paths
@@ -237,7 +238,7 @@ function ConfigPanel({ config, onChange, onRun, isRunning, hasAnthropicKey, hasO
   const sliderStyle = {
     width: '100%',
     height: '4px',
-    background: colors.bg.tertiary,
+    background: 'rgb(36, 36, 46)',
     borderRadius: '2px',
     appearance: 'none',
     cursor: 'pointer',
@@ -840,10 +841,617 @@ function ExperimentHistory({ experiments, onSelect }) {
 }
 
 // ============================================================================
+// PRE-COMPUTE PAGE
+// ============================================================================
+
+function PreComputePage({ apiKeys, validationStatus }) {
+  const [precomputeConfig, setPrecomputeConfig] = useState({
+    num_problems: 75,
+    num_backdoor_ideas: 3,
+    max_difficulty: 6,
+    human_model: 'gpt-4o',
+    trusted_model: 'gpt-3.5-turbo',
+    untrusted_model: 'gpt-4o',
+  });
+
+  const [isRunning, setIsRunning] = useState(false);
+  const [progress, setProgress] = useState(null);
+  const [jobs, setJobs] = useState([]);
+  const [error, setError] = useState(null);
+
+  // Cost estimate calculation based on spec
+  const estimateCost = () => {
+    const { num_problems, num_backdoor_ideas } = precomputeConfig;
+    // Phase 1: NUM_PROBLEMS × 2
+    // Phase 2: NUM_PROBLEMS × (1 + 1 + NUM_BACKDOOR_IDEAS × 4)
+    // Phase 3: NUM_PROBLEMS × NUM_BACKDOOR_IDEAS × ~3
+    // Phase 5: NUM_PROBLEMS × NUM_BACKDOOR_IDEAS × 2
+    const phase1Calls = num_problems * 2;
+    const phase2Calls = num_problems * (2 + num_backdoor_ideas * 4);
+    const phase3Calls = num_problems * num_backdoor_ideas * 3;
+    const phase5Calls = num_problems * num_backdoor_ideas * 2;
+    const totalCalls = phase1Calls + phase2Calls + phase3Calls + phase5Calls;
+
+    // Rough cost estimate: ~$0.025 per call average
+    const estimatedCost = totalCalls * 0.025;
+    return { totalCalls, estimatedCost };
+  };
+
+  const { totalCalls, estimatedCost } = estimateCost();
+
+  // Load existing jobs
+  useEffect(() => {
+    const loadJobs = async () => {
+      try {
+        const response = await fetch(`${API_BASE}/api/precompute/jobs`);
+        if (response.ok) {
+          const data = await response.json();
+          setJobs(data.jobs || []);
+        }
+      } catch (err) {
+        console.log('Could not load precompute jobs:', err);
+      }
+    };
+    loadJobs();
+  }, []);
+
+  const startPrecompute = async () => {
+    setIsRunning(true);
+    setError(null);
+    setProgress({ phase: 'Starting', percent: 0 });
+
+    try {
+      const headers = {
+        'Content-Type': 'application/json',
+      };
+
+      if (apiKeys.anthropic && validationStatus.anthropic === 'valid') {
+        headers['X-Anthropic-Key'] = apiKeys.anthropic;
+      }
+      if (apiKeys.openai && validationStatus.openai === 'valid') {
+        headers['X-OpenAI-Key'] = apiKeys.openai;
+      }
+
+      const response = await fetch(`${API_BASE}/api/precompute/start`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(precomputeConfig),
+      });
+
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.detail || 'Pre-computation failed to start');
+      }
+
+      const result = await response.json();
+      setJobs(prev => [result, ...prev]);
+
+      // Poll for progress
+      pollProgress(result.job_id);
+
+    } catch (err) {
+      setError(err.message);
+      setIsRunning(false);
+      setProgress(null);
+    }
+  };
+
+  const pollProgress = async (jobId) => {
+    const poll = async () => {
+      try {
+        const response = await fetch(`${API_BASE}/api/precompute/jobs/${jobId}`);
+        if (response.ok) {
+          const data = await response.json();
+          setProgress({
+            phase: data.current_phase || 'Processing',
+            percent: data.progress_percent || 0,
+            details: data.details,
+          });
+
+          if (data.status === 'completed') {
+            setIsRunning(false);
+            setProgress(null);
+            // Refresh jobs list
+            const jobsRes = await fetch(`${API_BASE}/api/precompute/jobs`);
+            if (jobsRes.ok) {
+              const jobsData = await jobsRes.json();
+              setJobs(jobsData.jobs || []);
+            }
+          } else if (data.status === 'failed') {
+            setIsRunning(false);
+            setError(data.error || 'Pre-computation failed');
+            setProgress(null);
+          } else {
+            setTimeout(poll, 2000);
+          }
+        }
+      } catch (err) {
+        console.error('Poll error:', err);
+        setTimeout(poll, 5000);
+      }
+    };
+    poll();
+  };
+
+  const sliderStyle = {
+    width: '100%',
+    height: '4px',
+    background: 'rgb(36, 36, 46)',
+    borderRadius: '2px',
+    appearance: 'none',
+    cursor: 'pointer',
+  };
+
+  const labelStyle = {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '8px',
+    fontSize: '13px',
+  };
+
+  const inputGroupStyle = {
+    marginBottom: '20px',
+  };
+
+  const selectStyle = {
+    width: '100%',
+    padding: '10px 12px',
+    background: colors.bg.tertiary,
+    border: `1px solid ${colors.border}`,
+    borderRadius: '6px',
+    color: colors.text.primary,
+    fontSize: '14px',
+  };
+
+  const hasAnthropicKey = validationStatus.anthropic === 'valid';
+  const hasOpenaiKey = validationStatus.openai === 'valid';
+
+  const availableModels = [
+    { value: 'simulated', label: 'Simulated (no cost)' },
+    ...(hasAnthropicKey ? [
+      { value: 'haiku', label: 'Claude Haiku' },
+      { value: 'sonnet', label: 'Claude Sonnet' },
+      { value: 'opus', label: 'Claude Opus' },
+    ] : []),
+    ...(hasOpenaiKey ? [
+      { value: 'gpt-3.5-turbo', label: 'GPT-3.5-Turbo' },
+      { value: 'gpt-4o', label: 'GPT-4o' },
+    ] : []),
+  ];
+
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '400px 1fr', gap: '32px' }}>
+      {/* Left Panel - Configuration */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+        <div style={{
+          background: colors.bg.secondary,
+          border: `1px solid ${colors.border}`,
+          borderRadius: '8px',
+          padding: '24px',
+        }}>
+          <h3 style={{ color: colors.text.primary, margin: '0 0 8px 0', fontSize: '14px', textTransform: 'uppercase', letterSpacing: '1px' }}>
+            Pre-computation Settings
+          </h3>
+          <p style={{ color: colors.text.muted, fontSize: '12px', marginBottom: '24px', lineHeight: '1.5' }}>
+            Generate all data needed for simulation. The simulation itself makes zero API calls — it only does array lookups and threshold comparisons.
+          </p>
+
+          {/* Scaling Parameters */}
+          <div style={{
+            padding: '16px',
+            background: colors.bg.tertiary,
+            borderRadius: '6px',
+            marginBottom: '20px',
+            border: `1px solid ${colors.border}`,
+          }}>
+            <div style={{ fontSize: '11px', color: colors.text.muted, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px' }}>
+              Scaling Parameters
+            </div>
+
+            <div style={inputGroupStyle}>
+              <div style={labelStyle}>
+                <span style={{ color: colors.text.secondary, display: 'flex', alignItems: 'center' }}>
+                  Number of Problems
+                  <InfoIcon tooltip="Number of coding problems to generate. Higher = more statistical power but more API cost. Paper used 1500." />
+                </span>
+                <span style={{ color: colors.accent.cyan, fontFamily: 'JetBrains Mono, monospace' }}>{precomputeConfig.num_problems}</span>
+              </div>
+              <input
+                type="range"
+                min="25"
+                max="500"
+                step="25"
+                value={precomputeConfig.num_problems}
+                onChange={(e) => setPrecomputeConfig({ ...precomputeConfig, num_problems: parseInt(e.target.value) })}
+                style={sliderStyle}
+              />
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: colors.text.muted, marginTop: '4px' }}>
+                <span>25 (~$60)</span>
+                <span>500 (~$1200)</span>
+              </div>
+            </div>
+
+            <div style={inputGroupStyle}>
+              <div style={labelStyle}>
+                <span style={{ color: colors.text.secondary, display: 'flex', alignItems: 'center' }}>
+                  Backdoor Ideas per Problem
+                  <InfoIcon tooltip="Number of backdoor variations to generate per problem. More ideas = better attack coverage but more cost." />
+                </span>
+                <span style={{ color: colors.accent.magenta, fontFamily: 'JetBrains Mono, monospace' }}>{precomputeConfig.num_backdoor_ideas}</span>
+              </div>
+              <input
+                type="range"
+                min="1"
+                max="10"
+                step="1"
+                value={precomputeConfig.num_backdoor_ideas}
+                onChange={(e) => setPrecomputeConfig({ ...precomputeConfig, num_backdoor_ideas: parseInt(e.target.value) })}
+                style={sliderStyle}
+              />
+            </div>
+
+            <div style={{ marginBottom: 0 }}>
+              <div style={labelStyle}>
+                <span style={{ color: colors.text.secondary, display: 'flex', alignItems: 'center' }}>
+                  Max Difficulty
+                  <InfoIcon tooltip="Skip problems harder than this (1-10 scale). Lower = focus on easier problems where backdoors are more viable." />
+                </span>
+                <span style={{ color: colors.accent.amber, fontFamily: 'JetBrains Mono, monospace' }}>{precomputeConfig.max_difficulty}</span>
+              </div>
+              <input
+                type="range"
+                min="1"
+                max="10"
+                step="1"
+                value={precomputeConfig.max_difficulty}
+                onChange={(e) => setPrecomputeConfig({ ...precomputeConfig, max_difficulty: parseInt(e.target.value) })}
+                style={sliderStyle}
+              />
+            </div>
+          </div>
+
+          {/* Model Selection */}
+          <div style={{
+            padding: '16px',
+            background: colors.bg.tertiary,
+            borderRadius: '6px',
+            marginBottom: '20px',
+            border: `1px solid ${colors.border}`,
+          }}>
+            <div style={{ fontSize: '11px', color: colors.text.muted, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px' }}>
+              Model Roles (from Paper)
+            </div>
+
+            <div style={inputGroupStyle}>
+              <div style={labelStyle}>
+                <span style={{ color: colors.text.secondary, display: 'flex', alignItems: 'center' }}>
+                  <span style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: '20px',
+                    height: '20px',
+                    borderRadius: '4px',
+                    background: colors.accent.amber + '30',
+                    color: colors.accent.amber,
+                    fontSize: '11px',
+                    fontWeight: '600',
+                    marginRight: '8px',
+                  }}>H</span>
+                  Human Auditor
+                  <InfoIcon tooltip="Expensive auditor that reviews suspicious code. Paper used GPT-4." />
+                </span>
+              </div>
+              <select
+                value={precomputeConfig.human_model}
+                onChange={(e) => setPrecomputeConfig({ ...precomputeConfig, human_model: e.target.value })}
+                style={selectStyle}
+              >
+                {availableModels.map(p => (
+                  <option key={p.value} value={p.value}>{p.label}</option>
+                ))}
+              </select>
+            </div>
+
+            <div style={inputGroupStyle}>
+              <div style={labelStyle}>
+                <span style={{ color: colors.text.secondary, display: 'flex', alignItems: 'center' }}>
+                  <span style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: '20px',
+                    height: '20px',
+                    borderRadius: '4px',
+                    background: colors.accent.green + '30',
+                    color: colors.accent.green,
+                    fontSize: '11px',
+                    fontWeight: '600',
+                    marginRight: '8px',
+                  }}>T</span>
+                  Trusted Model
+                  <InfoIcon tooltip="Weaker but safe model for monitoring and fallback. Paper used GPT-3.5." />
+                </span>
+              </div>
+              <select
+                value={precomputeConfig.trusted_model}
+                onChange={(e) => setPrecomputeConfig({ ...precomputeConfig, trusted_model: e.target.value })}
+                style={selectStyle}
+              >
+                {availableModels.map(p => (
+                  <option key={p.value} value={p.value}>{p.label}</option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ marginBottom: 0 }}>
+              <div style={labelStyle}>
+                <span style={{ color: colors.text.secondary, display: 'flex', alignItems: 'center' }}>
+                  <span style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: '20px',
+                    height: '20px',
+                    borderRadius: '4px',
+                    background: colors.accent.magenta + '30',
+                    color: colors.accent.magenta,
+                    fontSize: '11px',
+                    fontWeight: '600',
+                    marginRight: '8px',
+                  }}>U</span>
+                  Untrusted Model
+                  <InfoIcon tooltip="The potentially scheming model. Paper used GPT-4." />
+                </span>
+              </div>
+              <select
+                value={precomputeConfig.untrusted_model}
+                onChange={(e) => setPrecomputeConfig({ ...precomputeConfig, untrusted_model: e.target.value })}
+                style={selectStyle}
+              >
+                {availableModels.map(p => (
+                  <option key={p.value} value={p.value}>{p.label}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Cost Estimate */}
+          <div style={{
+            padding: '16px',
+            background: colors.bg.primary,
+            borderRadius: '6px',
+            marginBottom: '20px',
+            border: `1px solid ${colors.accent.amber}40`,
+          }}>
+            <div style={{ fontSize: '11px', color: colors.accent.amber, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px' }}>
+              Cost Estimate
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+              <span style={{ color: colors.text.secondary, fontSize: '13px' }}>API Calls</span>
+              <span style={{ color: colors.text.primary, fontFamily: 'JetBrains Mono, monospace' }}>~{totalCalls.toLocaleString()}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ color: colors.text.secondary, fontSize: '13px' }}>Estimated Cost</span>
+              <span style={{ color: colors.accent.amber, fontFamily: 'JetBrains Mono, monospace', fontWeight: '600' }}>~${estimatedCost.toFixed(0)}</span>
+            </div>
+          </div>
+
+          {/* Progress */}
+          {progress && (
+            <div style={{
+              padding: '16px',
+              background: colors.bg.tertiary,
+              borderRadius: '6px',
+              marginBottom: '20px',
+              border: `1px solid ${colors.accent.cyan}40`,
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                <span style={{ color: colors.accent.cyan, fontSize: '12px', textTransform: 'uppercase' }}>{progress.phase}</span>
+                <span style={{ color: colors.text.primary, fontFamily: 'JetBrains Mono, monospace' }}>{progress.percent}%</span>
+              </div>
+              <div style={{
+                height: '4px',
+                background: colors.bg.primary,
+                borderRadius: '2px',
+                overflow: 'hidden',
+              }}>
+                <div style={{
+                  height: '100%',
+                  width: `${progress.percent}%`,
+                  background: `linear-gradient(90deg, ${colors.accent.cyan}, ${colors.accent.magenta})`,
+                  transition: 'width 0.3s ease',
+                }} />
+              </div>
+              {progress.details && (
+                <p style={{ color: colors.text.muted, fontSize: '11px', marginTop: '8px', marginBottom: 0 }}>
+                  {progress.details}
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Error */}
+          {error && (
+            <div style={{
+              padding: '12px 16px',
+              background: colors.accent.red + '20',
+              border: `1px solid ${colors.accent.red}`,
+              borderRadius: '6px',
+              marginBottom: '20px',
+              fontSize: '13px',
+              color: colors.accent.red,
+            }}>
+              {error}
+            </div>
+          )}
+
+          {/* Start Button */}
+          <button
+            onClick={startPrecompute}
+            disabled={isRunning || (!hasAnthropicKey && !hasOpenaiKey && precomputeConfig.human_model !== 'simulated')}
+            style={{
+              width: '100%',
+              padding: '14px 20px',
+              background: isRunning ? colors.bg.tertiary : `linear-gradient(135deg, ${colors.accent.cyan}, ${colors.accent.magenta})`,
+              border: 'none',
+              borderRadius: '6px',
+              color: colors.text.primary,
+              fontSize: '14px',
+              fontWeight: '600',
+              cursor: isRunning ? 'not-allowed' : 'pointer',
+              textTransform: 'uppercase',
+              letterSpacing: '1px',
+            }}
+          >
+            {isRunning ? 'Running Pre-computation...' : 'Start Pre-computation'}
+          </button>
+
+          {!hasAnthropicKey && !hasOpenaiKey && precomputeConfig.human_model !== 'simulated' && (
+            <p style={{ color: colors.text.muted, fontSize: '11px', marginTop: '8px', textAlign: 'center' }}>
+              Add API keys in the Experiments tab to use real models
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* Right Panel - Pre-compute Jobs & Info */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+        {/* Phases Explanation */}
+        <div style={{
+          background: colors.bg.secondary,
+          border: `1px solid ${colors.border}`,
+          borderRadius: '8px',
+          padding: '24px',
+        }}>
+          <h3 style={{ color: colors.text.primary, margin: '0 0 16px 0', fontSize: '14px', textTransform: 'uppercase', letterSpacing: '1px' }}>
+            Pre-computation Phases
+          </h3>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
+            {[
+              { num: 1, name: 'Generate Baseline', desc: 'U + T solve problems honestly', role: 'U + T' },
+              { num: 2, name: 'Generate Backdoors', desc: 'Red team creates backdoored versions', role: 'Red Team' },
+              { num: 3, name: 'Find Exploits', desc: 'H tries to catch backdoors', role: 'H' },
+              { num: 4, name: 'Verify Exploits', desc: 'Execute code to verify', role: 'Code Exec' },
+              { num: 5, name: 'Monitoring Scores', desc: 'T + H rate suspicion', role: 'T + H' },
+              { num: 6, name: 'Select Best', desc: 'Pick best backdoor per strategy', role: 'Filter' },
+              { num: 7, name: 'Compute Thresholds', desc: 'Calibrate audit thresholds', role: 'Stats' },
+            ].map((phase) => (
+              <div key={phase.num} style={{
+                padding: '12px',
+                background: colors.bg.tertiary,
+                borderRadius: '6px',
+                border: `1px solid ${colors.border}`,
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                  <span style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: '20px',
+                    height: '20px',
+                    borderRadius: '50%',
+                    background: colors.accent.cyan + '30',
+                    color: colors.accent.cyan,
+                    fontSize: '11px',
+                    fontWeight: '600',
+                  }}>{phase.num}</span>
+                  <span style={{ color: colors.text.primary, fontSize: '13px', fontWeight: '500' }}>{phase.name}</span>
+                </div>
+                <p style={{ color: colors.text.muted, fontSize: '11px', margin: '0 0 0 28px' }}>{phase.desc}</p>
+                <span style={{
+                  display: 'inline-block',
+                  marginLeft: '28px',
+                  marginTop: '4px',
+                  padding: '2px 6px',
+                  background: colors.bg.primary,
+                  borderRadius: '3px',
+                  fontSize: '10px',
+                  color: colors.text.secondary,
+                }}>{phase.role}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Existing Jobs */}
+        <div style={{
+          background: colors.bg.secondary,
+          border: `1px solid ${colors.border}`,
+          borderRadius: '8px',
+          padding: '24px',
+        }}>
+          <h3 style={{ color: colors.text.primary, margin: '0 0 16px 0', fontSize: '14px', textTransform: 'uppercase', letterSpacing: '1px' }}>
+            Pre-computed Datasets
+          </h3>
+          {jobs.length === 0 ? (
+            <div style={{
+              padding: '32px',
+              textAlign: 'center',
+              color: colors.text.muted,
+            }}>
+              <div style={{ fontSize: '32px', marginBottom: '12px' }}>📦</div>
+              <p style={{ margin: 0, fontSize: '13px' }}>No pre-computed datasets yet</p>
+              <p style={{ margin: '8px 0 0 0', fontSize: '12px' }}>Run pre-computation to generate simulation data</p>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {jobs.map((job) => (
+                <div key={job.job_id} style={{
+                  padding: '16px',
+                  background: colors.bg.tertiary,
+                  borderRadius: '6px',
+                  border: `1px solid ${job.status === 'completed' ? colors.accent.green + '40' : job.status === 'running' ? colors.accent.cyan + '40' : colors.border}`,
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <span style={{ color: colors.text.primary, fontSize: '13px', fontWeight: '500' }}>
+                      {job.num_problems} problems × {job.num_backdoor_ideas} ideas
+                    </span>
+                    <span style={{
+                      padding: '3px 8px',
+                      borderRadius: '4px',
+                      fontSize: '11px',
+                      textTransform: 'uppercase',
+                      background: job.status === 'completed' ? colors.accent.green + '20' :
+                                  job.status === 'running' ? colors.accent.cyan + '20' :
+                                  job.status === 'failed' ? colors.accent.red + '20' : colors.bg.primary,
+                      color: job.status === 'completed' ? colors.accent.green :
+                             job.status === 'running' ? colors.accent.cyan :
+                             job.status === 'failed' ? colors.accent.red : colors.text.muted,
+                    }}>
+                      {job.status}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', gap: '16px', fontSize: '12px', color: colors.text.muted }}>
+                    <span>H: {job.human_model}</span>
+                    <span>T: {job.trusted_model}</span>
+                    <span>U: {job.untrusted_model}</span>
+                  </div>
+                  {job.created_at && (
+                    <div style={{ fontSize: '11px', color: colors.text.muted, marginTop: '8px' }}>
+                      Created: {new Date(job.created_at).toLocaleString()}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
 // MAIN APP
 // ============================================================================
 
-export default function App() {
+function AppContent() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const activeTab = location.pathname === '/precompute' ? 'precompute' : 'experiments';
+
   const [config, setConfig] = useState({
     // Blue team strategy
     strategy_type: 'threshold',
@@ -1084,170 +1692,224 @@ export default function App() {
             </p>
           </div>
         </div>
-        {storageType === 'persistent' && (
-          <div style={{
-            padding: '6px 12px',
-            background: colors.accent.green + '20',
-            border: `1px solid ${colors.accent.green}`,
-            borderRadius: '4px',
-            fontSize: '12px',
-            color: colors.accent.green,
-            marginRight: '8px',
-          }}>
-            ✓ Persistent Storage
-          </div>
-        )}
-        {config.human_model === 'simulated' && config.trusted_model === 'simulated' && config.untrusted_model === 'simulated' && (
-          <div style={{
-            padding: '6px 12px',
-            background: colors.accent.amber + '20',
-            border: `1px solid ${colors.accent.amber}`,
-            borderRadius: '4px',
-            fontSize: '12px',
-            color: colors.accent.amber,
-          }}>
-            Simulated Mode
-          </div>
-        )}
-        {(validationStatus.anthropic === 'valid' || validationStatus.openai === 'valid') && (
-          <div style={{
-            padding: '6px 12px',
-            background: colors.accent.green + '20',
-            border: `1px solid ${colors.accent.green}`,
-            borderRadius: '4px',
-            fontSize: '12px',
-            color: colors.accent.green,
-          }}>
-            {validationStatus.anthropic === 'valid' && 'Anthropic '}
-            {validationStatus.anthropic === 'valid' && validationStatus.openai === 'valid' && '+ '}
-            {validationStatus.openai === 'valid' && 'OpenAI '}
-            Connected
-          </div>
-        )}
+
+        {/* Tab Navigation */}
+        <div style={{ display: 'flex', gap: '4px', background: colors.bg.secondary, padding: '4px', borderRadius: '8px' }}>
+          <button
+            onClick={() => navigate('/')}
+            style={{
+              padding: '8px 20px',
+              background: activeTab === 'experiments' ? colors.bg.tertiary : 'transparent',
+              border: 'none',
+              borderRadius: '6px',
+              color: activeTab === 'experiments' ? colors.text.primary : colors.text.secondary,
+              fontSize: '13px',
+              fontWeight: activeTab === 'experiments' ? '600' : '400',
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+            }}
+          >
+            Experiments
+          </button>
+          <button
+            onClick={() => navigate('/precompute')}
+            style={{
+              padding: '8px 20px',
+              background: activeTab === 'precompute' ? colors.bg.tertiary : 'transparent',
+              border: 'none',
+              borderRadius: '6px',
+              color: activeTab === 'precompute' ? colors.text.primary : colors.text.secondary,
+              fontSize: '13px',
+              fontWeight: activeTab === 'precompute' ? '600' : '400',
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+            }}
+          >
+            Pre-compute
+          </button>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {storageType === 'persistent' && (
+            <div style={{
+              padding: '6px 12px',
+              background: colors.accent.green + '20',
+              border: `1px solid ${colors.accent.green}`,
+              borderRadius: '4px',
+              fontSize: '12px',
+              color: colors.accent.green,
+            }}>
+              ✓ Persistent Storage
+            </div>
+          )}
+          {config.human_model === 'simulated' && config.trusted_model === 'simulated' && config.untrusted_model === 'simulated' && activeTab === 'experiments' && (
+            <div style={{
+              padding: '6px 12px',
+              background: colors.accent.amber + '20',
+              border: `1px solid ${colors.accent.amber}`,
+              borderRadius: '4px',
+              fontSize: '12px',
+              color: colors.accent.amber,
+            }}>
+              Simulated Mode
+            </div>
+          )}
+          {(validationStatus.anthropic === 'valid' || validationStatus.openai === 'valid') && (
+            <div style={{
+              padding: '6px 12px',
+              background: colors.accent.green + '20',
+              border: `1px solid ${colors.accent.green}`,
+              borderRadius: '4px',
+              fontSize: '12px',
+              color: colors.accent.green,
+            }}>
+              {validationStatus.anthropic === 'valid' && 'Anthropic '}
+              {validationStatus.anthropic === 'valid' && validationStatus.openai === 'valid' && '+ '}
+              {validationStatus.openai === 'valid' && 'OpenAI '}
+              Connected
+            </div>
+          )}
+        </div>
       </header>
 
       {/* Main Content */}
       <main style={{ padding: '32px 40px' }}>
-        {error && (
-          <div style={{
-            padding: '12px 16px',
-            background: colors.accent.red + '20',
-            border: `1px solid ${colors.accent.red}`,
-            borderRadius: '6px',
-            marginBottom: '24px',
-            fontSize: '14px',
-            color: colors.accent.red,
-          }}>
-            {error} — Running in demo mode
-          </div>
-        )}
-
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: '320px 1fr',
-          gap: '32px',
-        }}>
-          {/* Left Panel - Config */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-            <ApiKeyPanel
-              apiKeys={apiKeys}
-              onChange={setApiKeys}
-              onValidate={validateApiKey}
-              validationStatus={validationStatus}
-            />
-            <ConfigPanel
-              config={config}
-              onChange={setConfig}
-              onRun={runExperiment}
-              isRunning={isRunning}
-              hasAnthropicKey={validationStatus.anthropic === 'valid'}
-              hasOpenaiKey={validationStatus.openai === 'valid'}
-            />
-            <ExperimentHistory
-              experiments={experiments}
-              onSelect={selectExperiment}
-            />
-          </div>
-
-          {/* Right Panel - Results */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-            {/* Metrics Row */}
-            {currentResult && (
+        {activeTab === 'experiments' && (
+          <>
+            {error && (
               <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(4, 1fr)',
-                gap: '16px',
+                padding: '12px 16px',
+                background: colors.accent.red + '20',
+                border: `1px solid ${colors.accent.red}`,
+                borderRadius: '6px',
+                marginBottom: '24px',
+                fontSize: '14px',
+                color: colors.accent.red,
               }}>
-                <MetricCard
-                  label="Safety Rate"
-                  value={`${(currentResult.metrics.safety_rate * 100).toFixed(1)}%`}
-                  subvalue="Attacks prevented or no attack"
-                  color={colors.accent.green}
-                />
-                <MetricCard
-                  label="Usefulness Rate"
-                  value={`${(currentResult.metrics.usefulness_rate * 100).toFixed(1)}%`}
-                  subvalue="Responses allowed through"
-                  color={colors.accent.cyan}
-                />
-                <MetricCard
-                  label="Attack Catch Rate"
-                  value={`${(currentResult.metrics.attack_catch_rate * 100).toFixed(1)}%`}
-                  subvalue="Of attacks attempted"
-                  color={colors.accent.magenta}
-                />
-                <MetricCard
-                  label="False Positive Rate"
-                  value={`${(currentResult.metrics.false_positive_rate * 100).toFixed(1)}%`}
-                  subvalue="Benign responses blocked"
-                  color={colors.accent.amber}
-                />
+                {error} — Running in demo mode
               </div>
             )}
 
-            {/* Charts */}
             <div style={{
               display: 'grid',
-              gridTemplateColumns: '1fr 1fr',
-              gap: '24px',
+              gridTemplateColumns: '320px 1fr',
+              gap: '32px',
             }}>
-              <ParetoChart data={paretoData} />
-              {currentResult && <EpisodeTimeline episodes={currentResult.episodes} />}
-            </div>
-
-            {/* Getting Started */}
-            {!currentResult && (
-              <div style={{
-                background: colors.bg.secondary,
-                border: `1px solid ${colors.border}`,
-                borderRadius: '8px',
-                padding: '48px',
-                textAlign: 'center',
-              }}>
-                <div style={{
-                  width: '64px',
-                  height: '64px',
-                  background: colors.bg.tertiary,
-                  borderRadius: '50%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  margin: '0 auto 20px',
-                  fontSize: '28px',
-                }}>
-                  🔬
-                </div>
-                <h2 style={{ margin: '0 0 12px', color: colors.text.primary, fontSize: '18px' }}>
-                  Ready to Run Experiments
-                </h2>
-                <p style={{ margin: 0, color: colors.text.secondary, maxWidth: '400px', marginInline: 'auto' }}>
-                  Configure your control protocol parameters on the left and click "Run Experiment" to evaluate safety vs usefulness tradeoffs.
-                </p>
+              {/* Left Panel - Config */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                <ApiKeyPanel
+                  apiKeys={apiKeys}
+                  onChange={setApiKeys}
+                  onValidate={validateApiKey}
+                  validationStatus={validationStatus}
+                />
+                <ConfigPanel
+                  config={config}
+                  onChange={setConfig}
+                  onRun={runExperiment}
+                  isRunning={isRunning}
+                  hasAnthropicKey={validationStatus.anthropic === 'valid'}
+                  hasOpenaiKey={validationStatus.openai === 'valid'}
+                />
+                <ExperimentHistory
+                  experiments={experiments}
+                  onSelect={selectExperiment}
+                />
               </div>
-            )}
-          </div>
-        </div>
+
+              {/* Right Panel - Results */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                {/* Metrics Row */}
+                {currentResult && (
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(4, 1fr)',
+                    gap: '16px',
+                  }}>
+                    <MetricCard
+                      label="Safety Rate"
+                      value={`${(currentResult.metrics.safety_rate * 100).toFixed(1)}%`}
+                      subvalue="Attacks prevented or no attack"
+                      color={colors.accent.green}
+                    />
+                    <MetricCard
+                      label="Usefulness Rate"
+                      value={`${(currentResult.metrics.usefulness_rate * 100).toFixed(1)}%`}
+                      subvalue="Responses allowed through"
+                      color={colors.accent.cyan}
+                    />
+                    <MetricCard
+                      label="Attack Catch Rate"
+                      value={`${(currentResult.metrics.attack_catch_rate * 100).toFixed(1)}%`}
+                      subvalue="Of attacks attempted"
+                      color={colors.accent.magenta}
+                    />
+                    <MetricCard
+                      label="False Positive Rate"
+                      value={`${(currentResult.metrics.false_positive_rate * 100).toFixed(1)}%`}
+                      subvalue="Benign responses blocked"
+                      color={colors.accent.amber}
+                    />
+                  </div>
+                )}
+
+                {/* Charts */}
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1fr 1fr',
+                  gap: '24px',
+                }}>
+                  <ParetoChart data={paretoData} />
+                  {currentResult && <EpisodeTimeline episodes={currentResult.episodes} />}
+                </div>
+
+                {/* Getting Started */}
+                {!currentResult && (
+                  <div style={{
+                    background: colors.bg.secondary,
+                    border: `1px solid ${colors.border}`,
+                    borderRadius: '8px',
+                    padding: '48px',
+                    textAlign: 'center',
+                  }}>
+                    <div style={{
+                      width: '64px',
+                      height: '64px',
+                      background: colors.bg.tertiary,
+                      borderRadius: '50%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      margin: '0 auto 20px',
+                      fontSize: '28px',
+                    }}>
+                      🔬
+                    </div>
+                    <h2 style={{ margin: '0 0 12px', color: colors.text.primary, fontSize: '18px' }}>
+                      Ready to Run Experiments
+                    </h2>
+                    <p style={{ margin: 0, color: colors.text.secondary, maxWidth: '400px', marginInline: 'auto' }}>
+                      Configure your control protocol parameters on the left and click "Run Experiment" to evaluate safety vs usefulness tradeoffs.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </>
+        )}
+
+        {activeTab === 'precompute' && (
+          <PreComputePage apiKeys={apiKeys} validationStatus={validationStatus} />
+        )}
       </main>
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <AppContent />
+    </BrowserRouter>
   );
 }
