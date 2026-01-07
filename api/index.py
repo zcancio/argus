@@ -459,7 +459,7 @@ def start_precompute(
         job = create_job(job_config)
 
         # Run it (synchronously for now - could be async in production)
-        result = run_job(job.job_id)
+        result = run_job(job.job_id, openai_key=x_openai_key, anthropic_key=x_anthropic_key)
 
         if not result:
             raise HTTPException(status_code=500, detail="Failed to start job")
@@ -764,7 +764,7 @@ def start_dataset_test(
         }
 
         job = create_job(job_config)
-        result = run_job(job.job_id)
+        result = run_job(job.job_id, openai_key=x_openai_key, anthropic_key=x_anthropic_key)
 
         if result:
             # Update test result with completion
