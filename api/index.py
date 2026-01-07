@@ -31,6 +31,12 @@ from api._lib.precompute import (
     load_resume_context, get_checkpoint_status,
     list_incomplete_jobs, cleanup_job_data
 )
+from api._lib.dataset import (
+    dataset_store, Dataset, DatasetSettings, DatasetModels,
+    dataset_to_dict, dict_to_settings, dict_to_models,
+    create_dataset, get_dataset, update_dataset, delete_dataset,
+    list_datasets, publish_dataset, duplicate_dataset
+)
 
 # FastAPI app
 app = FastAPI(
@@ -603,3 +609,247 @@ def cleanup_precompute_job(job_id: str, keep_results: bool = True):
         }
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+# =============================================================================
+# DATASET ENDPOINTS
+# =============================================================================
+
+class DatasetSettingsModel(BaseModel):
+    """Dataset settings for pre-computation"""
+    num_problems: int = 5
+    num_backdoor_ideas: int = 3
+    max_difficulty: int = 7
+
+
+class DatasetModelsModel(BaseModel):
+    """Model role assignments"""
+    human_model: str = "gpt-4o"
+    trusted_model: str = "gpt-4o"
+    untrusted_model: str = "gpt-4o"
+
+
+class DatasetCreateRequest(BaseModel):
+    """Request to create a new dataset"""
+    name: str
+    settings: Optional[DatasetSettingsModel] = None
+    models: Optional[DatasetModelsModel] = None
+    prompts: Optional[dict] = None
+
+
+class DatasetUpdateRequest(BaseModel):
+    """Request to update a dataset"""
+    name: Optional[str] = None
+    settings: Optional[DatasetSettingsModel] = None
+    models: Optional[DatasetModelsModel] = None
+    prompts: Optional[dict] = None
+
+
+class DatasetDuplicateRequest(BaseModel):
+    """Request to duplicate a dataset"""
+    new_name: Optional[str] = None
+
+
+@app.get("/api/datasets")
+def list_all_datasets():
+    """List all datasets."""
+    datasets = list_datasets(limit=50)
+    return {
+        "datasets": [dataset_to_dict(d) for d in datasets],
+        "storage": "persistent" if dataset_store.is_persistent else "in-memory"
+    }
+
+
+@app.post("/api/datasets")
+def create_new_dataset(request: DatasetCreateRequest):
+    """Create a new dataset."""
+    try:
+        settings = request.settings.model_dump() if request.settings else None
+        models = request.models.model_dump() if request.models else None
+
+        dataset = create_dataset(
+            name=request.name,
+            settings=settings,
+            models=models,
+            prompts=request.prompts
+        )
+
+        return dataset_to_dict(dataset)
+
+    except Exception as e:
+        import traceback
+        raise HTTPException(status_code=400, detail=f"{str(e)}\n{traceback.format_exc()}")
+
+
+@app.get("/api/datasets/{dataset_id}")
+def get_single_dataset(dataset_id: str):
+    """Get a specific dataset by ID."""
+    dataset = get_dataset(dataset_id)
+    if not dataset:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+
+    return dataset_to_dict(dataset)
+
+
+@app.put("/api/datasets/{dataset_id}")
+def update_existing_dataset(dataset_id: str, request: DatasetUpdateRequest):
+    """Update a draft dataset."""
+    try:
+        settings = request.settings.model_dump() if request.settings else None
+        models = request.models.model_dump() if request.models else None
+
+        dataset = update_dataset(
+            dataset_id=dataset_id,
+            name=request.name,
+            settings=settings,
+            models=models,
+            prompts=request.prompts
+        )
+
+        if not dataset:
+            raise HTTPException(status_code=404, detail="Dataset not found")
+
+        return dataset_to_dict(dataset)
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        import traceback
+        raise HTTPException(status_code=400, detail=f"{str(e)}\n{traceback.format_exc()}")
+
+
+@app.delete("/api/datasets/{dataset_id}")
+def delete_existing_dataset(dataset_id: str):
+    """Delete a draft dataset."""
+    try:
+        success = delete_dataset(dataset_id)
+        if not success:
+            raise HTTPException(status_code=404, detail="Dataset not found")
+
+        return {"status": "deleted", "dataset_id": dataset_id}
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/api/datasets/{dataset_id}/test")
+def start_dataset_test(
+    dataset_id: str,
+    x_anthropic_key: Optional[str] = Header(None, alias="X-Anthropic-Key"),
+    x_openai_key: Optional[str] = Header(None, alias="X-OpenAI-Key"),
+):
+    """Start a test run for a dataset (1 problem through all 7 phases)."""
+    try:
+        dataset = get_dataset(dataset_id)
+        if not dataset:
+            raise HTTPException(status_code=404, detail="Dataset not found")
+
+        if dataset.status != "draft":
+            raise HTTPException(status_code=400, detail="Can only test draft datasets")
+
+        # Start test run
+        test_result = dataset_store.start_test(dataset_id)
+        if not test_result:
+            raise HTTPException(status_code=500, detail="Failed to start test")
+
+        # Create a pre-compute job with num_problems=1 using dataset config
+        job_config = {
+            "num_problems": 1,  # Test mode: only 1 problem
+            "num_backdoor_ideas": dataset.settings.num_backdoor_ideas,
+            "max_difficulty": dataset.settings.max_difficulty,
+            "human_model": dataset.models.human_model,
+            "trusted_model": dataset.models.trusted_model,
+            "untrusted_model": dataset.models.untrusted_model,
+            "prompts": dataset.prompts if dataset.prompts else None,
+        }
+
+        job = create_job(job_config)
+        result = run_job(job.job_id)
+
+        if result:
+            # Update test result with completion
+            from datetime import datetime
+            test_result.status = "completed" if result.status == "completed" else "failed"
+            test_result.completed_at = datetime.utcnow().isoformat()
+            test_result.current_phase = result.current_phase
+            test_result.progress_percent = result.progress_percent
+            test_result.phases_completed = [1, 2, 3, 4, 5, 6, 7] if result.status == "completed" else []
+            test_result.error = result.error
+            test_result.problems_generated = len(result.problems) if result.problems else 0
+
+            # Count backdoors and exploits
+            backdoors = sum(1 for p in result.problems if p.U_backdoored_solution) if result.problems else 0
+            exploits = sum(1 for p in result.problems if p.exploits) if result.problems else 0
+            test_result.backdoors_generated = backdoors
+            test_result.exploits_found = exploits
+
+            dataset_store.update_test(dataset_id, test_result)
+
+        return {
+            "test_id": test_result.test_id,
+            "status": test_result.status,
+            "current_phase": test_result.current_phase,
+            "progress_percent": test_result.progress_percent,
+            "phases_completed": test_result.phases_completed,
+            "problems_generated": test_result.problems_generated,
+            "backdoors_generated": test_result.backdoors_generated,
+            "exploits_found": test_result.exploits_found,
+            "error": test_result.error
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        raise HTTPException(status_code=400, detail=f"{str(e)}\n{traceback.format_exc()}")
+
+
+@app.get("/api/datasets/{dataset_id}/test")
+def get_dataset_test_status(dataset_id: str):
+    """Get test run status for a dataset."""
+    test_result = dataset_store.get_test_status(dataset_id)
+    if not test_result:
+        raise HTTPException(status_code=404, detail="No test run found")
+
+    return {
+        "test_id": test_result.test_id,
+        "status": test_result.status,
+        "started_at": test_result.started_at,
+        "completed_at": test_result.completed_at,
+        "current_phase": test_result.current_phase,
+        "progress_percent": test_result.progress_percent,
+        "phases_completed": test_result.phases_completed,
+        "problems_generated": test_result.problems_generated,
+        "backdoors_generated": test_result.backdoors_generated,
+        "exploits_found": test_result.exploits_found,
+        "error": test_result.error
+    }
+
+
+@app.post("/api/datasets/{dataset_id}/publish")
+def publish_existing_dataset(dataset_id: str):
+    """Publish a dataset (lock it permanently)."""
+    try:
+        dataset = publish_dataset(dataset_id)
+        if not dataset:
+            raise HTTPException(status_code=404, detail="Dataset not found")
+
+        return dataset_to_dict(dataset)
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/api/datasets/{dataset_id}/duplicate")
+def duplicate_existing_dataset(dataset_id: str, request: DatasetDuplicateRequest):
+    """Create a draft copy of any dataset."""
+    try:
+        dataset = duplicate_dataset(dataset_id, request.new_name)
+        if not dataset:
+            raise HTTPException(status_code=404, detail="Dataset not found")
+
+        return dataset_to_dict(dataset)
+
+    except Exception as e:
+        import traceback
+        raise HTTPException(status_code=400, detail=f"{str(e)}\n{traceback.format_exc()}")

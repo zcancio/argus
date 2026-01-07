@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ScatterChart, Scatter, Legend, ReferenceLine } from 'recharts';
 import { DEFAULT_PROMPTS } from './promptDefaults';
+import { DEFAULT_DATASET_SETTINGS, DEFAULT_DATASET_MODELS, MODEL_OPTIONS, STATUS_BADGES, TEST_STATUS_BADGES } from './datasetDefaults';
 
 // API is same-origin on Vercel, use relative paths
 const API_BASE = '';
@@ -1057,10 +1058,832 @@ function ExperimentHistory({ experiments, onSelect }) {
 }
 
 // ============================================================================
+// DATASET COMPONENTS
+// ============================================================================
+
+function DatasetCard({ dataset, isSelected, onSelect, onTest, onPublish, onDuplicate, onDelete }) {
+  const statusBadge = STATUS_BADGES[dataset.status] || STATUS_BADGES.draft;
+  const testBadge = dataset.last_test ? TEST_STATUS_BADGES[dataset.last_test.status] : null;
+
+  return (
+    <div
+      onClick={() => onSelect(dataset.id)}
+      style={{
+        padding: '16px',
+        background: isSelected ? colors.bg.tertiary : colors.bg.secondary,
+        borderRadius: '8px',
+        border: `1px solid ${isSelected ? colors.accent.cyan : colors.border}`,
+        cursor: 'pointer',
+        transition: 'all 0.2s',
+      }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+        <div>
+          <h4 style={{ margin: 0, color: colors.text.primary, fontSize: '14px', fontWeight: '500' }}>
+            {dataset.name}
+          </h4>
+          <div style={{ display: 'flex', gap: '6px', marginTop: '6px' }}>
+            <span style={{
+              padding: '2px 8px',
+              borderRadius: '4px',
+              fontSize: '10px',
+              textTransform: 'uppercase',
+              background: statusBadge.className.includes('green') ? colors.accent.green + '20' : colors.accent.amber + '20',
+              color: statusBadge.className.includes('green') ? colors.accent.green : colors.accent.amber,
+            }}>
+              {statusBadge.label}
+            </span>
+            {testBadge && (
+              <span style={{
+                padding: '2px 8px',
+                borderRadius: '4px',
+                fontSize: '10px',
+                textTransform: 'uppercase',
+                background: testBadge.className.includes('green') ? colors.accent.green + '20' :
+                           testBadge.className.includes('red') ? colors.accent.red + '20' :
+                           colors.accent.cyan + '20',
+                color: testBadge.className.includes('green') ? colors.accent.green :
+                       testBadge.className.includes('red') ? colors.accent.red :
+                       colors.accent.cyan,
+              }}>
+                Test: {testBadge.label}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', gap: '8px', fontSize: '11px', color: colors.text.muted, marginBottom: '12px' }}>
+        <span>{dataset.settings.num_problems} problems</span>
+        <span>•</span>
+        <span>{dataset.settings.num_backdoor_ideas} ideas</span>
+        <span>•</span>
+        <span>max diff: {dataset.settings.max_difficulty}</span>
+      </div>
+
+      {/* Action buttons */}
+      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+        {dataset.status === 'draft' && (
+          <>
+            <button
+              onClick={(e) => { e.stopPropagation(); onTest(dataset.id); }}
+              style={{
+                padding: '6px 12px',
+                background: colors.accent.cyan + '20',
+                border: `1px solid ${colors.accent.cyan}`,
+                borderRadius: '4px',
+                color: colors.accent.cyan,
+                fontSize: '11px',
+                cursor: 'pointer',
+              }}
+            >
+              Test
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); onPublish(dataset.id); }}
+              style={{
+                padding: '6px 12px',
+                background: colors.accent.green + '20',
+                border: `1px solid ${colors.accent.green}`,
+                borderRadius: '4px',
+                color: colors.accent.green,
+                fontSize: '11px',
+                cursor: 'pointer',
+              }}
+            >
+              Publish
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); onDelete(dataset.id); }}
+              style={{
+                padding: '6px 12px',
+                background: 'transparent',
+                border: `1px solid ${colors.border}`,
+                borderRadius: '4px',
+                color: colors.text.muted,
+                fontSize: '11px',
+                cursor: 'pointer',
+              }}
+            >
+              Delete
+            </button>
+          </>
+        )}
+        {dataset.status === 'published' && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onDuplicate(dataset.id); }}
+            style={{
+              padding: '6px 12px',
+              background: colors.bg.tertiary,
+              border: `1px solid ${colors.border}`,
+              borderRadius: '4px',
+              color: colors.text.secondary,
+              fontSize: '11px',
+              cursor: 'pointer',
+            }}
+          >
+            Duplicate
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function DatasetManagerPanel({ datasets, selectedId, onSelect, onCreate, onTest, onPublish, onDuplicate, onDelete }) {
+  return (
+    <div style={{
+      background: colors.bg.secondary,
+      border: `1px solid ${colors.border}`,
+      borderRadius: '8px',
+      padding: '24px',
+      marginBottom: '24px',
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+        <h3 style={{ color: colors.text.primary, margin: 0, fontSize: '14px', textTransform: 'uppercase', letterSpacing: '1px' }}>
+          Datasets
+        </h3>
+        <button
+          onClick={onCreate}
+          style={{
+            padding: '8px 16px',
+            background: `linear-gradient(135deg, ${colors.accent.cyan}, ${colors.accent.magenta})`,
+            border: 'none',
+            borderRadius: '6px',
+            color: colors.text.primary,
+            fontSize: '12px',
+            fontWeight: '600',
+            cursor: 'pointer',
+          }}
+        >
+          + New Dataset
+        </button>
+      </div>
+
+      {datasets.length === 0 ? (
+        <div style={{
+          padding: '32px',
+          textAlign: 'center',
+          color: colors.text.muted,
+        }}>
+          <div style={{ fontSize: '32px', marginBottom: '12px' }}>📦</div>
+          <p style={{ margin: 0, fontSize: '13px' }}>No datasets yet</p>
+          <p style={{ margin: '8px 0 0 0', fontSize: '12px' }}>Create a dataset to configure pre-computation</p>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '400px', overflowY: 'auto' }}>
+          {datasets.map(dataset => (
+            <DatasetCard
+              key={dataset.id}
+              dataset={dataset}
+              isSelected={dataset.id === selectedId}
+              onSelect={onSelect}
+              onTest={onTest}
+              onPublish={onPublish}
+              onDuplicate={onDuplicate}
+              onDelete={onDelete}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DatasetEditorPanel({ dataset, onSave, defaultPrompts }) {
+  const [localDataset, setLocalDataset] = useState(null);
+  const [activeTab, setActiveTab] = useState('settings');
+  const [hasChanges, setHasChanges] = useState(false);
+  const [promptPhase, setPromptPhase] = useState('phase1');
+
+  useEffect(() => {
+    if (dataset) {
+      setLocalDataset({
+        name: dataset.name,
+        settings: { ...dataset.settings },
+        models: { ...dataset.models },
+        prompts: { ...dataset.prompts },
+      });
+      setHasChanges(false);
+    }
+  }, [dataset?.id]);
+
+  if (!dataset || !localDataset) {
+    return (
+      <div style={{
+        background: colors.bg.secondary,
+        border: `1px solid ${colors.border}`,
+        borderRadius: '8px',
+        padding: '48px',
+        textAlign: 'center',
+      }}>
+        <div style={{ fontSize: '32px', marginBottom: '12px' }}>📝</div>
+        <p style={{ color: colors.text.muted, margin: 0, fontSize: '13px' }}>Select a dataset to edit</p>
+      </div>
+    );
+  }
+
+  if (dataset.status === 'published') {
+    return (
+      <div style={{
+        background: colors.bg.secondary,
+        border: `1px solid ${colors.border}`,
+        borderRadius: '8px',
+        padding: '24px',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+          <span style={{
+            padding: '4px 10px',
+            background: colors.accent.green + '20',
+            borderRadius: '4px',
+            fontSize: '11px',
+            color: colors.accent.green,
+            textTransform: 'uppercase',
+          }}>
+            Published
+          </span>
+          <span style={{ color: colors.text.muted, fontSize: '12px' }}>
+            Published datasets cannot be edited
+          </span>
+        </div>
+
+        <h3 style={{ color: colors.text.primary, margin: '0 0 16px 0', fontSize: '16px' }}>{dataset.name}</h3>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
+          <div style={{ padding: '12px', background: colors.bg.tertiary, borderRadius: '6px' }}>
+            <div style={{ color: colors.text.muted, fontSize: '11px', marginBottom: '4px' }}>Problems</div>
+            <div style={{ color: colors.text.primary, fontSize: '16px', fontFamily: 'JetBrains Mono, monospace' }}>
+              {dataset.settings.num_problems}
+            </div>
+          </div>
+          <div style={{ padding: '12px', background: colors.bg.tertiary, borderRadius: '6px' }}>
+            <div style={{ color: colors.text.muted, fontSize: '11px', marginBottom: '4px' }}>Backdoor Ideas</div>
+            <div style={{ color: colors.text.primary, fontSize: '16px', fontFamily: 'JetBrains Mono, monospace' }}>
+              {dataset.settings.num_backdoor_ideas}
+            </div>
+          </div>
+          <div style={{ padding: '12px', background: colors.bg.tertiary, borderRadius: '6px' }}>
+            <div style={{ color: colors.text.muted, fontSize: '11px', marginBottom: '4px' }}>Max Difficulty</div>
+            <div style={{ color: colors.text.primary, fontSize: '16px', fontFamily: 'JetBrains Mono, monospace' }}>
+              {dataset.settings.max_difficulty}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const handleChange = (field, value) => {
+    setLocalDataset(prev => ({ ...prev, [field]: value }));
+    setHasChanges(true);
+  };
+
+  const handleSettingsChange = (key, value) => {
+    setLocalDataset(prev => ({
+      ...prev,
+      settings: { ...prev.settings, [key]: value }
+    }));
+    setHasChanges(true);
+  };
+
+  const handleModelsChange = (key, value) => {
+    setLocalDataset(prev => ({
+      ...prev,
+      models: { ...prev.models, [key]: value }
+    }));
+    setHasChanges(true);
+  };
+
+  const handlePromptChange = (key, value) => {
+    setLocalDataset(prev => ({
+      ...prev,
+      prompts: { ...prev.prompts, [key]: value }
+    }));
+    setHasChanges(true);
+  };
+
+  const handlePromptReset = (key) => {
+    setLocalDataset(prev => {
+      const newPrompts = { ...prev.prompts };
+      delete newPrompts[key];
+      return { ...prev, prompts: newPrompts };
+    });
+    setHasChanges(true);
+  };
+
+  const handleSave = () => {
+    onSave(dataset.id, localDataset);
+    setHasChanges(false);
+  };
+
+  const sliderStyle = {
+    width: '100%',
+    height: '4px',
+    background: 'rgb(36, 36, 46)',
+    borderRadius: '2px',
+    appearance: 'none',
+    cursor: 'pointer',
+  };
+
+  const selectStyle = {
+    width: '100%',
+    padding: '10px 12px',
+    background: colors.bg.tertiary,
+    border: `1px solid ${colors.border}`,
+    borderRadius: '6px',
+    color: colors.text.primary,
+    fontSize: '14px',
+  };
+
+  const phases = [
+    { key: 'phase1', label: 'Phase 1', count: 2 },
+    { key: 'phase2', label: 'Phase 2', count: 6 },
+    { key: 'phase3', label: 'Phase 3', count: 7 },
+    { key: 'phase5', label: 'Phase 5', count: 2 },
+  ];
+
+  const getPromptValue = (key, defaultValue) => {
+    return localDataset.prompts[key] !== undefined ? localDataset.prompts[key] : defaultValue;
+  };
+
+  const isPromptModified = (key) => localDataset.prompts[key] !== undefined;
+
+  return (
+    <div style={{
+      background: colors.bg.secondary,
+      border: `1px solid ${colors.border}`,
+      borderRadius: '8px',
+    }}>
+      {/* Header */}
+      <div style={{
+        padding: '16px 24px',
+        borderBottom: `1px solid ${colors.border}`,
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+      }}>
+        <div>
+          <input
+            type="text"
+            value={localDataset.name}
+            onChange={(e) => handleChange('name', e.target.value)}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: colors.text.primary,
+              fontSize: '16px',
+              fontWeight: '500',
+              padding: 0,
+              outline: 'none',
+            }}
+          />
+          <span style={{
+            marginLeft: '12px',
+            padding: '2px 8px',
+            background: colors.accent.amber + '20',
+            borderRadius: '4px',
+            fontSize: '10px',
+            color: colors.accent.amber,
+            textTransform: 'uppercase',
+          }}>
+            Draft
+          </span>
+        </div>
+        <button
+          onClick={handleSave}
+          disabled={!hasChanges}
+          style={{
+            padding: '8px 20px',
+            background: hasChanges ? `linear-gradient(135deg, ${colors.accent.cyan}, ${colors.accent.magenta})` : colors.bg.tertiary,
+            border: 'none',
+            borderRadius: '6px',
+            color: hasChanges ? colors.text.primary : colors.text.muted,
+            fontSize: '12px',
+            fontWeight: '600',
+            cursor: hasChanges ? 'pointer' : 'not-allowed',
+          }}
+        >
+          {hasChanges ? 'Save Changes' : 'Saved'}
+        </button>
+      </div>
+
+      {/* Tabs */}
+      <div style={{
+        display: 'flex',
+        gap: '4px',
+        padding: '16px 24px',
+        borderBottom: `1px solid ${colors.border}`,
+      }}>
+        {['settings', 'models', 'prompts'].map(tab => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            style={{
+              padding: '8px 16px',
+              background: activeTab === tab ? colors.bg.tertiary : 'transparent',
+              border: `1px solid ${activeTab === tab ? colors.accent.cyan : colors.border}`,
+              borderRadius: '4px',
+              color: activeTab === tab ? colors.accent.cyan : colors.text.secondary,
+              fontSize: '12px',
+              cursor: 'pointer',
+              textTransform: 'capitalize',
+            }}
+          >
+            {tab}
+          </button>
+        ))}
+      </div>
+
+      {/* Tab Content */}
+      <div style={{ padding: '24px' }}>
+        {activeTab === 'settings' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                <span style={{ color: colors.text.secondary, fontSize: '13px' }}>Number of Problems</span>
+                <span style={{ color: colors.accent.cyan, fontFamily: 'JetBrains Mono, monospace' }}>
+                  {localDataset.settings.num_problems}
+                </span>
+              </div>
+              <input
+                type="range"
+                min="1"
+                max="100"
+                value={localDataset.settings.num_problems}
+                onChange={(e) => handleSettingsChange('num_problems', parseInt(e.target.value))}
+                style={sliderStyle}
+              />
+            </div>
+
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                <span style={{ color: colors.text.secondary, fontSize: '13px' }}>Backdoor Ideas per Problem</span>
+                <span style={{ color: colors.accent.magenta, fontFamily: 'JetBrains Mono, monospace' }}>
+                  {localDataset.settings.num_backdoor_ideas}
+                </span>
+              </div>
+              <input
+                type="range"
+                min="1"
+                max="10"
+                value={localDataset.settings.num_backdoor_ideas}
+                onChange={(e) => handleSettingsChange('num_backdoor_ideas', parseInt(e.target.value))}
+                style={sliderStyle}
+              />
+            </div>
+
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                <span style={{ color: colors.text.secondary, fontSize: '13px' }}>Max Difficulty</span>
+                <span style={{ color: colors.accent.amber, fontFamily: 'JetBrains Mono, monospace' }}>
+                  {localDataset.settings.max_difficulty}
+                </span>
+              </div>
+              <input
+                type="range"
+                min="1"
+                max="10"
+                value={localDataset.settings.max_difficulty}
+                onChange={(e) => handleSettingsChange('max_difficulty', parseInt(e.target.value))}
+                style={sliderStyle}
+              />
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'models' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <div>
+              <label style={{ display: 'block', color: colors.text.secondary, fontSize: '13px', marginBottom: '8px' }}>
+                <span style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '20px',
+                  height: '20px',
+                  borderRadius: '4px',
+                  background: colors.accent.amber + '30',
+                  color: colors.accent.amber,
+                  fontSize: '11px',
+                  fontWeight: '600',
+                  marginRight: '8px',
+                }}>H</span>
+                Human Auditor
+              </label>
+              <select
+                value={localDataset.models.human_model}
+                onChange={(e) => handleModelsChange('human_model', e.target.value)}
+                style={selectStyle}
+              >
+                {MODEL_OPTIONS.map(opt => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label style={{ display: 'block', color: colors.text.secondary, fontSize: '13px', marginBottom: '8px' }}>
+                <span style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '20px',
+                  height: '20px',
+                  borderRadius: '4px',
+                  background: colors.accent.green + '30',
+                  color: colors.accent.green,
+                  fontSize: '11px',
+                  fontWeight: '600',
+                  marginRight: '8px',
+                }}>T</span>
+                Trusted Model
+              </label>
+              <select
+                value={localDataset.models.trusted_model}
+                onChange={(e) => handleModelsChange('trusted_model', e.target.value)}
+                style={selectStyle}
+              >
+                {MODEL_OPTIONS.map(opt => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label style={{ display: 'block', color: colors.text.secondary, fontSize: '13px', marginBottom: '8px' }}>
+                <span style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '20px',
+                  height: '20px',
+                  borderRadius: '4px',
+                  background: colors.accent.magenta + '30',
+                  color: colors.accent.magenta,
+                  fontSize: '11px',
+                  fontWeight: '600',
+                  marginRight: '8px',
+                }}>U</span>
+                Untrusted Model
+              </label>
+              <select
+                value={localDataset.models.untrusted_model}
+                onChange={(e) => handleModelsChange('untrusted_model', e.target.value)}
+                style={selectStyle}
+              >
+                {MODEL_OPTIONS.map(opt => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'prompts' && (
+          <div>
+            {/* Phase tabs */}
+            <div style={{ display: 'flex', gap: '4px', marginBottom: '16px' }}>
+              {phases.map(phase => (
+                <button
+                  key={phase.key}
+                  onClick={() => setPromptPhase(phase.key)}
+                  style={{
+                    padding: '6px 12px',
+                    background: promptPhase === phase.key ? colors.bg.tertiary : 'transparent',
+                    border: `1px solid ${promptPhase === phase.key ? colors.accent.cyan : colors.border}`,
+                    borderRadius: '4px',
+                    color: promptPhase === phase.key ? colors.accent.cyan : colors.text.secondary,
+                    fontSize: '11px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {phase.label} ({phase.count})
+                </button>
+              ))}
+            </div>
+
+            {/* Prompt editors */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '400px', overflowY: 'auto' }}>
+              {Object.entries(defaultPrompts[promptPhase] || {}).map(([key, promptDef]) => (
+                <PromptEditor
+                  key={key}
+                  promptKey={key}
+                  label={promptDef.label}
+                  description={promptDef.description}
+                  variables={promptDef.variables}
+                  defaultValue={promptDef.default}
+                  value={getPromptValue(key, promptDef.default)}
+                  isModified={isPromptModified(key)}
+                  onChange={(value) => handlePromptChange(key, value)}
+                  onReset={() => handlePromptReset(key)}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function TestProgressModal({ isOpen, testResult, onClose }) {
+  if (!isOpen) return null;
+
+  const phases = [
+    { num: 1, name: 'Baseline Solutions' },
+    { num: 2, name: 'Generate Backdoors' },
+    { num: 3, name: 'Find Exploits' },
+    { num: 4, name: 'Verify Exploits' },
+    { num: 5, name: 'Monitoring Scores' },
+    { num: 6, name: 'Select Best' },
+    { num: 7, name: 'Compute Thresholds' },
+  ];
+
+  return (
+    <div style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      background: 'rgba(0,0,0,0.8)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 1000,
+    }}>
+      <div style={{
+        background: colors.bg.secondary,
+        border: `1px solid ${colors.border}`,
+        borderRadius: '12px',
+        padding: '32px',
+        width: '500px',
+        maxWidth: '90vw',
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+          <h3 style={{ color: colors.text.primary, margin: 0, fontSize: '16px' }}>
+            Test Run {testResult?.status === 'running' ? 'In Progress' : testResult?.status === 'completed' ? 'Complete' : 'Failed'}
+          </h3>
+          <button
+            onClick={onClose}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: colors.text.muted,
+              fontSize: '20px',
+              cursor: 'pointer',
+            }}
+          >
+            ×
+          </button>
+        </div>
+
+        {/* Progress bar */}
+        <div style={{
+          height: '4px',
+          background: colors.bg.primary,
+          borderRadius: '2px',
+          overflow: 'hidden',
+          marginBottom: '24px',
+        }}>
+          <div style={{
+            height: '100%',
+            width: `${testResult?.progress_percent || 0}%`,
+            background: testResult?.status === 'failed' ? colors.accent.red :
+                       testResult?.status === 'completed' ? colors.accent.green :
+                       `linear-gradient(90deg, ${colors.accent.cyan}, ${colors.accent.magenta})`,
+            transition: 'width 0.3s ease',
+          }} />
+        </div>
+
+        {/* Phase checklist */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '24px' }}>
+          {phases.map(phase => {
+            const isComplete = testResult?.phases_completed?.includes(phase.num);
+            const isCurrent = testResult?.current_phase?.includes(`Phase ${phase.num}`);
+
+            return (
+              <div
+                key={phase.num}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                  padding: '8px 12px',
+                  background: isCurrent ? colors.bg.tertiary : 'transparent',
+                  borderRadius: '6px',
+                }}
+              >
+                <span style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '20px',
+                  height: '20px',
+                  borderRadius: '50%',
+                  background: isComplete ? colors.accent.green + '30' :
+                             isCurrent ? colors.accent.cyan + '30' :
+                             colors.bg.primary,
+                  color: isComplete ? colors.accent.green :
+                         isCurrent ? colors.accent.cyan :
+                         colors.text.muted,
+                  fontSize: '10px',
+                  fontWeight: '600',
+                }}>
+                  {isComplete ? '✓' : phase.num}
+                </span>
+                <span style={{
+                  color: isComplete ? colors.text.primary :
+                         isCurrent ? colors.accent.cyan :
+                         colors.text.muted,
+                  fontSize: '13px',
+                }}>
+                  {phase.name}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Results summary */}
+        {testResult?.status === 'completed' && (
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(3, 1fr)',
+            gap: '12px',
+            marginBottom: '24px',
+          }}>
+            <div style={{ padding: '12px', background: colors.bg.tertiary, borderRadius: '6px', textAlign: 'center' }}>
+              <div style={{ color: colors.accent.cyan, fontSize: '20px', fontWeight: '600' }}>
+                {testResult.problems_generated}
+              </div>
+              <div style={{ color: colors.text.muted, fontSize: '11px' }}>Problems</div>
+            </div>
+            <div style={{ padding: '12px', background: colors.bg.tertiary, borderRadius: '6px', textAlign: 'center' }}>
+              <div style={{ color: colors.accent.magenta, fontSize: '20px', fontWeight: '600' }}>
+                {testResult.backdoors_generated}
+              </div>
+              <div style={{ color: colors.text.muted, fontSize: '11px' }}>Backdoors</div>
+            </div>
+            <div style={{ padding: '12px', background: colors.bg.tertiary, borderRadius: '6px', textAlign: 'center' }}>
+              <div style={{ color: colors.accent.amber, fontSize: '20px', fontWeight: '600' }}>
+                {testResult.exploits_found}
+              </div>
+              <div style={{ color: colors.text.muted, fontSize: '11px' }}>Exploits</div>
+            </div>
+          </div>
+        )}
+
+        {/* Error message */}
+        {testResult?.error && (
+          <div style={{
+            padding: '12px 16px',
+            background: colors.accent.red + '20',
+            border: `1px solid ${colors.accent.red}`,
+            borderRadius: '6px',
+            marginBottom: '24px',
+            fontSize: '13px',
+            color: colors.accent.red,
+          }}>
+            {testResult.error}
+          </div>
+        )}
+
+        {/* Close button */}
+        {testResult?.status !== 'running' && (
+          <button
+            onClick={onClose}
+            style={{
+              width: '100%',
+              padding: '12px',
+              background: colors.bg.tertiary,
+              border: `1px solid ${colors.border}`,
+              borderRadius: '6px',
+              color: colors.text.primary,
+              fontSize: '13px',
+              cursor: 'pointer',
+            }}
+          >
+            Close
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
 // PRE-COMPUTE PAGE
 // ============================================================================
 
 function PreComputePage({ apiKeys, validationStatus, onApiKeysChange, onValidateKey }) {
+  // Dataset management state
+  const [datasets, setDatasets] = useState([]);
+  const [selectedDatasetId, setSelectedDatasetId] = useState(null);
+  const [testResult, setTestResult] = useState(null);
+  const [showTestModal, setShowTestModal] = useState(false);
+
+  // Legacy precompute state (keeping for backward compatibility)
   const [precomputeConfig, setPrecomputeConfig] = useState({
     num_problems: 75,
     num_backdoor_ideas: 3,
@@ -1075,6 +1898,144 @@ function PreComputePage({ apiKeys, validationStatus, onApiKeysChange, onValidate
   const [jobs, setJobs] = useState([]);
   const [error, setError] = useState(null);
   const [customPrompts, setCustomPrompts] = useState({});
+
+  // Load datasets on mount
+  useEffect(() => {
+    const loadDatasets = async () => {
+      try {
+        const response = await fetch(`${API_BASE}/api/datasets`);
+        if (response.ok) {
+          const data = await response.json();
+          setDatasets(data.datasets || []);
+        }
+      } catch (err) {
+        console.log('Could not load datasets:', err);
+      }
+    };
+    loadDatasets();
+  }, []);
+
+  const selectedDataset = datasets.find(d => d.id === selectedDatasetId);
+
+  // Dataset CRUD handlers
+  const handleCreateDataset = async () => {
+    try {
+      const response = await fetch(`${API_BASE}/api/datasets`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: 'New Dataset' }),
+      });
+      if (response.ok) {
+        const newDataset = await response.json();
+        setDatasets(prev => [newDataset, ...prev]);
+        setSelectedDatasetId(newDataset.id);
+      }
+    } catch (err) {
+      console.error('Failed to create dataset:', err);
+    }
+  };
+
+  const handleSaveDataset = async (datasetId, updates) => {
+    try {
+      const response = await fetch(`${API_BASE}/api/datasets/${datasetId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      });
+      if (response.ok) {
+        const updated = await response.json();
+        setDatasets(prev => prev.map(d => d.id === datasetId ? updated : d));
+      }
+    } catch (err) {
+      console.error('Failed to save dataset:', err);
+    }
+  };
+
+  const handleDeleteDataset = async (datasetId) => {
+    if (!confirm('Delete this dataset?')) return;
+    try {
+      const response = await fetch(`${API_BASE}/api/datasets/${datasetId}`, {
+        method: 'DELETE',
+      });
+      if (response.ok) {
+        setDatasets(prev => prev.filter(d => d.id !== datasetId));
+        if (selectedDatasetId === datasetId) {
+          setSelectedDatasetId(null);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to delete dataset:', err);
+    }
+  };
+
+  const handleTestDataset = async (datasetId) => {
+    try {
+      setShowTestModal(true);
+      setTestResult({ status: 'running', progress_percent: 0, phases_completed: [] });
+
+      const headers = { 'Content-Type': 'application/json' };
+      if (apiKeys.anthropic && validationStatus.anthropic === 'valid') {
+        headers['X-Anthropic-Key'] = apiKeys.anthropic;
+      }
+      if (apiKeys.openai && validationStatus.openai === 'valid') {
+        headers['X-OpenAI-Key'] = apiKeys.openai;
+      }
+
+      const response = await fetch(`${API_BASE}/api/datasets/${datasetId}/test`, {
+        method: 'POST',
+        headers,
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        setTestResult(result);
+
+        // Refresh datasets to get updated last_test
+        const datasetsRes = await fetch(`${API_BASE}/api/datasets`);
+        if (datasetsRes.ok) {
+          const data = await datasetsRes.json();
+          setDatasets(data.datasets || []);
+        }
+      } else {
+        const errData = await response.json();
+        setTestResult({ status: 'failed', error: errData.detail || 'Test failed' });
+      }
+    } catch (err) {
+      setTestResult({ status: 'failed', error: err.message });
+    }
+  };
+
+  const handlePublishDataset = async (datasetId) => {
+    if (!confirm('Publish this dataset? This action cannot be undone.')) return;
+    try {
+      const response = await fetch(`${API_BASE}/api/datasets/${datasetId}/publish`, {
+        method: 'POST',
+      });
+      if (response.ok) {
+        const updated = await response.json();
+        setDatasets(prev => prev.map(d => d.id === datasetId ? updated : d));
+      }
+    } catch (err) {
+      console.error('Failed to publish dataset:', err);
+    }
+  };
+
+  const handleDuplicateDataset = async (datasetId) => {
+    try {
+      const response = await fetch(`${API_BASE}/api/datasets/${datasetId}/duplicate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      if (response.ok) {
+        const newDataset = await response.json();
+        setDatasets(prev => [newDataset, ...prev]);
+        setSelectedDatasetId(newDataset.id);
+      }
+    } catch (err) {
+      console.error('Failed to duplicate dataset:', err);
+    }
+  };
 
   // Cost estimate calculation based on spec
   const estimateCost = () => {
@@ -1245,7 +2206,14 @@ function PreComputePage({ apiKeys, validationStatus, onApiKeysChange, onValidate
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '400px 1fr', gap: '32px' }}>
-      {/* Left Panel - Configuration */}
+      {/* Test Modal */}
+      <TestProgressModal
+        isOpen={showTestModal}
+        testResult={testResult}
+        onClose={() => setShowTestModal(false)}
+      />
+
+      {/* Left Panel - Dataset Management */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
         <ApiKeyPanel
           apiKeys={apiKeys}
@@ -1253,10 +2221,15 @@ function PreComputePage({ apiKeys, validationStatus, onApiKeysChange, onValidate
           onValidate={onValidateKey}
           validationStatus={validationStatus}
         />
-        <PromptTemplatesPanel
-          prompts={customPrompts}
-          onChange={setCustomPrompts}
-          defaultPrompts={DEFAULT_PROMPTS}
+        <DatasetManagerPanel
+          datasets={datasets}
+          selectedId={selectedDatasetId}
+          onSelect={setSelectedDatasetId}
+          onCreate={handleCreateDataset}
+          onTest={handleTestDataset}
+          onPublish={handlePublishDataset}
+          onDuplicate={handleDuplicateDataset}
+          onDelete={handleDeleteDataset}
         />
         <div style={{
           background: colors.bg.secondary,
@@ -1550,8 +2523,15 @@ function PreComputePage({ apiKeys, validationStatus, onApiKeysChange, onValidate
         </div>
       </div>
 
-      {/* Right Panel - Pre-compute Jobs & Info */}
+      {/* Right Panel - Dataset Editor & Info */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+        {/* Dataset Editor */}
+        <DatasetEditorPanel
+          dataset={selectedDataset}
+          onSave={handleSaveDataset}
+          defaultPrompts={DEFAULT_PROMPTS}
+        />
+
         {/* Phases Explanation */}
         <div style={{
           background: colors.bg.secondary,
