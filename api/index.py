@@ -720,7 +720,7 @@ def update_existing_dataset(dataset_id: str, request: DatasetUpdateRequest):
 
 @app.delete("/api/datasets/{dataset_id}")
 def delete_existing_dataset(dataset_id: str):
-    """Delete a draft dataset."""
+    """Delete a dataset (both draft and published)."""
     try:
         success = delete_dataset(dataset_id)
         if not success:
@@ -728,7 +728,7 @@ def delete_existing_dataset(dataset_id: str):
 
         return {"status": "deleted", "dataset_id": dataset_id}
 
-    except ValueError as e:
+    except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 

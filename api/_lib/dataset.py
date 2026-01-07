@@ -273,13 +273,10 @@ class DatasetStore:
         return dataset
 
     def delete(self, dataset_id: str) -> bool:
-        """Delete a draft dataset"""
+        """Delete a dataset (both draft and published)"""
         dataset = self.get(dataset_id)
         if not dataset:
             return False
-
-        if dataset.status != "draft":
-            raise ValueError("Cannot delete a published dataset")
 
         if self.redis:
             try:

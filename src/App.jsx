@@ -883,7 +883,7 @@ function ExperimentHistory({ experiments, onSelect }) {
 // DATASET COMPONENTS
 // ============================================================================
 
-function DatasetCard({ dataset, isSelected, onSelect, onTest, onPublish, onDuplicate, onDelete }) {
+function DatasetCard({ dataset, isSelected, onSelect }) {
   const statusBadge = STATUS_BADGES[dataset.status] || STATUS_BADGES.draft;
   const testBadge = dataset.last_test ? TEST_STATUS_BADGES[dataset.last_test.status] : null;
 
@@ -935,84 +935,18 @@ function DatasetCard({ dataset, isSelected, onSelect, onTest, onPublish, onDupli
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: '8px', fontSize: '11px', color: colors.text.muted, marginBottom: '12px' }}>
+      <div style={{ display: 'flex', gap: '8px', fontSize: '11px', color: colors.text.muted }}>
         <span>{dataset.settings.num_problems} problems</span>
         <span>•</span>
         <span>{dataset.settings.num_backdoor_ideas} ideas</span>
         <span>•</span>
         <span>max diff: {dataset.settings.max_difficulty}</span>
       </div>
-
-      {/* Action buttons */}
-      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-        {dataset.status === 'draft' && (
-          <>
-            <button
-              onClick={(e) => { e.stopPropagation(); onTest(dataset.id); }}
-              style={{
-                padding: '6px 12px',
-                background: colors.accent.cyan + '20',
-                border: `1px solid ${colors.accent.cyan}`,
-                borderRadius: '4px',
-                color: colors.accent.cyan,
-                fontSize: '11px',
-                cursor: 'pointer',
-              }}
-            >
-              Test
-            </button>
-            <button
-              onClick={(e) => { e.stopPropagation(); onPublish(dataset.id); }}
-              style={{
-                padding: '6px 12px',
-                background: colors.accent.green + '20',
-                border: `1px solid ${colors.accent.green}`,
-                borderRadius: '4px',
-                color: colors.accent.green,
-                fontSize: '11px',
-                cursor: 'pointer',
-              }}
-            >
-              Publish
-            </button>
-            <button
-              onClick={(e) => { e.stopPropagation(); onDelete(dataset.id); }}
-              style={{
-                padding: '6px 12px',
-                background: 'transparent',
-                border: `1px solid ${colors.border}`,
-                borderRadius: '4px',
-                color: colors.text.muted,
-                fontSize: '11px',
-                cursor: 'pointer',
-              }}
-            >
-              Delete
-            </button>
-          </>
-        )}
-        {dataset.status === 'published' && (
-          <button
-            onClick={(e) => { e.stopPropagation(); onDuplicate(dataset.id); }}
-            style={{
-              padding: '6px 12px',
-              background: colors.bg.tertiary,
-              border: `1px solid ${colors.border}`,
-              borderRadius: '4px',
-              color: colors.text.secondary,
-              fontSize: '11px',
-              cursor: 'pointer',
-            }}
-          >
-            Duplicate
-          </button>
-        )}
-      </div>
     </div>
   );
 }
 
-function DatasetManagerPanel({ datasets, selectedId, onSelect, onCreate, onTest, onPublish, onDuplicate, onDelete }) {
+function DatasetManagerPanel({ datasets, selectedId, onSelect, onCreate }) {
   return (
     <div style={{
       background: colors.bg.secondary,
@@ -1060,10 +994,6 @@ function DatasetManagerPanel({ datasets, selectedId, onSelect, onCreate, onTest,
               dataset={dataset}
               isSelected={dataset.id === selectedId}
               onSelect={onSelect}
-              onTest={onTest}
-              onPublish={onPublish}
-              onDuplicate={onDuplicate}
-              onDelete={onDelete}
             />
           ))}
         </div>
@@ -1072,7 +1002,7 @@ function DatasetManagerPanel({ datasets, selectedId, onSelect, onCreate, onTest,
   );
 }
 
-function DatasetEditorPanel({ dataset, onSave, defaultPrompts }) {
+function DatasetEditorPanel({ dataset, onSave, onTest, onPublish, onDelete, onDuplicate, defaultPrompts }) {
   const [localDataset, setLocalDataset] = useState(null);
   const [activeTab, setActiveTab] = useState('settings');
   const [hasChanges, setHasChanges] = useState(false);
@@ -1131,7 +1061,7 @@ function DatasetEditorPanel({ dataset, onSave, defaultPrompts }) {
 
         <h3 style={{ color: colors.text.primary, margin: '0 0 16px 0', fontSize: '16px' }}>{dataset.name}</h3>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '24px' }}>
           <div style={{ padding: '12px', background: colors.bg.tertiary, borderRadius: '6px' }}>
             <div style={{ color: colors.text.muted, fontSize: '11px', marginBottom: '4px' }}>Problems</div>
             <div style={{ color: colors.text.primary, fontSize: '16px', fontFamily: 'JetBrains Mono, monospace' }}>
@@ -1150,6 +1080,38 @@ function DatasetEditorPanel({ dataset, onSave, defaultPrompts }) {
               {dataset.settings.max_difficulty}
             </div>
           </div>
+        </div>
+
+        {/* Action buttons for published dataset */}
+        <div style={{ display: 'flex', gap: '12px', borderTop: `1px solid ${colors.border}`, paddingTop: '16px' }}>
+          <button
+            onClick={() => onDuplicate(dataset.id)}
+            style={{
+              padding: '10px 20px',
+              background: colors.bg.tertiary,
+              border: `1px solid ${colors.border}`,
+              borderRadius: '6px',
+              color: colors.text.secondary,
+              fontSize: '13px',
+              cursor: 'pointer',
+            }}
+          >
+            Duplicate
+          </button>
+          <button
+            onClick={() => onDelete(dataset.id)}
+            style={{
+              padding: '10px 20px',
+              background: 'transparent',
+              border: `1px solid ${colors.accent.red}40`,
+              borderRadius: '6px',
+              color: colors.accent.red,
+              fontSize: '13px',
+              cursor: 'pointer',
+            }}
+          >
+            Delete
+          </button>
         </div>
       </div>
     );
@@ -1503,6 +1465,62 @@ function DatasetEditorPanel({ dataset, onSave, defaultPrompts }) {
             </div>
           </div>
         )}
+      </div>
+
+      {/* Action buttons for draft dataset */}
+      <div style={{
+        display: 'flex',
+        gap: '12px',
+        padding: '16px 24px',
+        borderTop: `1px solid ${colors.border}`,
+        background: colors.bg.tertiary,
+        borderRadius: '0 0 8px 8px',
+      }}>
+        <button
+          onClick={() => onTest(dataset.id)}
+          style={{
+            padding: '10px 20px',
+            background: colors.accent.cyan + '20',
+            border: `1px solid ${colors.accent.cyan}`,
+            borderRadius: '6px',
+            color: colors.accent.cyan,
+            fontSize: '13px',
+            fontWeight: '500',
+            cursor: 'pointer',
+          }}
+        >
+          Test Dataset
+        </button>
+        <button
+          onClick={() => onPublish(dataset.id)}
+          style={{
+            padding: '10px 20px',
+            background: colors.accent.green + '20',
+            border: `1px solid ${colors.accent.green}`,
+            borderRadius: '6px',
+            color: colors.accent.green,
+            fontSize: '13px',
+            fontWeight: '500',
+            cursor: 'pointer',
+          }}
+        >
+          Publish
+        </button>
+        <div style={{ flex: 1 }} />
+        <button
+          onClick={() => onDelete(dataset.id)}
+          style={{
+            padding: '10px 20px',
+            background: 'transparent',
+            border: `1px solid ${colors.accent.red}40`,
+            borderRadius: '6px',
+            color: colors.accent.red,
+            fontSize: '13px',
+            cursor: 'pointer',
+          }}
+        >
+          Delete
+        </button>
       </div>
     </div>
   );
@@ -1865,10 +1883,6 @@ function PreComputePage({ apiKeys, validationStatus, onApiKeysChange, onValidate
           selectedId={selectedDatasetId}
           onSelect={setSelectedDatasetId}
           onCreate={handleCreateDataset}
-          onTest={handleTestDataset}
-          onPublish={handlePublishDataset}
-          onDuplicate={handleDuplicateDataset}
-          onDelete={handleDeleteDataset}
         />
       </div>
 
@@ -1878,6 +1892,10 @@ function PreComputePage({ apiKeys, validationStatus, onApiKeysChange, onValidate
         <DatasetEditorPanel
           dataset={selectedDataset}
           onSave={handleSaveDataset}
+          onTest={handleTestDataset}
+          onPublish={handlePublishDataset}
+          onDelete={handleDeleteDataset}
+          onDuplicate={handleDuplicateDataset}
           defaultPrompts={DEFAULT_PROMPTS}
         />
 
