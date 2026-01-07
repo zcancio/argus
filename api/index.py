@@ -27,7 +27,9 @@ from api._lib.environments import (
 from api._lib.storage import store
 from api._lib.precompute import (
     create_job, get_job, list_jobs, run_job,
-    PrecomputeJob
+    PrecomputeJob, CheckpointingPrecomputeEngine,
+    load_resume_context, get_checkpoint_status,
+    list_incomplete_jobs, cleanup_job_data
 )
 
 # FastAPI app
@@ -463,3 +465,100 @@ def get_precompute_job(job_id: str):
         "defer_threshold": job.defer_threshold,
         "problem_count": len(job.problems) if job.problems else 0,
     }
+
+
+@app.post("/api/precompute/jobs/{job_id}/resume")
+def resume_precompute_job(
+    job_id: str,
+    x_anthropic_key: Optional[str] = Header(None, alias="X-Anthropic-Key"),
+    x_openai_key: Optional[str] = Header(None, alias="X-OpenAI-Key"),
+):
+    """Resume an incomplete pre-computation job."""
+    try:
+        # Load resume context from Redis
+        resume_context = load_resume_context(job_id)
+        if not resume_context:
+            raise HTTPException(
+                status_code=404,
+                detail="Job not found or no checkpoint data available"
+            )
+
+        if resume_context.job.status not in ("resumable", "failed", "running"):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Job cannot be resumed (status: {resume_context.job.status})"
+            )
+
+        # Create engine with resume context and run
+        engine = CheckpointingPrecomputeEngine(
+            job=resume_context.job,
+            resume_context=resume_context
+        )
+        result = engine.run()
+
+        return {
+            "job_id": result.job_id,
+            "status": result.status,
+            "num_problems": result.num_problems,
+            "num_backdoor_ideas": result.num_backdoor_ideas,
+            "human_model": result.human_model,
+            "trusted_model": result.trusted_model,
+            "untrusted_model": result.untrusted_model,
+            "created_at": result.created_at,
+            "current_phase": result.current_phase,
+            "progress_percent": result.progress_percent,
+            "details": result.details,
+            "error": result.error,
+            "resumed": True,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        raise HTTPException(status_code=400, detail=f"{str(e)}\n{traceback.format_exc()}")
+
+
+@app.get("/api/precompute/jobs/{job_id}/checkpoint")
+def get_precompute_checkpoint(job_id: str):
+    """Get checkpoint details for a pre-computation job."""
+    checkpoint = get_checkpoint_status(job_id)
+    if not checkpoint:
+        raise HTTPException(status_code=404, detail="Checkpoint not found")
+
+    return checkpoint
+
+
+@app.get("/api/precompute/incomplete")
+def get_incomplete_jobs():
+    """List all incomplete/resumable pre-computation jobs."""
+    job_ids = list_incomplete_jobs()
+
+    # Get details for each incomplete job
+    incomplete_jobs = []
+    for job_id in job_ids:
+        checkpoint = get_checkpoint_status(job_id)
+        if checkpoint:
+            incomplete_jobs.append({
+                "job_id": job_id,
+                "current_phase": checkpoint.get("phase_name", "Unknown"),
+                "progress_percent": checkpoint.get("progress_percent", 0),
+                "checkpoint_time": checkpoint.get("checkpoint_time"),
+                "phases_completed": checkpoint.get("phases_completed", []),
+            })
+
+    return {"incomplete_jobs": incomplete_jobs}
+
+
+@app.delete("/api/precompute/jobs/{job_id}/cleanup")
+def cleanup_precompute_job(job_id: str, keep_results: bool = True):
+    """Clean up intermediate data for a pre-computation job."""
+    try:
+        cleanup_job_data(job_id, keep_results=keep_results)
+        return {
+            "status": "cleaned",
+            "job_id": job_id,
+            "kept_results": keep_results
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
