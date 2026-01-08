@@ -1596,7 +1596,7 @@ function PhaseCallsSection({ phase, calls, result, isExpanded, onToggle }) {
             alignItems: 'center',
             justifyContent: 'center',
           }}>
-            {phaseCompleted ? '✓' : phase}
+            {phase}
           </span>
           <span style={{ color: colors.text.primary, fontSize: '12px', fontWeight: 500 }}>
             {PHASE_NAMES[phase] || `Phase ${phase}`}
