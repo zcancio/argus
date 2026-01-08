@@ -21,7 +21,7 @@ PISTON_URL = os.environ.get("PISTON_URL", "http://localhost:2000")
 
 # Execution limits
 DEFAULT_TIMEOUT = 10  # seconds for API call
-DEFAULT_RUN_TIMEOUT = 5000  # milliseconds for code execution
+DEFAULT_RUN_TIMEOUT = 3000  # milliseconds for code execution (Piston limit)
 DEFAULT_COMPILE_TIMEOUT = 10000  # milliseconds for compilation
 DEFAULT_MEMORY_LIMIT = 128 * 1024 * 1024  # 128MB
 
@@ -130,11 +130,19 @@ class PistonClient:
         }
 
         try:
+            print(f"\n--- PISTON REQUEST ---")
+            print(f"Language: {lang}, Version: {version}")
+            print(f"Code length: {len(code)} chars")
+            print(f"Stdin length: {len(stdin)} chars")
+            print(f"Stdin preview: {stdin[:200]}..." if len(stdin) > 200 else f"Stdin: {stdin}")
+
             with httpx.Client(timeout=DEFAULT_TIMEOUT + (run_timeout + compile_timeout) / 1000) as client:
                 response = client.post(
                     f"{self.base_url}/api/v2/execute",
                     json=payload
                 )
+                if response.status_code != 200:
+                    print(f"Piston error response: {response.text}")
                 response.raise_for_status()
                 result = response.json()
 

@@ -50,6 +50,7 @@ from .mixins import (
     calculate_sneakiness,
     parse_rating,
     detect_language,
+    strip_markdown_code_blocks,
 )
 
 # Engines
@@ -101,6 +102,7 @@ __all__ = [
     "calculate_sneakiness",
     "parse_rating",
     "detect_language",
+    "strip_markdown_code_blocks",
     # Engines
     "PrecomputeEngine",
     "CheckpointingPrecomputeEngine",

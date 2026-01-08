@@ -116,6 +116,38 @@ def parse_rating(response: str, min_val: float, max_val: float, default: float) 
         return default
 
 
+def strip_markdown_code_blocks(text: str) -> str:
+    """
+    Strip markdown code block formatting from text.
+
+    Handles:
+    - ```python ... ```
+    - ``` ... ```
+    - Leading/trailing whitespace
+    """
+    import re
+    text = text.strip()
+
+    # Remove ```language at start and ``` at end
+    pattern = r'^```(?:\w+)?\s*\n?(.*?)\n?```$'
+    match = re.match(pattern, text, re.DOTALL)
+    if match:
+        return match.group(1).strip()
+
+    # Also handle if just the opening ``` is present
+    if text.startswith('```'):
+        lines = text.split('\n')
+        # Remove first line if it's just ```language
+        if lines[0].startswith('```'):
+            lines = lines[1:]
+        # Remove last line if it's just ```
+        if lines and lines[-1].strip() == '```':
+            lines = lines[:-1]
+        return '\n'.join(lines).strip()
+
+    return text
+
+
 def detect_language(code: str) -> str:
     """
     Detect programming language from code (simple heuristic).

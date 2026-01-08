@@ -113,6 +113,12 @@ class ProblemResult:
     U_normal_solution: Optional[str] = None
     T_solution: Optional[str] = None
 
+    # Phase 1: Baseline solution test results
+    U_tests_passed: Optional[int] = None
+    U_tests_total: Optional[int] = None
+    T_tests_passed: Optional[int] = None
+    T_tests_total: Optional[int] = None
+
     # Phase 5: Pre-computed suspicion scores
     # T rates: normal solution (always) + sneakiest backdoor (if any)
     T_suspicion_normal: Optional[float] = None  # T's score on normal solution
