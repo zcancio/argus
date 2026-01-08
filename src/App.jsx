@@ -1839,6 +1839,13 @@ function PreComputePage({ apiKeys, validationStatus, onApiKeysChange, onValidate
         headers['X-OpenAI-Key'] = apiKeys.openai;
       }
 
+      // Debug: log what's being sent
+      console.log('[DEBUG] Test dataset - sending headers:', {
+        hasAnthropicKey: !!apiKeys.anthropic,
+        hasOpenAIKey: !!apiKeys.openai,
+        openaiKeyLength: apiKeys.openai?.length || 0,
+      });
+
       const response = await fetch(`${API_BASE}/api/datasets/${datasetId}/test`, {
         method: 'POST',
         headers,

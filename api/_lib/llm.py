@@ -17,6 +17,9 @@ class LLMClient:
         self.openai_key = openai_key or os.environ.get("OPENAI_API_KEY")
         self.anthropic_key = anthropic_key or os.environ.get("ANTHROPIC_API_KEY")
 
+        # Debug: log key status
+        print(f"[DEBUG] LLMClient init - OpenAI key: {'present' if self.openai_key else 'missing'}, Anthropic key: {'present' if self.anthropic_key else 'missing'}")
+
         self._openai_client = None
         self._anthropic_client = None
 

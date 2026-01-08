@@ -740,6 +740,9 @@ def start_dataset_test(
 ):
     """Start a test run for a dataset (1 problem through all 7 phases)."""
     try:
+        # Debug: log received API keys
+        print(f"[DEBUG] Received headers - OpenAI key: {'present' if x_openai_key else 'missing'}, Anthropic key: {'present' if x_anthropic_key else 'missing'}")
+
         dataset = get_dataset(dataset_id)
         if not dataset:
             raise HTTPException(status_code=404, detail="Dataset not found")
