@@ -402,7 +402,9 @@ class SingleProblemEngine(LLMCallTrackerMixin):
                 f"exploit_possible_{idx}"
             )
 
-            exploit_possible = possible_response.strip().upper().startswith("YES")
+            # Parse response - prompt requires YES or NO on first line
+            first_line = possible_response.strip().split('\n')[0].upper()
+            exploit_possible = first_line.startswith("YES")
 
             # Step 5: Construct exploit if possible
             if exploit_possible:
