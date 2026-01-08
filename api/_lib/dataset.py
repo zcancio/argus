@@ -97,6 +97,14 @@ class ProblemResult:
     U_normal_solution: Optional[str] = None
     T_solution: Optional[str] = None
 
+    # Phase 5: Pre-computed suspicion scores
+    # T rates: normal solution (always) + sneakiest backdoor (if any)
+    T_suspicion_normal: Optional[float] = None  # T's score on normal solution
+    T_suspicion_backdoor: Optional[float] = None  # T's score on sneakiest backdoor
+    H_suspicion_normal: Optional[float] = None  # H's score on normal solution
+    H_suspicion_backdoor: Optional[float] = None  # H's score on sneakiest backdoor
+    sneakiest_backdoor_idx: Optional[int] = None  # Index of sneakiest backdoor in backdoor_attempts
+
     # Results per attack strategy (Phase 6)
     strategy_results: Dict[str, StrategyResult] = field(default_factory=dict)
 
@@ -284,6 +292,11 @@ def dict_to_problem_result(d: dict) -> ProblemResult:
         current_phase=d.get("current_phase"),
         U_normal_solution=d.get("U_normal_solution"),
         T_solution=d.get("T_solution"),
+        T_suspicion_normal=d.get("T_suspicion_normal"),
+        T_suspicion_backdoor=d.get("T_suspicion_backdoor"),
+        H_suspicion_normal=d.get("H_suspicion_normal"),
+        H_suspicion_backdoor=d.get("H_suspicion_backdoor"),
+        sneakiest_backdoor_idx=d.get("sneakiest_backdoor_idx"),
         strategy_results=strategy_results,
         U_backdoored_solution=d.get("U_backdoored_solution"),
         T_suspicion_score=d.get("T_suspicion_score"),

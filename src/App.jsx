@@ -1789,7 +1789,9 @@ function PublishedDatasetView({ dataset, onDuplicate, onDelete }) {
           if (resultRes.ok) {
             const data = await resultRes.json();
             if (data.result) {
+              // Update both problemResults and detailedResults (for llm_calls)
               setProblemResults(prev => ({ ...prev, [problemId]: data.result }));
+              setDetailedResults(prev => ({ ...prev, [problemId]: data.result }));
               if (data.result.status === 'completed' || data.result.status === 'failed') {
                 clearInterval(pollInterval);
                 setLoadingProblems(prev => ({ ...prev, [problemId]: false }));
@@ -2273,7 +2275,8 @@ function PublishedDatasetView({ dataset, onDuplicate, onDelete }) {
                             {(() => {
                               const detailed = detailedResults[pid];
                               const isLoadingDetail = loadingDetails[pid];
-                              const llmCalls = detailed?.llm_calls || [];
+                              // Check detailedResults first, fall back to result (which may have llm_calls from polling)
+                              const llmCalls = detailed?.llm_calls || result?.llm_calls || [];
 
                               if (isLoadingDetail) {
                                 return (
