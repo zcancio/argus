@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-ro
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ScatterChart, Scatter, Legend, ReferenceLine } from 'recharts';
 import { DEFAULT_PROMPTS } from './promptDefaults';
 import { DEFAULT_DATASET_SETTINGS, DEFAULT_DATASET_MODELS, MODEL_OPTIONS, STATUS_BADGES, TEST_STATUS_BADGES } from './datasetDefaults';
+import { saveApiKeys, loadApiKeys, clearApiKeys, saveValidationStatus, loadValidationStatus, hasStoredKeys } from './secureStorage';
 
 // API is same-origin on Vercel, use relative paths
 const API_BASE = '';
@@ -38,7 +39,7 @@ const colors = {
 // COMPONENTS
 // ============================================================================
 
-function ApiKeyPanel({ apiKeys, onChange, onValidate, validationStatus }) {
+function ApiKeyPanel({ apiKeys, onChange, onValidate, onClear, validationStatus, isStored }) {
   const inputStyle = {
     width: '100%',
     padding: '10px 12px',
@@ -71,11 +72,43 @@ function ApiKeyPanel({ apiKeys, onChange, onValidate, validationStatus }) {
       padding: '24px',
       marginBottom: '24px',
     }}>
-      <h3 style={{ color: colors.text.primary, margin: '0 0 16px 0', fontSize: '14px', textTransform: 'uppercase', letterSpacing: '1px' }}>
-        API Keys
-      </h3>
-      <p style={{ color: colors.text.muted, fontSize: '12px', marginBottom: '16px' }}>
-        Optional. Without keys, experiments run in simulated mode.
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+        <h3 style={{ color: colors.text.primary, margin: 0, fontSize: '14px', textTransform: 'uppercase', letterSpacing: '1px' }}>
+          API Keys
+        </h3>
+        {isStored && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{
+              padding: '3px 8px',
+              background: colors.accent.green + '20',
+              borderRadius: '4px',
+              fontSize: '10px',
+              color: colors.accent.green,
+            }}>
+              Saved
+            </span>
+            <button
+              onClick={onClear}
+              style={{
+                padding: '4px 8px',
+                background: 'transparent',
+                border: `1px solid ${colors.accent.red}40`,
+                borderRadius: '4px',
+                color: colors.accent.red,
+                fontSize: '10px',
+                cursor: 'pointer',
+              }}
+            >
+              Clear
+            </button>
+          </div>
+        )}
+      </div>
+      <p style={{ color: colors.text.muted, fontSize: '12px', marginBottom: '8px' }}>
+        Keys are stored locally in your browser.
+      </p>
+      <p style={{ color: colors.text.muted, fontSize: '11px', marginBottom: '16px', opacity: 0.7 }}>
+        Without keys, experiments run in simulated mode.
       </p>
 
       <div style={{ marginBottom: '16px' }}>
@@ -1716,7 +1749,7 @@ function TestProgressModal({ isOpen, testResult, onClose }) {
 // PRE-COMPUTE PAGE
 // ============================================================================
 
-function PreComputePage({ apiKeys, validationStatus, onApiKeysChange, onValidateKey }) {
+function PreComputePage({ apiKeys, validationStatus, onApiKeysChange, onValidateKey, onClearKeys }) {
   // Dataset management state
   const [datasets, setDatasets] = useState([]);
   const [selectedDatasetId, setSelectedDatasetId] = useState(null);
@@ -1876,7 +1909,9 @@ function PreComputePage({ apiKeys, validationStatus, onApiKeysChange, onValidate
           apiKeys={apiKeys}
           onChange={onApiKeysChange}
           onValidate={onValidateKey}
+          onClear={onClearKeys}
           validationStatus={validationStatus}
+          isStored={!!(apiKeys.anthropic || apiKeys.openai)}
         />
         <DatasetManagerPanel
           datasets={datasets}
@@ -1994,15 +2029,28 @@ function AppContent() {
     num_episodes: 100,
   });
 
-  const [apiKeys, setApiKeys] = useState({
-    anthropic: '',
-    openai: '',
-  });
+  const [apiKeys, setApiKeys] = useState(() => loadApiKeys());
+  const [validationStatus, setValidationStatus] = useState(() => loadValidationStatus());
+  const [keysLoaded, setKeysLoaded] = useState(false);
 
-  const [validationStatus, setValidationStatus] = useState({
-    anthropic: null,  // null, 'checking', 'valid', 'invalid'
-    openai: null,
-  });
+  // Save API keys whenever they change
+  useEffect(() => {
+    if (keysLoaded) {
+      saveApiKeys(apiKeys);
+    }
+  }, [apiKeys, keysLoaded]);
+
+  // Save validation status whenever it changes
+  useEffect(() => {
+    if (keysLoaded) {
+      saveValidationStatus(validationStatus);
+    }
+  }, [validationStatus, keysLoaded]);
+
+  // Mark keys as loaded after initial render
+  useEffect(() => {
+    setKeysLoaded(true);
+  }, []);
 
   const [isRunning, setIsRunning] = useState(false);
   const [currentResult, setCurrentResult] = useState(null);
@@ -2052,9 +2100,9 @@ function AppContent() {
       });
 
       const result = await response.json();
-      setValidationStatus(prev => ({ 
-        ...prev, 
-        [provider]: result.valid ? 'valid' : 'invalid' 
+      setValidationStatus(prev => ({
+        ...prev,
+        [provider]: result.valid ? 'valid' : 'invalid'
       }));
 
       if (result.valid) {
@@ -2063,6 +2111,14 @@ function AppContent() {
     } catch (err) {
       setValidationStatus(prev => ({ ...prev, [provider]: 'invalid' }));
     }
+  };
+
+  const handleClearApiKeys = () => {
+    if (!confirm('Clear all stored API keys?')) return;
+    clearApiKeys();
+    setApiKeys({ anthropic: '', openai: '' });
+    setValidationStatus({ anthropic: null, openai: null });
+    setIsDemo(true);
   };
 
   // Demo data generator
@@ -2397,6 +2453,7 @@ function AppContent() {
             validationStatus={validationStatus}
             onApiKeysChange={setApiKeys}
             onValidateKey={validateApiKey}
+            onClearKeys={handleClearApiKeys}
           />
         )}
       </main>
