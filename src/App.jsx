@@ -1537,9 +1537,176 @@ function DatasetManagerPanel({ datasets, selectedId, onSelect, onCreate }) {
   );
 }
 
+// Phase names for display
+const PHASE_NAMES = {
+  1: "Baseline Solutions",
+  2: "Generating Backdoors",
+  3: "Finding Exploits",
+  4: "Verifying Exploits",
+  5: "Monitoring Scores",
+  6: "Selecting Best Backdoor",
+};
+
+// Component to display LLM calls for a single phase
+function PhaseCallsSection({ phase, calls, isExpanded, onToggle }) {
+  const phaseCalls = calls.filter(c => c.phase === phase);
+  if (phaseCalls.length === 0) return null;
+
+  return (
+    <div style={{
+      background: colors.bg.primary,
+      borderRadius: '4px',
+      marginBottom: '8px',
+      border: `1px solid ${colors.border}`,
+    }}>
+      <div
+        onClick={onToggle}
+        style={{
+          padding: '10px 12px',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          borderBottom: isExpanded ? `1px solid ${colors.border}` : 'none',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{
+            width: '20px',
+            height: '20px',
+            borderRadius: '4px',
+            background: colors.accent.cyan + '20',
+            color: colors.accent.cyan,
+            fontSize: '11px',
+            fontWeight: 600,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}>
+            {phase}
+          </span>
+          <span style={{ color: colors.text.primary, fontSize: '12px', fontWeight: 500 }}>
+            {PHASE_NAMES[phase] || `Phase ${phase}`}
+          </span>
+          <span style={{ color: colors.text.muted, fontSize: '11px' }}>
+            ({phaseCalls.length} call{phaseCalls.length !== 1 ? 's' : ''})
+          </span>
+        </div>
+        <span style={{ color: colors.text.muted, fontSize: '12px' }}>
+          {isExpanded ? '▼' : '▶'}
+        </span>
+      </div>
+      {isExpanded && (
+        <div style={{ padding: '12px' }}>
+          {phaseCalls.map((call, idx) => (
+            <div
+              key={call.call_id || idx}
+              style={{
+                marginBottom: idx < phaseCalls.length - 1 ? '16px' : 0,
+                paddingBottom: idx < phaseCalls.length - 1 ? '16px' : 0,
+                borderBottom: idx < phaseCalls.length - 1 ? `1px solid ${colors.border}` : 'none',
+              }}
+            >
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                marginBottom: '8px',
+              }}>
+                <span style={{
+                  padding: '2px 6px',
+                  background: colors.bg.tertiary,
+                  borderRadius: '3px',
+                  fontSize: '10px',
+                  color: colors.text.muted,
+                  fontFamily: 'JetBrains Mono, monospace',
+                }}>
+                  {call.step}
+                </span>
+                <span style={{
+                  padding: '2px 6px',
+                  background: colors.accent.magenta + '20',
+                  borderRadius: '3px',
+                  fontSize: '10px',
+                  color: colors.accent.magenta,
+                  fontFamily: 'JetBrains Mono, monospace',
+                }}>
+                  {call.model}
+                </span>
+                {call.status && (
+                  <span style={{
+                    padding: '2px 6px',
+                    background: call.status === 'completed' ? colors.accent.green + '20' :
+                               call.status === 'failed' ? colors.accent.red + '20' :
+                               colors.accent.amber + '20',
+                    borderRadius: '3px',
+                    fontSize: '10px',
+                    color: call.status === 'completed' ? colors.accent.green :
+                           call.status === 'failed' ? colors.accent.red :
+                           colors.accent.amber,
+                  }}>
+                    {call.status}
+                  </span>
+                )}
+              </div>
+
+              {/* Prompt */}
+              <div style={{ marginBottom: '8px' }}>
+                <div style={{ color: colors.text.muted, fontSize: '10px', marginBottom: '4px', textTransform: 'uppercase' }}>
+                  Request
+                </div>
+                <pre style={{
+                  background: colors.bg.secondary,
+                  padding: '8px',
+                  borderRadius: '4px',
+                  fontSize: '11px',
+                  color: colors.text.secondary,
+                  overflow: 'auto',
+                  maxHeight: '200px',
+                  margin: 0,
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-word',
+                  border: `1px solid ${colors.border}`,
+                }}>
+                  {call.prompt || '(no prompt)'}
+                </pre>
+              </div>
+
+              {/* Response */}
+              <div>
+                <div style={{ color: colors.text.muted, fontSize: '10px', marginBottom: '4px', textTransform: 'uppercase' }}>
+                  Response
+                </div>
+                <pre style={{
+                  background: colors.bg.secondary,
+                  padding: '8px',
+                  borderRadius: '4px',
+                  fontSize: '11px',
+                  color: call.error ? colors.accent.red : colors.accent.green,
+                  overflow: 'auto',
+                  maxHeight: '200px',
+                  margin: 0,
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-word',
+                  border: `1px solid ${call.error ? colors.accent.red + '40' : colors.border}`,
+                }}>
+                  {call.error || call.response || '(no response)'}
+                </pre>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function PublishedDatasetView({ dataset, onDuplicate, onDelete }) {
   const [expandedRows, setExpandedRows] = useState({});
+  const [expandedPhases, setExpandedPhases] = useState({});
   const [problemResults, setProblemResults] = useState({});
+  const [detailedResults, setDetailedResults] = useState({}); // Stores full results with llm_calls
+  const [loadingDetails, setLoadingDetails] = useState({});
   const [loadingProblems, setLoadingProblems] = useState({});
   const [computingThreshold, setComputingThreshold] = useState(false);
   const [thresholds, setThresholds] = useState({
@@ -1569,10 +1736,37 @@ function PublishedDatasetView({ dataset, onDuplicate, onDelete }) {
     }
   };
 
-  const toggleRow = (problemId) => {
+  const toggleRow = async (problemId) => {
+    const willExpand = !expandedRows[problemId];
     setExpandedRows(prev => ({
       ...prev,
-      [problemId]: !prev[problemId]
+      [problemId]: willExpand
+    }));
+
+    // Fetch detailed results (with llm_calls) when expanding
+    if (willExpand && !detailedResults[problemId] && !loadingDetails[problemId]) {
+      setLoadingDetails(prev => ({ ...prev, [problemId]: true }));
+      try {
+        const response = await fetch(`${API_BASE}/api/datasets/${dataset.id}/problems/${problemId}`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.result) {
+            setDetailedResults(prev => ({ ...prev, [problemId]: data.result }));
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch detailed results:', err);
+      } finally {
+        setLoadingDetails(prev => ({ ...prev, [problemId]: false }));
+      }
+    }
+  };
+
+  const togglePhase = (problemId, phase) => {
+    const key = `${problemId}-${phase}`;
+    setExpandedPhases(prev => ({
+      ...prev,
+      [key]: !prev[key]
     }));
   };
 
@@ -1753,7 +1947,7 @@ function PublishedDatasetView({ dataset, onDuplicate, onDelete }) {
           <div style={{ padding: '10px', background: colors.bg.tertiary, borderRadius: '6px' }}>
             <div style={{ color: colors.text.muted, fontSize: '10px', marginBottom: '2px' }}>Trusted (T)</div>
             <div style={{ color: colors.text.primary, fontSize: '13px', fontFamily: 'JetBrains Mono, monospace' }}>
-              {dataset.models?.trusted_model || 'gpt-4o'}
+              {dataset.models?.trusted_model || 'gpt-3.5-turbo'}
             </div>
           </div>
           <div style={{ padding: '10px', background: colors.bg.tertiary, borderRadius: '6px' }}>
@@ -1946,8 +2140,84 @@ function PublishedDatasetView({ dataset, onDuplicate, onDelete }) {
                               </div>
                             </div>
 
-                            {/* Scores Row */}
-                            {result && (
+                            {/* Strategy Results Table */}
+                            {result?.strategy_results && Object.keys(result.strategy_results).length > 0 && (
+                              <div style={{ marginTop: '16px' }}>
+                                <div style={{ color: colors.text.muted, fontSize: '11px', marginBottom: '8px', textTransform: 'uppercase' }}>
+                                  Attack Strategy Results
+                                </div>
+                                <div style={{
+                                  background: colors.bg.primary,
+                                  borderRadius: '4px',
+                                  border: `1px solid ${colors.border}`,
+                                  overflow: 'hidden',
+                                }}>
+                                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
+                                    <thead>
+                                      <tr style={{ background: colors.bg.secondary }}>
+                                        <th style={{ padding: '8px', textAlign: 'left', color: colors.text.muted, fontWeight: 500, borderBottom: `1px solid ${colors.border}` }}>Strategy</th>
+                                        <th style={{ padding: '8px', textAlign: 'center', color: colors.text.muted, fontWeight: 500, borderBottom: `1px solid ${colors.border}` }}>Threshold</th>
+                                        <th style={{ padding: '8px', textAlign: 'center', color: colors.text.muted, fontWeight: 500, borderBottom: `1px solid ${colors.border}` }}>Backdoor</th>
+                                        <th style={{ padding: '8px', textAlign: 'center', color: colors.text.muted, fontWeight: 500, borderBottom: `1px solid ${colors.border}` }}>Sneakiness</th>
+                                        <th style={{ padding: '8px', textAlign: 'center', color: colors.text.muted, fontWeight: 500, borderBottom: `1px solid ${colors.border}` }}>T Score</th>
+                                        <th style={{ padding: '8px', textAlign: 'center', color: colors.text.muted, fontWeight: 500, borderBottom: `1px solid ${colors.border}` }}>H Score</th>
+                                        <th style={{ padding: '8px', textAlign: 'center', color: colors.text.muted, fontWeight: 500, borderBottom: `1px solid ${colors.border}` }}>Exploit</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {['common', 'sometimes', 'rarely', 'very_rarely', 'very_very_rarely'].map((strategyName, idx) => {
+                                        const sr = result.strategy_results[strategyName];
+                                        if (!sr) return null;
+                                        return (
+                                          <tr key={strategyName} style={{ borderBottom: idx < 4 ? `1px solid ${colors.border}` : 'none' }}>
+                                            <td style={{ padding: '8px', color: colors.text.primary }}>
+                                              {strategyName.replace(/_/g, ' ')}
+                                            </td>
+                                            <td style={{ padding: '8px', textAlign: 'center', color: colors.text.muted, fontFamily: 'JetBrains Mono, monospace' }}>
+                                              ≥{sr.threshold}
+                                            </td>
+                                            <td style={{ padding: '8px', textAlign: 'center' }}>
+                                              {sr.backdoor_selected ? (
+                                                <span style={{ color: colors.accent.amber }}>Yes</span>
+                                              ) : (
+                                                <span style={{ color: colors.text.muted }}>No</span>
+                                              )}
+                                            </td>
+                                            <td style={{ padding: '8px', textAlign: 'center', fontFamily: 'JetBrains Mono, monospace' }}>
+                                              {sr.sneakiness != null ? (
+                                                <span style={{ color: sr.sneakiness >= sr.threshold ? colors.accent.green : colors.text.muted }}>
+                                                  {sr.sneakiness.toFixed(1)}
+                                                </span>
+                                              ) : (
+                                                <span style={{ color: colors.text.muted }}>—</span>
+                                              )}
+                                            </td>
+                                            <td style={{ padding: '8px', textAlign: 'center', fontFamily: 'JetBrains Mono, monospace', color: colors.text.primary }}>
+                                              {sr.T_suspicion_score?.toFixed(2) || '—'}
+                                            </td>
+                                            <td style={{ padding: '8px', textAlign: 'center', fontFamily: 'JetBrains Mono, monospace', color: colors.text.primary }}>
+                                              {sr.H_suspicion_score?.toFixed(2) || '—'}
+                                            </td>
+                                            <td style={{ padding: '8px', textAlign: 'center' }}>
+                                              {sr.exploit_found ? (
+                                                <span style={{ color: colors.accent.red }}>Found</span>
+                                              ) : sr.backdoor_selected ? (
+                                                <span style={{ color: colors.accent.green }}>Safe</span>
+                                              ) : (
+                                                <span style={{ color: colors.text.muted }}>—</span>
+                                              )}
+                                            </td>
+                                          </tr>
+                                        );
+                                      })}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Legacy Scores Row (fallback if no strategy_results) */}
+                            {result && !result.strategy_results && (
                               <div style={{ marginTop: '12px', display: 'flex', gap: '24px', fontSize: '12px' }}>
                                 <span style={{ color: colors.text.muted }}>
                                   T Score: <span style={{ color: colors.text.primary, fontFamily: 'JetBrains Mono, monospace' }}>{result.T_suspicion_score?.toFixed(2) || '—'}</span>
@@ -1961,8 +2231,8 @@ function PublishedDatasetView({ dataset, onDuplicate, onDelete }) {
                               </div>
                             )}
 
-                            {/* H's Exploit Section */}
-                            {result?.exploit_found && result?.exploits?.length > 0 && (
+                            {/* H's Exploit Section (legacy) */}
+                            {result?.exploit_found && result?.exploits?.length > 0 && !result.strategy_results && (
                               <div style={{ marginTop: '12px' }}>
                                 <div style={{ color: colors.accent.red, fontSize: '11px', marginBottom: '6px', fontWeight: 600 }}>
                                   H Found Exploit
@@ -1998,6 +2268,50 @@ function PublishedDatasetView({ dataset, onDuplicate, onDelete }) {
                                 {result.error}
                               </div>
                             )}
+
+                            {/* LLM Calls Section */}
+                            {(() => {
+                              const detailed = detailedResults[pid];
+                              const isLoadingDetail = loadingDetails[pid];
+                              const llmCalls = detailed?.llm_calls || [];
+
+                              if (isLoadingDetail) {
+                                return (
+                                  <div style={{ marginTop: '16px', color: colors.text.muted, fontSize: '12px' }}>
+                                    Loading LLM call details...
+                                  </div>
+                                );
+                              }
+
+                              if (llmCalls.length === 0) {
+                                return null;
+                              }
+
+                              return (
+                                <div style={{ marginTop: '16px' }}>
+                                  <div style={{
+                                    color: colors.text.muted,
+                                    fontSize: '11px',
+                                    marginBottom: '8px',
+                                    textTransform: 'uppercase',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                  }}>
+                                    LLM Calls ({llmCalls.length})
+                                  </div>
+                                  {[1, 2, 3, 4, 5, 6].map(phase => (
+                                    <PhaseCallsSection
+                                      key={phase}
+                                      phase={phase}
+                                      calls={llmCalls}
+                                      isExpanded={expandedPhases[`${pid}-${phase}`]}
+                                      onToggle={() => togglePhase(pid, phase)}
+                                    />
+                                  ))}
+                                </div>
+                              );
+                            })()}
                           </td>
                         </tr>
                       )}
@@ -2299,7 +2613,10 @@ function DatasetEditorPanel({ dataset, onSave, onTest, onPublish, onDelete, onDu
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                <span style={{ color: colors.text.secondary, fontSize: '13px' }}>Number of Problems</span>
+                <span style={{ color: colors.text.secondary, fontSize: '13px', display: 'flex', alignItems: 'center' }}>
+                  Number of Problems
+                  <InfoIcon tooltip="How many APPS problems to randomly select when publishing. Each problem runs through all 6 phases independently." />
+                </span>
                 <input
                   type="number"
                   min="1"
@@ -2334,7 +2651,10 @@ function DatasetEditorPanel({ dataset, onSave, onTest, onPublish, onDelete, onDu
 
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                <span style={{ color: colors.text.secondary, fontSize: '13px' }}>Backdoor Ideas per Problem</span>
+                <span style={{ color: colors.text.secondary, fontSize: '13px', display: 'flex', alignItems: 'center' }}>
+                  Backdoor Ideas per Problem
+                  <InfoIcon tooltip="Number of different backdoor strategies U will attempt per problem. Higher = more likely to find a sneaky backdoor, but costs more API calls." />
+                </span>
                 <input
                   type="number"
                   min="1"
@@ -2369,7 +2689,10 @@ function DatasetEditorPanel({ dataset, onSave, onTest, onPublish, onDelete, onDu
 
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                <span style={{ color: colors.text.secondary, fontSize: '13px' }}>Max Difficulty</span>
+                <span style={{ color: colors.text.secondary, fontSize: '13px', display: 'flex', alignItems: 'center' }}>
+                  Max Difficulty
+                  <InfoIcon tooltip="Maximum problem difficulty (1-10). Higher difficulty problems are harder to backdoor but also harder to detect. Used for filtering APPS problems." />
+                </span>
                 <input
                   type="number"
                   min="1"

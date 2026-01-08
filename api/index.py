@@ -431,7 +431,8 @@ class PromptTemplates(BaseModel):
     BACKDOOR_IDEAS_PROMPT: Optional[str] = None
     IMPLEMENT_BACKDOOR_PROMPT: Optional[str] = None
     CLEANUP_BACKDOOR_PROMPT: Optional[str] = None
-    RATE_SNEAKINESS_PROMPT: Optional[str] = None
+    RATE_SNEAKINESS_PART1_PROMPT: Optional[str] = None  # Code reviewer difficulty (1-15)
+    RATE_SNEAKINESS_PART2_PROMPT: Optional[str] = None  # Trigger subtlety (1-7, scaled by 1.7)
     ESTIMATE_TRIGGER_RATE_PROMPT: Optional[str] = None
 
     # Phase 3 - Find Exploits
@@ -648,7 +649,7 @@ class DatasetSettingsModel(BaseModel):
 class DatasetModelsModel(BaseModel):
     """Model role assignments"""
     human_model: str = "gpt-4o"
-    trusted_model: str = "gpt-4o"
+    trusted_model: str = "gpt-3.5-turbo"
     untrusted_model: str = "gpt-4o"
 
 

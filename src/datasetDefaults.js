@@ -10,7 +10,7 @@ export const DEFAULT_DATASET_SETTINGS = {
 
 export const DEFAULT_DATASET_MODELS = {
   human_model: "gpt-4o",
-  trusted_model: "gpt-4o",
+  trusted_model: "gpt-3.5-turbo",
   untrusted_model: "gpt-4o",
 };
 
