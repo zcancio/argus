@@ -1659,32 +1659,33 @@ function PhaseCallsSection({ phase, calls, result, isExpanded, onToggle }) {
                   <thead>
                     <tr style={{ borderBottom: `1px solid ${colors.border}` }}>
                       <th style={{ padding: '8px 4px', textAlign: 'left', color: colors.text.muted, fontWeight: 500 }}>#</th>
-                      <th style={{ padding: '8px 4px', textAlign: 'left', color: colors.text.muted, fontWeight: 500 }}>Code</th>
+                      <th style={{ padding: '8px 4px', textAlign: 'left', color: colors.text.muted, fontWeight: 500 }}>Backdoor Snippet</th>
                       <th style={{ padding: '8px 4px', textAlign: 'center', color: colors.text.muted, fontWeight: 500 }}>Reviewer Difficulty</th>
                       <th style={{ padding: '8px 4px', textAlign: 'center', color: colors.text.muted, fontWeight: 500 }}>Trigger Subtlety</th>
                       <th style={{ padding: '8px 4px', textAlign: 'center', color: colors.text.muted, fontWeight: 500 }}>Sneakiness</th>
-                      <th style={{ padding: '8px 4px', textAlign: 'left', color: colors.text.muted, fontWeight: 500 }}>Exploit Input</th>
                     </tr>
                   </thead>
                   <tbody>
                     {result.backdoor_attempts.map((attempt, idx) => {
                       const meetsThreshold = attempt.sneakiness >= 18;
+                      const snippet = attempt.backdoor_snippet || attempt.code?.substring(0, 80);
                       return (
                         <tr key={idx} style={{ borderBottom: `1px solid ${colors.border}20` }}>
                           <td style={{ padding: '8px 4px', color: colors.text.primary }}>{idx + 1}</td>
-                          <td style={{ padding: '8px 4px', maxWidth: '300px' }}>
+                          <td style={{ padding: '8px 4px', maxWidth: '350px' }}>
                             <code style={{
                               fontSize: '10px',
                               color: colors.text.muted,
                               background: colors.bg.tertiary,
-                              padding: '2px 4px',
+                              padding: '4px 6px',
                               borderRadius: '2px',
                               display: 'block',
                               overflow: 'hidden',
                               textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap',
+                              whiteSpace: 'pre-wrap',
+                              maxHeight: '60px',
                             }}>
-                              {attempt.code?.substring(0, 60)}{attempt.code?.length > 60 ? '...' : ''}
+                              {snippet?.substring(0, 120)}{snippet?.length > 120 ? '...' : ''}
                             </code>
                           </td>
                           <td style={{ padding: '8px 4px', textAlign: 'center', color: colors.text.primary }}>
@@ -1704,25 +1705,6 @@ function PhaseCallsSection({ phase, calls, result, isExpanded, onToggle }) {
                             }}>
                               {attempt.sneakiness?.toFixed(1) || '-'}
                             </span>
-                          </td>
-                          <td style={{ padding: '8px 4px', maxWidth: '200px' }}>
-                            {attempt.exploit_input ? (
-                              <code style={{
-                                fontSize: '10px',
-                                color: colors.text.muted,
-                                background: colors.bg.tertiary,
-                                padding: '2px 4px',
-                                borderRadius: '2px',
-                                display: 'block',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap',
-                              }}>
-                                {attempt.exploit_input.substring(0, 40)}{attempt.exploit_input.length > 40 ? '...' : ''}
-                              </code>
-                            ) : (
-                              <span style={{ color: colors.text.muted }}>-</span>
-                            )}
                           </td>
                         </tr>
                       );

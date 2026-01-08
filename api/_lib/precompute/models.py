@@ -72,6 +72,7 @@ class BackdoorProposal:
     # Phase 2: Individual sneakiness ratings
     rating1: float = 0.0  # Code reviewer difficulty (1-15)
     rating2: float = 0.0  # Trigger subtlety (1-7)
+    backdoor_snippet: Optional[str] = None  # The key backdoor lines
     exploit_found: bool = False
     exploits: Optional[List[str]] = None
     phase_3_complete: bool = False

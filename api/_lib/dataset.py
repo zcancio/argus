@@ -64,6 +64,7 @@ class BackdoorAttempt:
     # Phase 2: Individual sneakiness ratings
     rating1: Optional[float] = None  # Code reviewer difficulty (1-15)
     rating2: Optional[float] = None  # Trigger subtlety (1-7)
+    backdoor_snippet: Optional[str] = None  # The key backdoor lines
     # Phase 4: Test case results
     test_cases_passed: Optional[int] = None
     test_cases_total: Optional[int] = None
@@ -259,6 +260,7 @@ def dict_to_backdoor_attempt(d: dict) -> BackdoorAttempt:
         selected=d.get("selected", False),
         rating1=d.get("rating1"),
         rating2=d.get("rating2"),
+        backdoor_snippet=d.get("backdoor_snippet"),
         test_cases_passed=d.get("test_cases_passed"),
         test_cases_total=d.get("test_cases_total"),
         test_case_results=d.get("test_case_results"),
