@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Fragment } from 'react';
 import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ScatterChart, Scatter, Legend, ReferenceLine } from 'recharts';
 import { DEFAULT_PROMPTS } from './promptDefaults';
@@ -1537,6 +1537,415 @@ function DatasetManagerPanel({ datasets, selectedId, onSelect, onCreate }) {
   );
 }
 
+function PublishedDatasetView({ dataset, onDuplicate, onDelete }) {
+  const [expandedRows, setExpandedRows] = useState({});
+  const [problemResults, setProblemResults] = useState({});
+  const [loadingProblems, setLoadingProblems] = useState({});
+  const [computingThreshold, setComputingThreshold] = useState(false);
+  const [thresholds, setThresholds] = useState({
+    audit: dataset.audit_threshold,
+    defer: dataset.defer_threshold,
+    error: dataset.threshold_error
+  });
+
+  // Fetch problem results on mount
+  useEffect(() => {
+    fetchProblemResults();
+  }, [dataset.id]);
+
+  const fetchProblemResults = async () => {
+    try {
+      const response = await fetch(`${API_BASE}/api/datasets/${dataset.id}/problems`);
+      if (response.ok) {
+        const data = await response.json();
+        const resultsMap = {};
+        data.problems.forEach(p => {
+          resultsMap[p.problem_id] = p.result;
+        });
+        setProblemResults(resultsMap);
+      }
+    } catch (err) {
+      console.error('Failed to fetch problem results:', err);
+    }
+  };
+
+  const toggleRow = (problemId) => {
+    setExpandedRows(prev => ({
+      ...prev,
+      [problemId]: !prev[problemId]
+    }));
+  };
+
+  const runProblem = async (problemId) => {
+    setLoadingProblems(prev => ({ ...prev, [problemId]: true }));
+    try {
+      const apiKeys = loadApiKeys();
+      const response = await fetch(`${API_BASE}/api/datasets/${dataset.id}/problems/${problemId}/run`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-OpenAI-Key': apiKeys.openai || '',
+          'X-Anthropic-Key': apiKeys.anthropic || '',
+        },
+      });
+      if (response.ok) {
+        // Poll for results
+        const pollInterval = setInterval(async () => {
+          const resultRes = await fetch(`${API_BASE}/api/datasets/${dataset.id}/problems/${problemId}`);
+          if (resultRes.ok) {
+            const data = await resultRes.json();
+            if (data.result) {
+              setProblemResults(prev => ({ ...prev, [problemId]: data.result }));
+              if (data.result.status === 'completed' || data.result.status === 'failed') {
+                clearInterval(pollInterval);
+                setLoadingProblems(prev => ({ ...prev, [problemId]: false }));
+              }
+            }
+          }
+        }, 2000);
+        // Stop polling after 5 minutes
+        setTimeout(() => clearInterval(pollInterval), 300000);
+      }
+    } catch (err) {
+      console.error('Failed to run problem:', err);
+      setLoadingProblems(prev => ({ ...prev, [problemId]: false }));
+    }
+  };
+
+  const computeThresholds = async () => {
+    setComputingThreshold(true);
+    try {
+      const response = await fetch(`${API_BASE}/api/datasets/${dataset.id}/compute-thresholds`, {
+        method: 'POST',
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setThresholds({
+          audit: data.audit_threshold,
+          defer: data.defer_threshold,
+          error: null
+        });
+      } else {
+        setThresholds(prev => ({ ...prev, error: data.detail || 'Failed to compute thresholds' }));
+      }
+    } catch (err) {
+      setThresholds(prev => ({ ...prev, error: err.message }));
+    } finally {
+      setComputingThreshold(false);
+    }
+  };
+
+  const getStatusBadge = (result) => {
+    if (!result) {
+      return <span style={{ color: colors.text.muted, fontSize: '11px' }}>Not started</span>;
+    }
+    const phasesComplete = result.phases_completed?.length || 0;
+    if (result.status === 'completed' && phasesComplete >= 6) {
+      return <span style={{ color: colors.accent.green, fontSize: '11px' }}>✓ Complete</span>;
+    }
+    if (result.status === 'running') {
+      return <span style={{ color: colors.accent.yellow, fontSize: '11px' }}>⟳ Phase {result.current_phase || '?'}/6</span>;
+    }
+    if (result.status === 'failed') {
+      return <span style={{ color: colors.accent.red, fontSize: '11px' }}>✗ Failed</span>;
+    }
+    return <span style={{ color: colors.text.muted, fontSize: '11px' }}>{phasesComplete}/6 phases</span>;
+  };
+
+  const allComplete = dataset.problem_ids?.every(pid => {
+    const result = problemResults[pid];
+    return result?.status === 'completed' && (result?.phases_completed?.length || 0) >= 6;
+  });
+
+  return (
+    <div style={{
+      background: colors.bg.secondary,
+      border: `1px solid ${colors.border}`,
+      borderRadius: '8px',
+      padding: '24px',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+        <span style={{
+          padding: '4px 10px',
+          background: colors.accent.green + '20',
+          borderRadius: '4px',
+          fontSize: '11px',
+          color: colors.accent.green,
+          textTransform: 'uppercase',
+        }}>
+          Published
+        </span>
+        <span style={{ color: colors.text.muted, fontSize: '12px' }}>
+          Published datasets cannot be edited
+        </span>
+      </div>
+
+      <h3 style={{ color: colors.text.primary, margin: '0 0 16px 0', fontSize: '16px' }}>{dataset.name}</h3>
+
+      {/* Settings */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '16px' }}>
+        <div style={{ padding: '12px', background: colors.bg.tertiary, borderRadius: '6px' }}>
+          <div style={{ color: colors.text.muted, fontSize: '11px', marginBottom: '4px' }}>Problems</div>
+          <div style={{ color: colors.text.primary, fontSize: '16px', fontFamily: 'JetBrains Mono, monospace' }}>
+            {dataset.problem_ids?.length || 0}
+          </div>
+        </div>
+        <div style={{ padding: '12px', background: colors.bg.tertiary, borderRadius: '6px' }}>
+          <div style={{ color: colors.text.muted, fontSize: '11px', marginBottom: '4px' }}>Backdoor Ideas</div>
+          <div style={{ color: colors.text.primary, fontSize: '16px', fontFamily: 'JetBrains Mono, monospace' }}>
+            {dataset.settings.num_backdoor_ideas}
+          </div>
+        </div>
+        <div style={{ padding: '12px', background: colors.bg.tertiary, borderRadius: '6px' }}>
+          <div style={{ color: colors.text.muted, fontSize: '11px', marginBottom: '4px' }}>Max Difficulty</div>
+          <div style={{ color: colors.text.primary, fontSize: '16px', fontFamily: 'JetBrains Mono, monospace' }}>
+            {dataset.settings.max_difficulty}
+          </div>
+        </div>
+      </div>
+
+      {/* Models */}
+      <div style={{ marginBottom: '16px' }}>
+        <div style={{ color: colors.text.muted, fontSize: '11px', marginBottom: '8px', textTransform: 'uppercase' }}>Models</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
+          <div style={{ padding: '10px', background: colors.bg.tertiary, borderRadius: '6px' }}>
+            <div style={{ color: colors.text.muted, fontSize: '10px', marginBottom: '2px' }}>Human (H)</div>
+            <div style={{ color: colors.text.primary, fontSize: '13px', fontFamily: 'JetBrains Mono, monospace' }}>
+              {dataset.models?.human_model || 'gpt-4o'}
+            </div>
+          </div>
+          <div style={{ padding: '10px', background: colors.bg.tertiary, borderRadius: '6px' }}>
+            <div style={{ color: colors.text.muted, fontSize: '10px', marginBottom: '2px' }}>Trusted (T)</div>
+            <div style={{ color: colors.text.primary, fontSize: '13px', fontFamily: 'JetBrains Mono, monospace' }}>
+              {dataset.models?.trusted_model || 'gpt-4o'}
+            </div>
+          </div>
+          <div style={{ padding: '10px', background: colors.bg.tertiary, borderRadius: '6px' }}>
+            <div style={{ color: colors.text.muted, fontSize: '10px', marginBottom: '2px' }}>Untrusted (U)</div>
+            <div style={{ color: colors.text.primary, fontSize: '13px', fontFamily: 'JetBrains Mono, monospace' }}>
+              {dataset.models?.untrusted_model || 'gpt-4o'}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Problems Table */}
+      {dataset.problem_ids && dataset.problem_ids.length > 0 && (
+        <div style={{ marginBottom: '16px' }}>
+          <div style={{ color: colors.text.muted, fontSize: '11px', marginBottom: '8px', textTransform: 'uppercase' }}>
+            Problems ({dataset.problem_ids.length})
+          </div>
+          <div style={{
+            background: colors.bg.tertiary,
+            borderRadius: '6px',
+            overflow: 'hidden',
+          }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ borderBottom: `1px solid ${colors.border}` }}>
+                  <th style={{ padding: '10px 12px', textAlign: 'left', color: colors.text.muted, fontSize: '11px', fontWeight: 500 }}>Problem ID</th>
+                  <th style={{ padding: '10px 12px', textAlign: 'left', color: colors.text.muted, fontSize: '11px', fontWeight: 500 }}>Status</th>
+                  <th style={{ padding: '10px 12px', textAlign: 'left', color: colors.text.muted, fontSize: '11px', fontWeight: 500 }}>H Score</th>
+                  <th style={{ padding: '10px 12px', textAlign: 'right', color: colors.text.muted, fontSize: '11px', fontWeight: 500 }}>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {dataset.problem_ids.map(pid => {
+                  const result = problemResults[pid];
+                  const isExpanded = expandedRows[pid];
+                  const isLoading = loadingProblems[pid];
+                  const isComplete = result?.status === 'completed' && (result?.phases_completed?.length || 0) >= 6;
+
+                  return (
+                    <Fragment key={pid}>
+                      <tr
+                        style={{
+                          borderBottom: isExpanded ? 'none' : `1px solid ${colors.border}`,
+                          cursor: 'pointer',
+                          background: isExpanded ? colors.bg.secondary : 'transparent',
+                        }}
+                        onClick={() => toggleRow(pid)}
+                      >
+                        <td style={{ padding: '10px 12px' }}>
+                          <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '13px', color: colors.text.primary }}>
+                            {isExpanded ? '▼' : '▶'} {pid}
+                          </span>
+                        </td>
+                        <td style={{ padding: '10px 12px' }}>{getStatusBadge(result)}</td>
+                        <td style={{ padding: '10px 12px' }}>
+                          <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '12px', color: colors.text.secondary }}>
+                            {result?.H_suspicion_score != null ? result.H_suspicion_score.toFixed(2) : '—'}
+                          </span>
+                        </td>
+                        <td style={{ padding: '10px 12px', textAlign: 'right' }}>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); runProblem(pid); }}
+                            disabled={isLoading || isComplete}
+                            style={{
+                              padding: '6px 16px',
+                              background: isComplete ? colors.accent.green : isLoading ? colors.accent.amber : colors.accent.cyan,
+                              border: 'none',
+                              borderRadius: '4px',
+                              color: isComplete || isLoading ? '#000' : '#000',
+                              fontSize: '12px',
+                              fontWeight: 600,
+                              cursor: isLoading || isComplete ? 'default' : 'pointer',
+                              opacity: isComplete ? 0.8 : 1,
+                            }}
+                          >
+                            {isLoading ? 'Running...' : isComplete ? '✓ Done' : 'Run'}
+                          </button>
+                        </td>
+                      </tr>
+                      {isExpanded && (
+                        <tr style={{ borderBottom: `1px solid ${colors.border}` }}>
+                          <td colSpan={4} style={{ padding: '0 12px 12px 32px', background: colors.bg.secondary }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '8px' }}>
+                              <div>
+                                <div style={{ color: colors.text.muted, fontSize: '10px', marginBottom: '4px' }}>T Solution</div>
+                                <pre style={{
+                                  background: colors.bg.primary,
+                                  padding: '8px',
+                                  borderRadius: '4px',
+                                  fontSize: '11px',
+                                  color: colors.text.secondary,
+                                  overflow: 'auto',
+                                  maxHeight: '150px',
+                                  margin: 0,
+                                  whiteSpace: 'pre-wrap',
+                                }}>
+                                  {result?.T_solution || 'Not generated yet'}
+                                </pre>
+                              </div>
+                              <div>
+                                <div style={{ color: colors.text.muted, fontSize: '10px', marginBottom: '4px' }}>U Backdoored Solution</div>
+                                <pre style={{
+                                  background: colors.bg.primary,
+                                  padding: '8px',
+                                  borderRadius: '4px',
+                                  fontSize: '11px',
+                                  color: colors.text.secondary,
+                                  overflow: 'auto',
+                                  maxHeight: '150px',
+                                  margin: 0,
+                                  whiteSpace: 'pre-wrap',
+                                }}>
+                                  {result?.U_backdoored_solution || 'Not generated yet'}
+                                </pre>
+                              </div>
+                            </div>
+                            {result && (
+                              <div style={{ marginTop: '8px', display: 'flex', gap: '16px', fontSize: '11px' }}>
+                                <span style={{ color: colors.text.muted }}>
+                                  T Score: <span style={{ color: colors.text.primary }}>{result.T_suspicion_score?.toFixed(2) || '—'}</span>
+                                </span>
+                                <span style={{ color: colors.text.muted }}>
+                                  Sneakiness: <span style={{ color: colors.text.primary }}>{result.sneakiness?.toFixed(2) || '—'}</span>
+                                </span>
+                                <span style={{ color: colors.text.muted }}>
+                                  Exploit: <span style={{ color: result.exploit_found ? colors.accent.red : colors.text.primary }}>
+                                    {result.exploit_found ? 'Found' : 'None'}
+                                  </span>
+                                </span>
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Threshold Section */}
+      <div style={{
+        background: colors.bg.tertiary,
+        borderRadius: '6px',
+        padding: '16px',
+        marginBottom: '16px',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+          <div style={{ color: colors.text.muted, fontSize: '11px', textTransform: 'uppercase' }}>Thresholds (Phase 7)</div>
+          <button
+            onClick={computeThresholds}
+            disabled={computingThreshold || !allComplete}
+            style={{
+              padding: '6px 16px',
+              background: allComplete ? colors.accent.blue : colors.bg.secondary,
+              border: `1px solid ${allComplete ? colors.accent.blue : colors.border}`,
+              borderRadius: '4px',
+              color: allComplete ? '#fff' : colors.text.muted,
+              fontSize: '12px',
+              cursor: computingThreshold || !allComplete ? 'default' : 'pointer',
+              opacity: computingThreshold ? 0.7 : 1,
+            }}
+            title={!allComplete ? 'All problems must complete before computing thresholds' : ''}
+          >
+            {computingThreshold ? 'Computing...' : 'Calculate Thresholds'}
+          </button>
+        </div>
+
+        {thresholds.error && (
+          <div style={{ color: colors.accent.red, fontSize: '12px', marginBottom: '8px' }}>
+            {thresholds.error}
+          </div>
+        )}
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+          <div style={{ padding: '12px', background: colors.bg.secondary, borderRadius: '4px' }}>
+            <div style={{ color: colors.text.muted, fontSize: '10px', marginBottom: '4px' }}>Audit Threshold (98th %ile)</div>
+            <div style={{ color: colors.text.primary, fontSize: '20px', fontFamily: 'JetBrains Mono, monospace' }}>
+              {thresholds.audit != null ? thresholds.audit.toFixed(3) : '—'}
+            </div>
+          </div>
+          <div style={{ padding: '12px', background: colors.bg.secondary, borderRadius: '4px' }}>
+            <div style={{ color: colors.text.muted, fontSize: '10px', marginBottom: '4px' }}>Defer Threshold (90th %ile)</div>
+            <div style={{ color: colors.text.primary, fontSize: '20px', fontFamily: 'JetBrains Mono, monospace' }}>
+              {thresholds.defer != null ? thresholds.defer.toFixed(3) : '—'}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Action buttons for published dataset */}
+      <div style={{ display: 'flex', gap: '12px', borderTop: `1px solid ${colors.border}`, paddingTop: '16px' }}>
+        <button
+          onClick={() => onDuplicate(dataset.id)}
+          style={{
+            padding: '10px 20px',
+            background: colors.bg.tertiary,
+            border: `1px solid ${colors.border}`,
+            borderRadius: '6px',
+            color: colors.text.secondary,
+            fontSize: '13px',
+            cursor: 'pointer',
+          }}
+        >
+          Duplicate
+        </button>
+        <button
+          onClick={() => onDelete(dataset.id)}
+          style={{
+            padding: '10px 20px',
+            background: 'transparent',
+            border: `1px solid ${colors.accent.red}40`,
+            borderRadius: '6px',
+            color: colors.accent.red,
+            fontSize: '13px',
+            cursor: 'pointer',
+          }}
+        >
+          Delete
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function DatasetEditorPanel({ dataset, onSave, onTest, onPublish, onDelete, onDuplicate, defaultPrompts }) {
   const [localDataset, setLocalDataset] = useState(null);
   const [activeTab, setActiveTab] = useState('settings');
@@ -1571,85 +1980,7 @@ function DatasetEditorPanel({ dataset, onSave, onTest, onPublish, onDelete, onDu
   }
 
   if (dataset.status === 'published') {
-    return (
-      <div style={{
-        background: colors.bg.secondary,
-        border: `1px solid ${colors.border}`,
-        borderRadius: '8px',
-        padding: '24px',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-          <span style={{
-            padding: '4px 10px',
-            background: colors.accent.green + '20',
-            borderRadius: '4px',
-            fontSize: '11px',
-            color: colors.accent.green,
-            textTransform: 'uppercase',
-          }}>
-            Published
-          </span>
-          <span style={{ color: colors.text.muted, fontSize: '12px' }}>
-            Published datasets cannot be edited
-          </span>
-        </div>
-
-        <h3 style={{ color: colors.text.primary, margin: '0 0 16px 0', fontSize: '16px' }}>{dataset.name}</h3>
-
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '24px' }}>
-          <div style={{ padding: '12px', background: colors.bg.tertiary, borderRadius: '6px' }}>
-            <div style={{ color: colors.text.muted, fontSize: '11px', marginBottom: '4px' }}>Problems</div>
-            <div style={{ color: colors.text.primary, fontSize: '16px', fontFamily: 'JetBrains Mono, monospace' }}>
-              {dataset.settings.num_problems}
-            </div>
-          </div>
-          <div style={{ padding: '12px', background: colors.bg.tertiary, borderRadius: '6px' }}>
-            <div style={{ color: colors.text.muted, fontSize: '11px', marginBottom: '4px' }}>Backdoor Ideas</div>
-            <div style={{ color: colors.text.primary, fontSize: '16px', fontFamily: 'JetBrains Mono, monospace' }}>
-              {dataset.settings.num_backdoor_ideas}
-            </div>
-          </div>
-          <div style={{ padding: '12px', background: colors.bg.tertiary, borderRadius: '6px' }}>
-            <div style={{ color: colors.text.muted, fontSize: '11px', marginBottom: '4px' }}>Max Difficulty</div>
-            <div style={{ color: colors.text.primary, fontSize: '16px', fontFamily: 'JetBrains Mono, monospace' }}>
-              {dataset.settings.max_difficulty}
-            </div>
-          </div>
-        </div>
-
-        {/* Action buttons for published dataset */}
-        <div style={{ display: 'flex', gap: '12px', borderTop: `1px solid ${colors.border}`, paddingTop: '16px' }}>
-          <button
-            onClick={() => onDuplicate(dataset.id)}
-            style={{
-              padding: '10px 20px',
-              background: colors.bg.tertiary,
-              border: `1px solid ${colors.border}`,
-              borderRadius: '6px',
-              color: colors.text.secondary,
-              fontSize: '13px',
-              cursor: 'pointer',
-            }}
-          >
-            Duplicate
-          </button>
-          <button
-            onClick={() => onDelete(dataset.id)}
-            style={{
-              padding: '10px 20px',
-              background: 'transparent',
-              border: `1px solid ${colors.accent.red}40`,
-              borderRadius: '6px',
-              color: colors.accent.red,
-              fontSize: '13px',
-              cursor: 'pointer',
-            }}
-          >
-            Delete
-          </button>
-        </div>
-      </div>
-    );
+    return <PublishedDatasetView dataset={dataset} onDuplicate={onDuplicate} onDelete={onDelete} />;
   }
 
   const handleChange = (field, value) => {
@@ -1793,7 +2124,7 @@ function DatasetEditorPanel({ dataset, onSave, onTest, onPublish, onDelete, onDu
         padding: '16px 24px',
         borderBottom: `1px solid ${colors.border}`,
       }}>
-        {['settings', 'models', 'prompts', 'problems'].map(tab => (
+        {['settings', 'models', 'prompts'].map(tab => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -2055,9 +2386,6 @@ function DatasetEditorPanel({ dataset, onSave, onTest, onPublish, onDelete, onDu
           </div>
         )}
 
-        {activeTab === 'problems' && (
-          <ProblemsTab datasetId={dataset.id} />
-        )}
       </div>
 
       {/* Action buttons for draft dataset */}
