@@ -1693,7 +1693,7 @@ function PhaseCallsSection({ phase, calls, result, isExpanded, onToggle }) {
           )}
 
           {/* Phase 6 specific content - Strategy Results */}
-          {phase === 6 && hasStrategyResults && (
+          {phase === 6 && (
             <div style={{ marginBottom: phaseCalls.length > 0 ? '16px' : 0 }}>
               <div style={{
                 background: colors.bg.secondary,
@@ -1704,66 +1704,72 @@ function PhaseCallsSection({ phase, calls, result, isExpanded, onToggle }) {
                 <div style={{ color: colors.text.muted, fontSize: '10px', padding: '12px 12px 8px 12px', textTransform: 'uppercase' }}>
                   Attack Strategy Results
                 </div>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
-                  <thead>
-                    <tr style={{ background: colors.bg.tertiary }}>
-                      <th style={{ padding: '8px', textAlign: 'left', color: colors.text.muted, fontWeight: 500, borderBottom: `1px solid ${colors.border}` }}>Strategy</th>
-                      <th style={{ padding: '8px', textAlign: 'center', color: colors.text.muted, fontWeight: 500, borderBottom: `1px solid ${colors.border}` }}>Threshold</th>
-                      <th style={{ padding: '8px', textAlign: 'center', color: colors.text.muted, fontWeight: 500, borderBottom: `1px solid ${colors.border}` }}>Backdoor</th>
-                      <th style={{ padding: '8px', textAlign: 'center', color: colors.text.muted, fontWeight: 500, borderBottom: `1px solid ${colors.border}` }}>Sneakiness</th>
-                      <th style={{ padding: '8px', textAlign: 'center', color: colors.text.muted, fontWeight: 500, borderBottom: `1px solid ${colors.border}` }}>T Score</th>
-                      <th style={{ padding: '8px', textAlign: 'center', color: colors.text.muted, fontWeight: 500, borderBottom: `1px solid ${colors.border}` }}>H Score</th>
-                      <th style={{ padding: '8px', textAlign: 'center', color: colors.text.muted, fontWeight: 500, borderBottom: `1px solid ${colors.border}` }}>Exploit</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {['common', 'sometimes', 'rarely', 'very_rarely', 'very_very_rarely'].map((strategyName, idx) => {
-                      const sr = result.strategy_results[strategyName];
-                      if (!sr) return null;
-                      return (
-                        <tr key={strategyName} style={{ borderBottom: idx < 4 ? `1px solid ${colors.border}` : 'none' }}>
-                          <td style={{ padding: '8px', color: colors.text.primary }}>
-                            {strategyName.replace(/_/g, ' ')}
-                          </td>
-                          <td style={{ padding: '8px', textAlign: 'center', color: colors.text.muted, fontFamily: 'JetBrains Mono, monospace' }}>
-                            ≥{sr.threshold}
-                          </td>
-                          <td style={{ padding: '8px', textAlign: 'center' }}>
-                            {sr.backdoor_selected ? (
-                              <span style={{ color: colors.accent.amber }}>Yes</span>
-                            ) : (
-                              <span style={{ color: colors.text.muted }}>No</span>
-                            )}
-                          </td>
-                          <td style={{ padding: '8px', textAlign: 'center', fontFamily: 'JetBrains Mono, monospace' }}>
-                            {sr.sneakiness != null ? (
-                              <span style={{ color: sr.sneakiness >= sr.threshold ? colors.accent.green : colors.text.muted }}>
-                                {sr.sneakiness.toFixed(1)}
-                              </span>
-                            ) : (
-                              <span style={{ color: colors.text.muted }}>—</span>
-                            )}
-                          </td>
-                          <td style={{ padding: '8px', textAlign: 'center', fontFamily: 'JetBrains Mono, monospace', color: colors.text.primary }}>
-                            {sr.T_suspicion_score?.toFixed(2) || '—'}
-                          </td>
-                          <td style={{ padding: '8px', textAlign: 'center', fontFamily: 'JetBrains Mono, monospace', color: colors.text.primary }}>
-                            {sr.H_suspicion_score?.toFixed(2) || '—'}
-                          </td>
-                          <td style={{ padding: '8px', textAlign: 'center' }}>
-                            {sr.exploit_found ? (
-                              <span style={{ color: colors.accent.green }}>Found</span>
-                            ) : sr.backdoor_selected ? (
-                              <span style={{ color: colors.accent.blue }}>Safe</span>
-                            ) : (
-                              <span style={{ color: colors.text.muted }}>—</span>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                {hasStrategyResults ? (
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
+                    <thead>
+                      <tr style={{ background: colors.bg.tertiary }}>
+                        <th style={{ padding: '8px', textAlign: 'left', color: colors.text.muted, fontWeight: 500, borderBottom: `1px solid ${colors.border}` }}>Strategy</th>
+                        <th style={{ padding: '8px', textAlign: 'center', color: colors.text.muted, fontWeight: 500, borderBottom: `1px solid ${colors.border}` }}>Threshold</th>
+                        <th style={{ padding: '8px', textAlign: 'center', color: colors.text.muted, fontWeight: 500, borderBottom: `1px solid ${colors.border}` }}>Backdoor</th>
+                        <th style={{ padding: '8px', textAlign: 'center', color: colors.text.muted, fontWeight: 500, borderBottom: `1px solid ${colors.border}` }}>Sneakiness</th>
+                        <th style={{ padding: '8px', textAlign: 'center', color: colors.text.muted, fontWeight: 500, borderBottom: `1px solid ${colors.border}` }}>T Score</th>
+                        <th style={{ padding: '8px', textAlign: 'center', color: colors.text.muted, fontWeight: 500, borderBottom: `1px solid ${colors.border}` }}>H Score</th>
+                        <th style={{ padding: '8px', textAlign: 'center', color: colors.text.muted, fontWeight: 500, borderBottom: `1px solid ${colors.border}` }}>Exploit</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {['common', 'sometimes', 'rarely', 'very_rarely', 'very_very_rarely'].map((strategyName, idx) => {
+                        const sr = result.strategy_results?.[strategyName];
+                        if (!sr) return null;
+                        return (
+                          <tr key={strategyName} style={{ borderBottom: idx < 4 ? `1px solid ${colors.border}` : 'none' }}>
+                            <td style={{ padding: '8px', color: colors.text.primary }}>
+                              {strategyName.replace(/_/g, ' ')}
+                            </td>
+                            <td style={{ padding: '8px', textAlign: 'center', color: colors.text.muted, fontFamily: 'JetBrains Mono, monospace' }}>
+                              ≥{sr.threshold}
+                            </td>
+                            <td style={{ padding: '8px', textAlign: 'center' }}>
+                              {sr.backdoor_selected ? (
+                                <span style={{ color: colors.accent.amber }}>Yes</span>
+                              ) : (
+                                <span style={{ color: colors.text.muted }}>No</span>
+                              )}
+                            </td>
+                            <td style={{ padding: '8px', textAlign: 'center', fontFamily: 'JetBrains Mono, monospace' }}>
+                              {sr.sneakiness != null ? (
+                                <span style={{ color: sr.sneakiness >= sr.threshold ? colors.accent.green : colors.text.muted }}>
+                                  {sr.sneakiness.toFixed(1)}
+                                </span>
+                              ) : (
+                                <span style={{ color: colors.text.muted }}>—</span>
+                              )}
+                            </td>
+                            <td style={{ padding: '8px', textAlign: 'center', fontFamily: 'JetBrains Mono, monospace', color: colors.text.primary }}>
+                              {sr.T_suspicion_score?.toFixed(2) || '—'}
+                            </td>
+                            <td style={{ padding: '8px', textAlign: 'center', fontFamily: 'JetBrains Mono, monospace', color: colors.text.primary }}>
+                              {sr.H_suspicion_score?.toFixed(2) || '—'}
+                            </td>
+                            <td style={{ padding: '8px', textAlign: 'center' }}>
+                              {sr.exploit_found ? (
+                                <span style={{ color: colors.accent.green }}>Found</span>
+                              ) : sr.backdoor_selected ? (
+                                <span style={{ color: colors.accent.blue }}>Safe</span>
+                              ) : (
+                                <span style={{ color: colors.text.muted }}>—</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                ) : (
+                  <div style={{ padding: '12px', color: colors.text.muted, fontSize: '12px' }}>
+                    No strategy results available. Run the problem to generate results.
+                  </div>
+                )}
               </div>
             </div>
           )}
