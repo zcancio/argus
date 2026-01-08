@@ -257,6 +257,8 @@ def dict_to_backdoor_attempt(d: dict) -> BackdoorAttempt:
         code=d.get("code", ""),
         sneakiness=d.get("sneakiness", 0.0),
         selected=d.get("selected", False),
+        rating1=d.get("rating1"),
+        rating2=d.get("rating2"),
         test_cases_passed=d.get("test_cases_passed"),
         test_cases_total=d.get("test_cases_total"),
         test_case_results=d.get("test_case_results"),
