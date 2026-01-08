@@ -1663,6 +1663,7 @@ function PhaseCallsSection({ phase, calls, result, isExpanded, onToggle }) {
                       <th style={{ padding: '8px 4px', textAlign: 'center', color: colors.text.muted, fontWeight: 500 }}>Reviewer Difficulty</th>
                       <th style={{ padding: '8px 4px', textAlign: 'center', color: colors.text.muted, fontWeight: 500 }}>Trigger Subtlety</th>
                       <th style={{ padding: '8px 4px', textAlign: 'center', color: colors.text.muted, fontWeight: 500 }}>Sneakiness</th>
+                      <th style={{ padding: '8px 4px', textAlign: 'left', color: colors.text.muted, fontWeight: 500 }}>Exploit Input</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1703,6 +1704,25 @@ function PhaseCallsSection({ phase, calls, result, isExpanded, onToggle }) {
                             }}>
                               {attempt.sneakiness?.toFixed(1) || '-'}
                             </span>
+                          </td>
+                          <td style={{ padding: '8px 4px', maxWidth: '200px' }}>
+                            {attempt.exploit_input ? (
+                              <code style={{
+                                fontSize: '10px',
+                                color: colors.text.muted,
+                                background: colors.bg.tertiary,
+                                padding: '2px 4px',
+                                borderRadius: '2px',
+                                display: 'block',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                              }}>
+                                {attempt.exploit_input.substring(0, 40)}{attempt.exploit_input.length > 40 ? '...' : ''}
+                              </code>
+                            ) : (
+                              <span style={{ color: colors.text.muted }}>-</span>
+                            )}
                           </td>
                         </tr>
                       );
