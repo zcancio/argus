@@ -1670,8 +1670,8 @@ function PhaseCallsSection({ phase, calls, result, isExpanded, onToggle }) {
                           borderRadius: '4px',
                           fontSize: '10px',
                           fontWeight: 500,
-                          background: attempt.selected ? colors.accent.red + '20' : colors.accent.green + '20',
-                          color: attempt.selected ? colors.accent.red : colors.accent.green,
+                          background: attempt.selected ? colors.accent.green + '20' : colors.accent.blue + '20',
+                          color: attempt.selected ? colors.accent.green : colors.accent.blue,
                         }}>
                           {attempt.selected ? 'Exploit Verified' : 'No Exploit'}
                         </span>
