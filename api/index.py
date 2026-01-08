@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from typing import Optional
 import random
 import logging
+import os
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -1256,7 +1257,8 @@ def run_dataset_problem(
                     models=models,
                     prompts=dataset.prompts if dataset.prompts else None,
                     openai_key=x_openai_key,
-                    anthropic_key=x_anthropic_key
+                    anthropic_key=x_anthropic_key,
+                    piston_url=os.environ.get("PISTON_URL")
                 )
             except Exception as e:
                 logger.error(f"[RUN_PROBLEM] Failed: {e}")
