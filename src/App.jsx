@@ -2597,13 +2597,36 @@ function DatasetEditorPanel({ dataset, onSave, onTest, onPublish, onDelete, onDu
   const [activeTab, setActiveTab] = useState('settings');
   const [hasChanges, setHasChanges] = useState(false);
   const [promptPhase, setPromptPhase] = useState('phase1');
+  const [validProblemIds, setValidProblemIds] = useState(new Set());
+  const [mandatoryError, setMandatoryError] = useState('');
+
+  // Fetch valid problem IDs on mount
+  useEffect(() => {
+    const fetchValidIds = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/apps/problems?limit=10000`);
+        if (res.ok) {
+          const data = await res.json();
+          setValidProblemIds(new Set(data.problems.map(p => p.problem_id)));
+        }
+      } catch (e) {
+        console.error('Failed to fetch valid problem IDs:', e);
+      }
+    };
+    fetchValidIds();
+  }, []);
 
   useEffect(() => {
     if (dataset) {
       setLocalDataset({
         name: dataset.name,
-        settings: { ...dataset.settings },
-        models: { ...dataset.models },
+        settings: {
+          ...DEFAULT_DATASET_SETTINGS,
+          ...dataset.settings,
+          // Ensure mandatory_problems is always an array
+          mandatory_problems: dataset.settings?.mandatory_problems || []
+        },
+        models: { ...DEFAULT_DATASET_MODELS, ...dataset.models },
         prompts: { ...dataset.prompts },
       });
       setHasChanges(false);
@@ -2906,6 +2929,161 @@ function DatasetEditorPanel({ dataset, onSave, onTest, onPublish, onDelete, onDu
                 onChange={(e) => handleSettingsChange('max_difficulty', parseInt(e.target.value))}
                 style={sliderStyle}
               />
+            </div>
+
+            {/* Mandatory Problems */}
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <span style={{ color: colors.text.secondary, fontSize: '13px', display: 'flex', alignItems: 'center' }}>
+                  Mandatory Problems
+                  <InfoIcon tooltip="Problem IDs that must be included when publishing. These are added first (in order), then random problems fill remaining slots up to 'Number of Problems'." />
+                </span>
+                <span style={{ color: colors.text.muted, fontSize: '11px' }}>
+                  {(localDataset.settings.mandatory_problems || []).length} added
+                </span>
+              </div>
+              <div style={{
+                background: colors.bg.tertiary,
+                borderRadius: '6px',
+                padding: '12px',
+                border: `1px solid ${colors.border}`,
+              }}>
+                {/* Add problem input */}
+                <div style={{ display: 'flex', gap: '8px', marginBottom: mandatoryError || (localDataset.settings.mandatory_problems || []).length > 0 ? '8px' : 0 }}>
+                  <input
+                    type="text"
+                    placeholder="Enter problem ID (e.g., 0001)"
+                    id="mandatory-problem-input"
+                    onChange={() => setMandatoryError('')}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        const input = e.target;
+                        const value = input.value.trim();
+                        if (!value) return;
+                        if ((localDataset.settings.mandatory_problems || []).includes(value)) {
+                          setMandatoryError(`Problem ${value} is already in the list`);
+                          return;
+                        }
+                        if (validProblemIds.size > 0 && !validProblemIds.has(value)) {
+                          setMandatoryError(`Problem ${value} not found in filtered APPS dataset`);
+                          return;
+                        }
+                        handleSettingsChange('mandatory_problems', [...(localDataset.settings.mandatory_problems || []), value]);
+                        input.value = '';
+                        setMandatoryError('');
+                      }
+                    }}
+                    style={{
+                      flex: 1,
+                      padding: '8px 12px',
+                      background: colors.bg.primary,
+                      border: `1px solid ${mandatoryError ? colors.accent.red : colors.border}`,
+                      borderRadius: '4px',
+                      color: colors.text.primary,
+                      fontSize: '13px',
+                      fontFamily: 'JetBrains Mono, monospace',
+                    }}
+                  />
+                  <button
+                    onClick={() => {
+                      const input = document.getElementById('mandatory-problem-input');
+                      const value = input.value.trim();
+                      if (!value) return;
+                      if ((localDataset.settings.mandatory_problems || []).includes(value)) {
+                        setMandatoryError(`Problem ${value} is already in the list`);
+                        return;
+                      }
+                      if (validProblemIds.size > 0 && !validProblemIds.has(value)) {
+                        setMandatoryError(`Problem ${value} not found in filtered APPS dataset`);
+                        return;
+                      }
+                      handleSettingsChange('mandatory_problems', [...(localDataset.settings.mandatory_problems || []), value]);
+                      input.value = '';
+                      setMandatoryError('');
+                    }}
+                    style={{
+                      padding: '8px 16px',
+                      background: colors.accent.cyan + '20',
+                      border: `1px solid ${colors.accent.cyan}40`,
+                      borderRadius: '4px',
+                      color: colors.accent.cyan,
+                      fontSize: '12px',
+                      fontWeight: 500,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    + Add
+                  </button>
+                </div>
+                {/* Error message */}
+                {mandatoryError && (
+                  <div style={{
+                    padding: '6px 10px',
+                    background: colors.accent.red + '15',
+                    border: `1px solid ${colors.accent.red}40`,
+                    borderRadius: '4px',
+                    color: colors.accent.red,
+                    fontSize: '12px',
+                    marginBottom: (localDataset.settings.mandatory_problems || []).length > 0 ? '8px' : 0,
+                  }}>
+                    {mandatoryError}
+                  </div>
+                )}
+                {/* List of mandatory problems */}
+                {(localDataset.settings.mandatory_problems || []).length > 0 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    {(localDataset.settings.mandatory_problems || []).map((pid, idx) => (
+                      <div
+                        key={pid}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          padding: '6px 10px',
+                          background: colors.bg.primary,
+                          borderRadius: '4px',
+                          border: `1px solid ${colors.border}`,
+                        }}
+                      >
+                        <span style={{
+                          color: colors.text.muted,
+                          fontSize: '11px',
+                          minWidth: '20px',
+                        }}>
+                          {idx + 1}.
+                        </span>
+                        <span style={{
+                          flex: 1,
+                          color: colors.text.primary,
+                          fontSize: '13px',
+                          fontFamily: 'JetBrains Mono, monospace',
+                        }}>
+                          {pid}
+                        </span>
+                        <button
+                          onClick={() => {
+                            const updated = (localDataset.settings.mandatory_problems || []).filter((_, i) => i !== idx);
+                            handleSettingsChange('mandatory_problems', updated);
+                          }}
+                          style={{
+                            padding: '2px 6px',
+                            background: 'transparent',
+                            border: 'none',
+                            color: colors.text.muted,
+                            fontSize: '14px',
+                            cursor: 'pointer',
+                            opacity: 0.6,
+                          }}
+                          onMouseOver={(e) => e.target.style.opacity = 1}
+                          onMouseOut={(e) => e.target.style.opacity = 0.6}
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}

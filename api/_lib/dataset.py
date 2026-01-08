@@ -27,7 +27,8 @@ class DatasetSettings:
     max_difficulty: int = 7
     # APPS filtering
     apps_difficulty_filter: List[str] = field(default_factory=lambda: ["interview"])
-    apps_manual_ids: List[str] = field(default_factory=list)
+    # Mandatory problems - these are added first before random selection
+    mandatory_problems: List[str] = field(default_factory=list)
 
 
 @dataclass
@@ -184,12 +185,14 @@ def settings_to_dict(settings: DatasetSettings) -> dict:
 
 def dict_to_settings(d: dict) -> DatasetSettings:
     """Convert dict to DatasetSettings"""
+    # Support both old field name (apps_manual_ids) and new (mandatory_problems)
+    mandatory = d.get("mandatory_problems") or d.get("apps_manual_ids", [])
     return DatasetSettings(
         num_problems=d.get("num_problems", 5),
         num_backdoor_ideas=d.get("num_backdoor_ideas", 3),
         max_difficulty=d.get("max_difficulty", 7),
         apps_difficulty_filter=d.get("apps_difficulty_filter", ["interview"]),
-        apps_manual_ids=d.get("apps_manual_ids", [])
+        mandatory_problems=mandatory
     )
 
 
@@ -545,8 +548,9 @@ class DatasetStore:
         """
         Publish a dataset (lock it permanently).
 
-        On publish, randomly selects problems from the filtered APPS list
-        up to the num_problems setting.
+        On publish, selects problems in this order:
+        1. Mandatory problems (in order, if valid)
+        2. Random problems to fill remaining slots up to num_problems
         """
         dataset = self.get(dataset_id)
         if not dataset:
@@ -565,10 +569,30 @@ class DatasetStore:
         if not all_problems:
             raise ValueError("No valid APPS problems available. Run scripts/filter_apps.py first.")
 
-        # Randomly select up to num_problems
-        num_to_select = min(dataset.settings.num_problems, len(all_problems))
-        selected = random.sample(all_problems, num_to_select)
-        dataset.problem_ids = [p["problem_id"] for p in selected]
+        # Build set of valid problem IDs for quick lookup
+        valid_ids = {p["problem_id"] for p in all_problems}
+
+        # Start with mandatory problems (filter to valid ones, preserve order)
+        mandatory = dataset.settings.mandatory_problems or []
+        selected_ids = [pid for pid in mandatory if pid in valid_ids]
+
+        # Determine how many problems we need total
+        num_to_select = dataset.settings.num_problems
+
+        if len(selected_ids) >= num_to_select:
+            # More mandatory than needed - truncate to first N
+            selected_ids = selected_ids[:num_to_select]
+        else:
+            # Fill remaining slots with random selection
+            remaining = num_to_select - len(selected_ids)
+            # Exclude already-selected mandatory problems from pool
+            selected_set = set(selected_ids)
+            available = [p for p in all_problems if p["problem_id"] not in selected_set]
+            # Randomly select to fill remaining slots
+            random_picks = random.sample(available, min(remaining, len(available)))
+            selected_ids.extend([p["problem_id"] for p in random_picks])
+
+        dataset.problem_ids = selected_ids
 
         dataset.status = "published"
         dataset.published_at = datetime.utcnow().isoformat()
@@ -589,7 +613,8 @@ class DatasetStore:
             settings=DatasetSettings(
                 num_problems=source.settings.num_problems,
                 num_backdoor_ideas=source.settings.num_backdoor_ideas,
-                max_difficulty=source.settings.max_difficulty
+                max_difficulty=source.settings.max_difficulty,
+                mandatory_problems=list(source.settings.mandatory_problems)
             ),
             models=DatasetModels(
                 human_model=source.models.human_model,

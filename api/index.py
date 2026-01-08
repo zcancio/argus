@@ -7,7 +7,7 @@ Based on "The Case for AI Control" (Greenblatt et al., 2023)
 from fastapi import FastAPI, HTTPException, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 import random
 import logging
 import os
@@ -645,6 +645,7 @@ class DatasetSettingsModel(BaseModel):
     num_problems: int = 5
     num_backdoor_ideas: int = 3
     max_difficulty: int = 7
+    mandatory_problems: List[str] = []
 
 
 class DatasetModelsModel(BaseModel):

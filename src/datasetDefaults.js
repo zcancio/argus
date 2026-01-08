@@ -6,6 +6,7 @@ export const DEFAULT_DATASET_SETTINGS = {
   num_problems: 5,
   num_backdoor_ideas: 3,
   max_difficulty: 7,
+  mandatory_problems: [],
 };
 
 export const DEFAULT_DATASET_MODELS = {
