@@ -1545,7 +1545,7 @@ const PHASE_NAMES = {
   3: "Finding Exploits",
   4: "Verifying Exploits",
   5: "Monitoring Scores",
-  6: "Selecting Best Backdoor",
+  6: "Determining Strategies",
 };
 
 // Component to display LLM calls for a single phase
@@ -1561,8 +1561,8 @@ function PhaseCallsSection({ phase, calls, result, isExpanded, onToggle }) {
 
   // Skip phases with no data (except Phase 4/6 which have special content)
   if (phaseCalls.length === 0 && !isPhase4 && !isPhase6) return null;
-  if (isPhase4 && !phaseCompleted && phaseCalls.length === 0) return null;
-  if (isPhase6 && !phaseCompleted && !hasStrategyResults && phaseCalls.length === 0) return null;
+  if (isPhase4 && !phaseCompleted && !hasBackdoorAttempts && phaseCalls.length === 0) return null;
+  if (isPhase6 && !hasStrategyResults && phaseCalls.length === 0) return null;
 
   // Count verified exploits for Phase 4
   const verifiedExploits = result?.backdoor_attempts?.filter(a => a.selected)?.length || 0;
@@ -1693,7 +1693,7 @@ function PhaseCallsSection({ phase, calls, result, isExpanded, onToggle }) {
           )}
 
           {/* Phase 6 specific content - Strategy Results */}
-          {phase === 6 && phaseCompleted && result?.strategy_results && Object.keys(result.strategy_results).length > 0 && (
+          {phase === 6 && hasStrategyResults && (
             <div style={{ marginBottom: phaseCalls.length > 0 ? '16px' : 0 }}>
               <div style={{
                 background: colors.bg.secondary,
