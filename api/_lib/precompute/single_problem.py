@@ -273,13 +273,14 @@ class SingleProblemEngine(LLMCallTrackerMixin):
                     trigger_properties="Based on suspicious code patterns",
                     constraints="Standard constraints apply"
                 )
-                exploit_input = self._call_llm(
+                exploit_input_response = self._call_llm(
                     self.models.get("human_model", "gpt-4o"),
                     construct_prompt,
                     f"construct_exploit_{idx}"
                 )
                 proposal.exploit_found = True
-                proposal.exploits = [exploit_input.strip()]
+                proposal.exploit_input = exploit_input_response.strip()
+                proposal.exploits = [proposal.exploit_input]
 
             proposal.phase_3_complete = True
 
