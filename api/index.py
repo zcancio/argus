@@ -4,7 +4,7 @@ ARGUS API - Vercel Serverless Function
 Based on "The Case for AI Control" (Greenblatt et al., 2023)
 """
 
-from fastapi import FastAPI, HTTPException, Header
+from fastapi import FastAPI, HTTPException, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
@@ -50,7 +50,7 @@ app.add_middleware(
     allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"],
+    allow_headers=["*", "X-OpenAI-Key", "X-Anthropic-Key", "Content-Type"],
 )
 
 
@@ -98,6 +98,21 @@ def root():
         "version": "0.2.0",
         "status": "operational",
         "storage": "persistent" if store.is_persistent else "in-memory"
+    }
+
+
+@app.post("/api/debug/headers")
+def debug_headers(
+    request: Request,
+    x_openai_key: Optional[str] = Header(None, alias="X-OpenAI-Key"),
+    x_anthropic_key: Optional[str] = Header(None, alias="X-Anthropic-Key"),
+):
+    """Debug endpoint to check header reception"""
+    return {
+        "parsed_openai_key": "present" if x_openai_key else "missing",
+        "parsed_anthropic_key": "present" if x_anthropic_key else "missing",
+        "openai_key_length": len(x_openai_key) if x_openai_key else 0,
+        "all_headers": dict(request.headers),
     }
 
 
