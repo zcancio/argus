@@ -194,7 +194,6 @@ function PromptEditor({
       background: colors.bg.tertiary,
       border: `1px solid ${isModified ? colors.accent.amber + '60' : colors.border}`,
       borderRadius: '6px',
-      overflow: 'hidden',
     }}>
       {/* Header */}
       <div
@@ -231,7 +230,9 @@ function PromptEditor({
           <p style={{
             color: colors.text.muted,
             fontSize: '11px',
-            margin: '4px 0 0 0'
+            margin: '4px 0 0 0',
+            whiteSpace: 'normal',
+            wordWrap: 'break-word',
           }}>
             {description}
           </p>
@@ -2842,7 +2843,7 @@ function DatasetEditorPanel({ dataset, onSave, onTest, onPublish, onDelete, onDu
             </div>
 
             {/* Prompt editors */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '400px', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '600px', overflowY: 'auto' }}>
               {Object.entries(defaultPrompts[promptPhase] || {}).map(([key, promptDef]) => (
                 <PromptEditor
                   key={key}
