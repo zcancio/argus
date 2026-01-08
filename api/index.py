@@ -1284,6 +1284,89 @@ def run_dataset_problem(
         raise HTTPException(status_code=400, detail=f"{str(e)}\n{traceback.format_exc()}")
 
 
+class RunFromPhaseRequest(BaseModel):
+    from_phase: int
+
+
+@app.post("/api/datasets/{dataset_id}/problems/{problem_id}/run-from-phase")
+def run_problem_from_phase(
+    dataset_id: str,
+    problem_id: str,
+    request: RunFromPhaseRequest,
+    x_anthropic_key: Optional[str] = Header(None, alias="X-Anthropic-Key"),
+    x_openai_key: Optional[str] = Header(None, alias="X-OpenAI-Key"),
+):
+    """Re-run phases starting from a specific phase. Only allowed for published datasets."""
+    from api._lib.precompute import run_single_problem_from_phase
+
+    try:
+        dataset = get_dataset(dataset_id)
+        if not dataset:
+            raise HTTPException(status_code=404, detail="Dataset not found")
+
+        if dataset.status != "published":
+            raise HTTPException(
+                status_code=400,
+                detail="Cannot run problems on draft datasets. Publish the dataset first."
+            )
+
+        if problem_id not in dataset.problem_ids:
+            raise HTTPException(status_code=404, detail="Problem not in dataset")
+
+        if request.from_phase < 1 or request.from_phase > 6:
+            raise HTTPException(status_code=400, detail="from_phase must be between 1 and 6")
+
+        # Load APPS problem
+        loader = get_apps_loader()
+        apps_problem = loader.load_problem(problem_id)
+        if not apps_problem:
+            raise HTTPException(status_code=404, detail=f"APPS problem {problem_id} not found")
+
+        # Build models dict
+        models = {
+            "human_model": dataset.models.human_model,
+            "trusted_model": dataset.models.trusted_model,
+            "untrusted_model": dataset.models.untrusted_model
+        }
+
+        # Run in background thread
+        def run_from_phase_async():
+            try:
+                run_single_problem_from_phase(
+                    dataset_id=dataset_id,
+                    problem_id=problem_id,
+                    problem_text=apps_problem.question,
+                    solutions=apps_problem.solutions,
+                    models=models,
+                    from_phase=request.from_phase,
+                    prompts=dataset.prompts if dataset.prompts else None,
+                    openai_key=x_openai_key,
+                    anthropic_key=x_anthropic_key,
+                    piston_url=os.environ.get("PISTON_URL"),
+                    test_cases=apps_problem.test_cases
+                )
+            except Exception as e:
+                logger.error(f"[RUN_FROM_PHASE] Failed: {e}")
+
+        # Start background thread
+        thread = threading.Thread(target=run_from_phase_async, daemon=True)
+        thread.start()
+
+        return {
+            "status": "started",
+            "dataset_id": dataset_id,
+            "problem_id": problem_id,
+            "from_phase": request.from_phase,
+            "message": f"Re-running from phase {request.from_phase}. Poll GET endpoint for progress."
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        raise HTTPException(status_code=400, detail=f"{str(e)}\n{traceback.format_exc()}")
+
+
 @app.post("/api/datasets/{dataset_id}/compute-thresholds")
 def compute_dataset_thresholds(dataset_id: str):
     """

@@ -1549,7 +1549,7 @@ const PHASE_NAMES = {
 };
 
 // Component to display LLM calls for a single phase
-function PhaseCallsSection({ phase, calls, result, isExpanded, onToggle }) {
+function PhaseCallsSection({ phase, calls, result, isExpanded, onToggle, onRunFromHere, isRunning }) {
   const phaseCalls = calls.filter(c => c.phase === phase);
   const phaseCompleted = result?.phases_completed?.includes(phase);
 
@@ -1637,9 +1637,32 @@ function PhaseCallsSection({ phase, calls, result, isExpanded, onToggle }) {
             ) : null}
           </span>
         </div>
-        <span style={{ color: colors.text.muted, fontSize: '12px' }}>
-          {isExpanded ? '▼' : '▶'}
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {phaseCompleted && onRunFromHere && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onRunFromHere(phase);
+              }}
+              disabled={isRunning}
+              style={{
+                padding: '4px 8px',
+                fontSize: '10px',
+                background: isRunning ? colors.bg.tertiary : colors.accent.cyan + '20',
+                color: isRunning ? colors.text.muted : colors.accent.cyan,
+                border: `1px solid ${isRunning ? colors.border : colors.accent.cyan}`,
+                borderRadius: '4px',
+                cursor: isRunning ? 'not-allowed' : 'pointer',
+                fontWeight: 500,
+              }}
+            >
+              {isRunning ? 'Running...' : 'Run from here'}
+            </button>
+          )}
+          <span style={{ color: colors.text.muted, fontSize: '12px' }}>
+            {isExpanded ? '▼' : '▶'}
+          </span>
+        </div>
       </div>
       {isExpanded && (
         <div style={{ padding: '12px' }}>
@@ -2193,6 +2216,7 @@ function PublishedDatasetView({ dataset, onDuplicate, onDelete }) {
   const [loadingDetails, setLoadingDetails] = useState({});
   const [loadingProblems, setLoadingProblems] = useState({});
   const [computingThreshold, setComputingThreshold] = useState(false);
+  const [runningFromPhase, setRunningFromPhase] = useState({}); // {problemId: phase} when running
   const [thresholds, setThresholds] = useState({
     audit: dataset.audit_threshold,
     defer: dataset.defer_threshold,
@@ -2289,6 +2313,48 @@ function PublishedDatasetView({ dataset, onDuplicate, onDelete }) {
     } catch (err) {
       console.error('Failed to run problem:', err);
       setLoadingProblems(prev => ({ ...prev, [problemId]: false }));
+    }
+  };
+
+  const runFromPhase = async (problemId, fromPhase) => {
+    setRunningFromPhase(prev => ({ ...prev, [problemId]: fromPhase }));
+    try {
+      const apiKeys = loadApiKeys();
+      const response = await fetch(`${API_BASE}/api/datasets/${dataset.id}/problems/${problemId}/run-from-phase`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-OpenAI-Key': apiKeys.openai || '',
+          'X-Anthropic-Key': apiKeys.anthropic || '',
+        },
+        body: JSON.stringify({ from_phase: fromPhase }),
+      });
+      if (response.ok) {
+        // Poll for results
+        const pollInterval = setInterval(async () => {
+          const resultRes = await fetch(`${API_BASE}/api/datasets/${dataset.id}/problems/${problemId}`);
+          if (resultRes.ok) {
+            const data = await resultRes.json();
+            if (data.result) {
+              setProblemResults(prev => ({ ...prev, [problemId]: data.result }));
+              setDetailedResults(prev => ({ ...prev, [problemId]: data.result }));
+              if (data.result.status === 'completed' || data.result.status === 'failed') {
+                clearInterval(pollInterval);
+                setRunningFromPhase(prev => ({ ...prev, [problemId]: null }));
+              }
+            }
+          }
+        }, 2000);
+        // Stop polling after 5 minutes
+        setTimeout(() => clearInterval(pollInterval), 300000);
+      } else {
+        const errorData = await response.json();
+        console.error('Failed to run from phase:', errorData);
+        setRunningFromPhase(prev => ({ ...prev, [problemId]: null }));
+      }
+    } catch (err) {
+      console.error('Failed to run from phase:', err);
+      setRunningFromPhase(prev => ({ ...prev, [problemId]: null }));
     }
   };
 
@@ -2797,6 +2863,8 @@ function PublishedDatasetView({ dataset, onDuplicate, onDelete }) {
                                       result={result}
                                       isExpanded={expandedPhases[`${pid}-${phase}`]}
                                       onToggle={() => togglePhase(pid, phase)}
+                                      onRunFromHere={(fromPhase) => runFromPhase(pid, fromPhase)}
+                                      isRunning={runningFromPhase[pid] != null}
                                     />
                                   ))}
                                 </div>

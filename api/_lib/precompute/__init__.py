@@ -62,6 +62,7 @@ from .engines import (
 from .single_problem import (
     SingleProblemEngine,
     run_single_problem,
+    run_single_problem_from_phase,
     compute_thresholds,
 )
 
@@ -106,6 +107,7 @@ __all__ = [
     # Single Problem
     "SingleProblemEngine",
     "run_single_problem",
+    "run_single_problem_from_phase",
     "compute_thresholds",
     # Job Management
     "create_job",
