@@ -1692,24 +1692,39 @@ function PhaseCallsSection({ phase, calls, result, isExpanded, onToggle, onRunFr
                     {result.backdoor_attempts.map((attempt, idx) => {
                       const meetsThreshold = attempt.sneakiness >= 18;
                       const snippet = attempt.backdoor_snippet || attempt.code?.substring(0, 80);
+                      const renderDiffLine = (line, lineIdx) => {
+                        let bgColor = 'transparent';
+                        let textColor = colors.text.muted;
+                        if (line.startsWith('+')) {
+                          bgColor = colors.accent.green + '20';
+                          textColor = colors.accent.green;
+                        } else if (line.startsWith('-')) {
+                          bgColor = colors.accent.red + '20';
+                          textColor = colors.accent.red;
+                        } else if (line.startsWith('@@')) {
+                          textColor = colors.accent.cyan;
+                        }
+                        return (
+                          <div key={lineIdx} style={{ background: bgColor, padding: '1px 4px' }}>
+                            <span style={{ color: textColor }}>{line}</span>
+                          </div>
+                        );
+                      };
                       return (
                         <tr key={idx} style={{ borderBottom: `1px solid ${colors.border}20` }}>
                           <td style={{ padding: '8px 4px', color: colors.text.primary }}>{idx + 1}</td>
-                          <td style={{ padding: '8px 4px', maxWidth: '350px' }}>
-                            <code style={{
+                          <td style={{ padding: '8px 4px', maxWidth: '450px' }}>
+                            <div style={{
                               fontSize: '10px',
-                              color: colors.text.muted,
                               background: colors.bg.tertiary,
-                              padding: '4px 6px',
-                              borderRadius: '2px',
-                              display: 'block',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'pre-wrap',
-                              maxHeight: '60px',
+                              padding: '6px 8px',
+                              borderRadius: '4px',
+                              overflow: 'auto',
+                              maxHeight: '150px',
+                              fontFamily: 'Monaco, Consolas, monospace',
                             }}>
-                              {snippet?.substring(0, 120)}{snippet?.length > 120 ? '...' : ''}
-                            </code>
+                              {snippet ? snippet.split('\n').map(renderDiffLine) : 'No snippet extracted'}
+                            </div>
                           </td>
                           <td style={{ padding: '8px 4px', textAlign: 'center', color: colors.text.primary }}>
                             {attempt.rating1?.toFixed(1) || '-'}
