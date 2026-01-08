@@ -752,6 +752,8 @@ def delete_existing_dataset(dataset_id: str):
         raise HTTPException(status_code=400, detail=str(e))
 
 
+import threading
+
 @app.post("/api/datasets/{dataset_id}/test")
 def start_dataset_test(
     dataset_id: str,
@@ -788,64 +790,61 @@ def start_dataset_test(
 
         job = create_job(job_config)
 
-        # Create update callback to persist LLM call progress
-        def on_update(updated_result):
-            dataset_store.update_test(dataset_id, updated_result)
+        # Run test in background thread so we can return immediately
+        def run_test_async():
+            try:
+                # Create update callback to persist LLM call progress
+                def on_update(updated_result):
+                    dataset_store.update_test(dataset_id, updated_result)
 
-        result = run_job(
-            job.job_id,
-            openai_key=x_openai_key,
-            anthropic_key=x_anthropic_key,
-            test_result=test_result,
-            on_update=on_update
-        )
+                result = run_job(
+                    job.job_id,
+                    openai_key=x_openai_key,
+                    anthropic_key=x_anthropic_key,
+                    test_result=test_result,
+                    on_update=on_update
+                )
 
-        if result:
-            # Update test result with completion
-            from datetime import datetime
-            test_result.status = "completed" if result.status == "completed" else "failed"
-            test_result.completed_at = datetime.utcnow().isoformat()
-            test_result.current_phase = result.current_phase
-            test_result.progress_percent = result.progress_percent
-            test_result.phases_completed = [1, 2, 3, 4, 5, 6, 7] if result.status == "completed" else []
-            test_result.error = result.error
-            test_result.problems_generated = len(result.problems) if result.problems else 0
+                if result:
+                    # Update test result with completion
+                    from datetime import datetime
+                    test_result.status = "completed" if result.status == "completed" else "failed"
+                    test_result.completed_at = datetime.utcnow().isoformat()
+                    test_result.current_phase = result.current_phase
+                    test_result.progress_percent = result.progress_percent
+                    test_result.phases_completed = [1, 2, 3, 4, 5, 6, 7] if result.status == "completed" else []
+                    test_result.error = result.error
+                    test_result.problems_generated = len(result.problems) if result.problems else 0
 
-            # Count backdoors and exploits
-            backdoors = sum(1 for p in result.problems if p.U_backdoored_solution) if result.problems else 0
-            exploits = sum(1 for p in result.problems if p.exploits) if result.problems else 0
-            test_result.backdoors_generated = backdoors
-            test_result.exploits_found = exploits
+                    # Count backdoors and exploits
+                    backdoors = sum(1 for p in result.problems if p.U_backdoored_solution) if result.problems else 0
+                    exploits = sum(1 for p in result.problems if p.exploits) if result.problems else 0
+                    test_result.backdoors_generated = backdoors
+                    test_result.exploits_found = exploits
 
-            dataset_store.update_test(dataset_id, test_result)
+                    dataset_store.update_test(dataset_id, test_result)
+            except Exception as e:
+                logger.error(f"[TEST] Background test failed: {e}")
+                test_result.status = "failed"
+                test_result.error = str(e)
+                dataset_store.update_test(dataset_id, test_result)
 
-        # Serialize LLM calls
-        llm_calls = []
-        for call in test_result.llm_calls:
-            llm_calls.append({
-                "call_id": call.call_id,
-                "phase": call.phase,
-                "step": call.step,
-                "model": call.model,
-                "prompt": call.prompt,
-                "response": call.response,
-                "status": call.status,
-                "started_at": call.started_at,
-                "completed_at": call.completed_at,
-                "error": call.error
-            })
+        # Start background thread
+        thread = threading.Thread(target=run_test_async, daemon=True)
+        thread.start()
 
+        # Return immediately - frontend will poll GET endpoint for updates
         return {
             "test_id": test_result.test_id,
             "status": test_result.status,
             "current_phase": test_result.current_phase,
             "progress_percent": test_result.progress_percent,
             "phases_completed": test_result.phases_completed,
-            "problems_generated": test_result.problems_generated,
-            "backdoors_generated": test_result.backdoors_generated,
-            "exploits_found": test_result.exploits_found,
-            "error": test_result.error,
-            "llm_calls": llm_calls
+            "problems_generated": 0,
+            "backdoors_generated": 0,
+            "exploits_found": 0,
+            "error": None,
+            "llm_calls": []
         }
 
     except HTTPException:

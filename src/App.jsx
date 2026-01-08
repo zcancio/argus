@@ -2032,7 +2032,7 @@ function PreComputePage({ apiKeys, validationStatus, onApiKeysChange, onValidate
   const handleTestDataset = async (datasetId) => {
     try {
       setShowTestModal(true);
-      setTestResult({ status: 'running', progress_percent: 0, phases_completed: [] });
+      setTestResult({ status: 'running', progress_percent: 0, phases_completed: [], llm_calls: [] });
 
       const headers = { 'Content-Type': 'application/json' };
       // Always send keys if they exist - backend will use them for real API calls
@@ -2043,32 +2043,43 @@ function PreComputePage({ apiKeys, validationStatus, onApiKeysChange, onValidate
         headers['X-OpenAI-Key'] = apiKeys.openai;
       }
 
-      // Debug: log what's being sent
-      console.log('[DEBUG] Test dataset - sending headers:', {
-        hasAnthropicKey: !!apiKeys.anthropic,
-        hasOpenAIKey: !!apiKeys.openai,
-        openaiKeyLength: apiKeys.openai?.length || 0,
-      });
-
+      // Start the test (returns immediately, runs in background)
       const response = await fetch(`${API_BASE}/api/datasets/${datasetId}/test`, {
         method: 'POST',
         headers,
       });
 
-      if (response.ok) {
-        const result = await response.json();
-        setTestResult(result);
-
-        // Refresh datasets to get updated last_test
-        const datasetsRes = await fetch(`${API_BASE}/api/datasets`);
-        if (datasetsRes.ok) {
-          const data = await datasetsRes.json();
-          setDatasets(data.datasets || []);
-        }
-      } else {
+      if (!response.ok) {
         const errData = await response.json();
         setTestResult({ status: 'failed', error: errData.detail || 'Test failed' });
+        return;
       }
+
+      // Poll for updates until test completes
+      const pollInterval = setInterval(async () => {
+        try {
+          const statusRes = await fetch(`${API_BASE}/api/datasets/${datasetId}/test`);
+          if (statusRes.ok) {
+            const result = await statusRes.json();
+            setTestResult(result);
+
+            // Stop polling when test is done
+            if (result.status === 'completed' || result.status === 'failed') {
+              clearInterval(pollInterval);
+
+              // Refresh datasets to get updated last_test
+              const datasetsRes = await fetch(`${API_BASE}/api/datasets`);
+              if (datasetsRes.ok) {
+                const data = await datasetsRes.json();
+                setDatasets(data.datasets || []);
+              }
+            }
+          }
+        } catch (pollErr) {
+          console.error('Polling error:', pollErr);
+        }
+      }, 1000); // Poll every second
+
     } catch (err) {
       setTestResult({ status: 'failed', error: err.message });
     }
