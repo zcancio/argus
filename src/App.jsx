@@ -1549,9 +1549,21 @@ const PHASE_NAMES = {
 };
 
 // Component to display LLM calls for a single phase
-function PhaseCallsSection({ phase, calls, isExpanded, onToggle }) {
+function PhaseCallsSection({ phase, calls, result, isExpanded, onToggle }) {
   const phaseCalls = calls.filter(c => c.phase === phase);
-  if (phaseCalls.length === 0) return null;
+  const phaseCompleted = result?.phases_completed?.includes(phase);
+
+  // Phase 4 is special - it's code execution, not LLM calls
+  const isPhase4 = phase === 4;
+  const hasBackdoorAttempts = result?.backdoor_attempts?.length > 0;
+
+  // Skip phases with no data (except Phase 4 which may have execution data)
+  if (phaseCalls.length === 0 && !isPhase4) return null;
+  if (isPhase4 && !phaseCompleted && phaseCalls.length === 0) return null;
+
+  // Count verified exploits for Phase 4
+  const verifiedExploits = result?.backdoor_attempts?.filter(a => a.selected)?.length || 0;
+  const totalAttempts = result?.backdoor_attempts?.length || 0;
 
   return (
     <div style={{
@@ -1576,21 +1588,27 @@ function PhaseCallsSection({ phase, calls, isExpanded, onToggle }) {
             width: '20px',
             height: '20px',
             borderRadius: '4px',
-            background: colors.accent.cyan + '20',
-            color: colors.accent.cyan,
+            background: phaseCompleted ? colors.accent.green + '20' : colors.accent.cyan + '20',
+            color: phaseCompleted ? colors.accent.green : colors.accent.cyan,
             fontSize: '11px',
             fontWeight: 600,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
           }}>
-            {phase}
+            {phaseCompleted ? '✓' : phase}
           </span>
           <span style={{ color: colors.text.primary, fontSize: '12px', fontWeight: 500 }}>
             {PHASE_NAMES[phase] || `Phase ${phase}`}
           </span>
           <span style={{ color: colors.text.muted, fontSize: '11px' }}>
-            ({phaseCalls.length} call{phaseCalls.length !== 1 ? 's' : ''})
+            {isPhase4 && phaseCompleted ? (
+              `(${totalAttempts} backdoor${totalAttempts !== 1 ? 's' : ''} verified)`
+            ) : phaseCalls.length > 0 ? (
+              `(${phaseCalls.length} call${phaseCalls.length !== 1 ? 's' : ''})`
+            ) : phaseCompleted ? (
+              '(completed)'
+            ) : null}
           </span>
         </div>
         <span style={{ color: colors.text.muted, fontSize: '12px' }}>
@@ -1599,6 +1617,77 @@ function PhaseCallsSection({ phase, calls, isExpanded, onToggle }) {
       </div>
       {isExpanded && (
         <div style={{ padding: '12px' }}>
+          {/* Phase 4 specific content - Code Execution Results */}
+          {isPhase4 && phaseCompleted && (
+            <div style={{ marginBottom: phaseCalls.length > 0 ? '16px' : 0 }}>
+              <div style={{
+                padding: '12px',
+                background: colors.bg.secondary,
+                borderRadius: '4px',
+                border: `1px solid ${colors.border}`,
+              }}>
+                <div style={{ color: colors.text.muted, fontSize: '10px', marginBottom: '8px', textTransform: 'uppercase' }}>
+                  Code Execution Results
+                </div>
+                {hasBackdoorAttempts ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {result.backdoor_attempts.map((attempt, idx) => (
+                      <div
+                        key={idx}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          padding: '8px',
+                          background: colors.bg.primary,
+                          borderRadius: '4px',
+                          border: `1px solid ${colors.border}`,
+                        }}
+                      >
+                        <span style={{
+                          width: '24px',
+                          height: '24px',
+                          borderRadius: '4px',
+                          background: colors.bg.tertiary,
+                          color: colors.text.muted,
+                          fontSize: '11px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}>
+                          #{idx + 1}
+                        </span>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: '12px', color: colors.text.primary, marginBottom: '2px' }}>
+                            {attempt.idea?.substring(0, 60)}{attempt.idea?.length > 60 ? '...' : ''}
+                          </div>
+                          <div style={{ fontSize: '11px', color: colors.text.muted }}>
+                            Sneakiness: {attempt.sneakiness?.toFixed(1) || '—'}
+                          </div>
+                        </div>
+                        <span style={{
+                          padding: '4px 8px',
+                          borderRadius: '4px',
+                          fontSize: '10px',
+                          fontWeight: 500,
+                          background: attempt.selected ? colors.accent.red + '20' : colors.accent.green + '20',
+                          color: attempt.selected ? colors.accent.red : colors.accent.green,
+                        }}>
+                          {attempt.selected ? 'Exploit Verified' : 'No Exploit'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div style={{ color: colors.text.muted, fontSize: '12px' }}>
+                    No backdoor attempts to verify
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* LLM Calls (for all phases) */}
           {phaseCalls.map((call, idx) => (
             <div
               key={call.call_id || idx}
@@ -2272,7 +2361,7 @@ function PublishedDatasetView({ dataset, onDuplicate, onDelete }) {
                               </div>
                             )}
 
-                            {/* LLM Calls Section */}
+                            {/* Phases Section */}
                             {(() => {
                               const detailed = detailedResults[pid];
                               const isLoadingDetail = loadingDetails[pid];
@@ -2282,12 +2371,14 @@ function PublishedDatasetView({ dataset, onDuplicate, onDelete }) {
                               if (isLoadingDetail) {
                                 return (
                                   <div style={{ marginTop: '16px', color: colors.text.muted, fontSize: '12px' }}>
-                                    Loading LLM call details...
+                                    Loading phase details...
                                   </div>
                                 );
                               }
 
-                              if (llmCalls.length === 0) {
+                              // Show phases section even if no LLM calls (Phase 4 may have code execution)
+                              const hasPhaseData = llmCalls.length > 0 || result?.phases_completed?.length > 0;
+                              if (!hasPhaseData) {
                                 return null;
                               }
 
@@ -2302,13 +2393,14 @@ function PublishedDatasetView({ dataset, onDuplicate, onDelete }) {
                                     alignItems: 'center',
                                     gap: '8px',
                                   }}>
-                                    LLM Calls ({llmCalls.length})
+                                    Phases
                                   </div>
                                   {[1, 2, 3, 4, 5, 6].map(phase => (
                                     <PhaseCallsSection
                                       key={phase}
                                       phase={phase}
                                       calls={llmCalls}
+                                      result={result}
                                       isExpanded={expandedPhases[`${pid}-${phase}`]}
                                       onToggle={() => togglePhase(pid, phase)}
                                     />
