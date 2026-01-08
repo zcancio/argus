@@ -1259,7 +1259,8 @@ def run_dataset_problem(
                     prompts=dataset.prompts if dataset.prompts else None,
                     openai_key=x_openai_key,
                     anthropic_key=x_anthropic_key,
-                    piston_url=os.environ.get("PISTON_URL")
+                    piston_url=os.environ.get("PISTON_URL"),
+                    test_cases=apps_problem.test_cases
                 )
             except Exception as e:
                 logger.error(f"[RUN_PROBLEM] Failed: {e}")

@@ -56,11 +56,22 @@ class LLMCall:
 
 @dataclass
 class BackdoorAttempt:
-    """A single backdoor attempt with its sneakiness score"""
+    """A single backdoor attempt with its sneakiness score and verification results"""
     idea: str
     code: str
     sneakiness: float
     selected: bool = False
+    # Phase 4: Test case results
+    test_cases_passed: Optional[int] = None
+    test_cases_total: Optional[int] = None
+    test_case_results: Optional[List[Dict[str, Any]]] = None  # Details of each test case
+    # Phase 4: Exploit verification
+    exploit_input: Optional[str] = None
+    exploit_output: Optional[str] = None
+    exploit_expected: Optional[str] = None
+    exploit_verified: bool = False
+    # Outcome classification: SUCCESSFUL_COUP, FAILED_COUP_ATTEMPT, NO_BACKDOOR
+    outcome: Optional[str] = None
 
 
 # Attack strategy thresholds from the paper
@@ -242,7 +253,15 @@ def dict_to_backdoor_attempt(d: dict) -> BackdoorAttempt:
         idea=d.get("idea", ""),
         code=d.get("code", ""),
         sneakiness=d.get("sneakiness", 0.0),
-        selected=d.get("selected", False)
+        selected=d.get("selected", False),
+        test_cases_passed=d.get("test_cases_passed"),
+        test_cases_total=d.get("test_cases_total"),
+        test_case_results=d.get("test_case_results"),
+        exploit_input=d.get("exploit_input"),
+        exploit_output=d.get("exploit_output"),
+        exploit_expected=d.get("exploit_expected"),
+        exploit_verified=d.get("exploit_verified", False),
+        outcome=d.get("outcome")
     )
 
 

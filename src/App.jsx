@@ -1631,57 +1631,141 @@ function PhaseCallsSection({ phase, calls, result, isExpanded, onToggle }) {
                 borderRadius: '4px',
                 border: `1px solid ${colors.border}`,
               }}>
-                <div style={{ color: colors.text.muted, fontSize: '10px', marginBottom: '8px', textTransform: 'uppercase' }}>
+                <div style={{ color: colors.text.muted, fontSize: '10px', marginBottom: '12px', textTransform: 'uppercase' }}>
                   Code Execution Results
                 </div>
                 {hasBackdoorAttempts ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    {result.backdoor_attempts.map((attempt, idx) => (
-                      <div
-                        key={idx}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '8px',
-                          padding: '8px',
-                          background: colors.bg.primary,
-                          borderRadius: '4px',
-                          border: `1px solid ${colors.border}`,
-                        }}
-                      >
-                        <span style={{
-                          width: '24px',
-                          height: '24px',
-                          borderRadius: '4px',
-                          background: colors.bg.tertiary,
-                          color: colors.text.muted,
-                          fontSize: '11px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                        }}>
-                          #{idx + 1}
-                        </span>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontSize: '12px', color: colors.text.primary, marginBottom: '2px' }}>
-                            {attempt.idea?.substring(0, 60)}{attempt.idea?.length > 60 ? '...' : ''}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    {result.backdoor_attempts.map((attempt, idx) => {
+                      const outcomeColors = {
+                        'SUCCESSFUL_COUP': { bg: colors.accent.green + '20', color: colors.accent.green, label: 'Successful Coup' },
+                        'FAILED_COUP_ATTEMPT': { bg: colors.accent.red + '20', color: colors.accent.red, label: 'Failed Coup' },
+                        'NO_BACKDOOR': { bg: colors.accent.blue + '20', color: colors.accent.blue, label: 'No Backdoor' }
+                      };
+                      const outcomeStyle = outcomeColors[attempt.outcome] || outcomeColors['NO_BACKDOOR'];
+                      const allTestsPassed = attempt.test_cases_passed === attempt.test_cases_total;
+
+                      return (
+                        <div
+                          key={idx}
+                          style={{
+                            padding: '12px',
+                            background: colors.bg.primary,
+                            borderRadius: '6px',
+                            border: `1px solid ${colors.border}`,
+                          }}
+                        >
+                          {/* Header row */}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+                            <span style={{
+                              width: '24px',
+                              height: '24px',
+                              borderRadius: '4px',
+                              background: colors.bg.tertiary,
+                              color: colors.text.muted,
+                              fontSize: '11px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                            }}>
+                              #{idx + 1}
+                            </span>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontSize: '12px', color: colors.text.primary }}>
+                                {attempt.idea?.substring(0, 80)}{attempt.idea?.length > 80 ? '...' : ''}
+                              </div>
+                            </div>
+                            <span style={{
+                              padding: '4px 10px',
+                              borderRadius: '4px',
+                              fontSize: '10px',
+                              fontWeight: 600,
+                              background: outcomeStyle.bg,
+                              color: outcomeStyle.color,
+                            }}>
+                              {outcomeStyle.label}
+                            </span>
                           </div>
-                          <div style={{ fontSize: '11px', color: colors.text.muted }}>
-                            Sneakiness: {attempt.sneakiness?.toFixed(1) || '—'}
+
+                          {/* Test Cases & Exploit Results */}
+                          <div style={{ display: 'flex', gap: '16px', fontSize: '11px' }}>
+                            {/* Test Cases */}
+                            <div style={{ flex: 1 }}>
+                              <div style={{ color: colors.text.muted, marginBottom: '4px', textTransform: 'uppercase', fontSize: '9px' }}>
+                                Test Cases
+                              </div>
+                              <div style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                padding: '6px 8px',
+                                background: colors.bg.tertiary,
+                                borderRadius: '4px',
+                              }}>
+                                <span style={{
+                                  color: allTestsPassed ? colors.accent.green : colors.accent.red,
+                                  fontFamily: 'JetBrains Mono, monospace',
+                                  fontWeight: 600,
+                                }}>
+                                  {attempt.test_cases_passed ?? '?'}/{attempt.test_cases_total ?? '?'}
+                                </span>
+                                <span style={{ color: colors.text.muted }}>
+                                  {allTestsPassed ? 'All passed' : 'Some failed'}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Exploit Result */}
+                            <div style={{ flex: 1 }}>
+                              <div style={{ color: colors.text.muted, marginBottom: '4px', textTransform: 'uppercase', fontSize: '9px' }}>
+                                Exploit
+                              </div>
+                              <div style={{
+                                padding: '6px 8px',
+                                background: colors.bg.tertiary,
+                                borderRadius: '4px',
+                              }}>
+                                {attempt.exploit_input ? (
+                                  <div>
+                                    <div style={{ color: colors.text.muted, marginBottom: '2px' }}>
+                                      Input: <span style={{ color: colors.text.primary, fontFamily: 'JetBrains Mono, monospace' }}>
+                                        {attempt.exploit_input?.substring(0, 30)}{attempt.exploit_input?.length > 30 ? '...' : ''}
+                                      </span>
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                      <span style={{ color: colors.text.muted }}>Got:</span>
+                                      <span style={{
+                                        color: attempt.exploit_verified ? colors.accent.red : colors.text.primary,
+                                        fontFamily: 'JetBrains Mono, monospace',
+                                      }}>
+                                        {attempt.exploit_output?.substring(0, 20)}{attempt.exploit_output?.length > 20 ? '...' : ''}
+                                      </span>
+                                      {attempt.exploit_verified && (
+                                        <>
+                                          <span style={{ color: colors.text.muted }}>Expected:</span>
+                                          <span style={{ color: colors.accent.green, fontFamily: 'JetBrains Mono, monospace' }}>
+                                            {attempt.exploit_expected?.substring(0, 20)}{attempt.exploit_expected?.length > 20 ? '...' : ''}
+                                          </span>
+                                        </>
+                                      )}
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <span style={{ color: colors.text.muted }}>No exploit attempted</span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Sneakiness score */}
+                          <div style={{ marginTop: '8px', fontSize: '10px', color: colors.text.muted }}>
+                            Sneakiness: <span style={{ color: colors.accent.magenta, fontFamily: 'JetBrains Mono, monospace' }}>
+                              {attempt.sneakiness?.toFixed(1) || '—'}
+                            </span>
                           </div>
                         </div>
-                        <span style={{
-                          padding: '4px 8px',
-                          borderRadius: '4px',
-                          fontSize: '10px',
-                          fontWeight: 500,
-                          background: attempt.selected ? colors.accent.green + '20' : colors.accent.blue + '20',
-                          color: attempt.selected ? colors.accent.green : colors.accent.blue,
-                        }}>
-                          {attempt.selected ? 'Exploit Verified' : 'No Exploit'}
-                        </span>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
                   <div style={{ color: colors.text.muted, fontSize: '12px' }}>
