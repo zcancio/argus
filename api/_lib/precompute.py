@@ -424,7 +424,7 @@ class PrecomputeEngine:
             phase=self._current_phase,
             step=step,
             model=model,
-            prompt=prompt[:500] + "..." if len(prompt) > 500 else prompt,  # Truncate long prompts
+            prompt=prompt,  # Truncate long prompts
             status="running",
             started_at=datetime.utcnow().isoformat()
         )
@@ -442,7 +442,7 @@ class PrecomputeEngine:
             call.error = error
         else:
             call.status = "completed"
-            call.response = response[:1000] + "..." if len(response) > 1000 else response  # Truncate
+            call.response = response  # Truncate
         if self._on_update and self._test_result:
             self._on_update(self._test_result)
 
@@ -1671,7 +1671,7 @@ class SingleProblemEngine:
             phase=self._current_phase,
             step=step,
             model=model,
-            prompt=prompt[:500] + "..." if len(prompt) > 500 else prompt,
+            prompt=prompt,
             status="running",
             started_at=datetime.utcnow().isoformat()
         )
@@ -1687,7 +1687,7 @@ class SingleProblemEngine:
             call.error = error
         else:
             call.status = "completed"
-            call.response = response[:1000] + "..." if len(response) > 1000 else response
+            call.response = response
         self._persist()
 
     def _call_llm(self, model: str, prompt: str, step: str = "unknown") -> str:
