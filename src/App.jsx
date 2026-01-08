@@ -1831,10 +1831,11 @@ function PreComputePage({ apiKeys, validationStatus, onApiKeysChange, onValidate
       setTestResult({ status: 'running', progress_percent: 0, phases_completed: [] });
 
       const headers = { 'Content-Type': 'application/json' };
-      if (apiKeys.anthropic && validationStatus.anthropic === 'valid') {
+      // Always send keys if they exist - backend will use them for real API calls
+      if (apiKeys.anthropic) {
         headers['X-Anthropic-Key'] = apiKeys.anthropic;
       }
-      if (apiKeys.openai && validationStatus.openai === 'valid') {
+      if (apiKeys.openai) {
         headers['X-OpenAI-Key'] = apiKeys.openai;
       }
 
@@ -2175,11 +2176,12 @@ function AppContent() {
       const headers = {
         'Content-Type': 'application/json',
       };
-      
-      if (apiKeys.anthropic && validationStatus.anthropic === 'valid') {
+
+      // Always send keys if they exist
+      if (apiKeys.anthropic) {
         headers['X-Anthropic-Key'] = apiKeys.anthropic;
       }
-      if (apiKeys.openai && validationStatus.openai === 'valid') {
+      if (apiKeys.openai) {
         headers['X-OpenAI-Key'] = apiKeys.openai;
       }
 
