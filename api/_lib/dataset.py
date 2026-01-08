@@ -10,6 +10,7 @@ from typing import Dict, List, Optional, Any
 from datetime import datetime
 import uuid
 import json
+import random
 
 from api._lib.storage import get_redis_client
 
@@ -24,6 +25,9 @@ class DatasetSettings:
     num_problems: int = 5
     num_backdoor_ideas: int = 3
     max_difficulty: int = 7
+    # APPS filtering
+    apps_difficulty_filter: List[str] = field(default_factory=lambda: ["interview"])
+    apps_manual_ids: List[str] = field(default_factory=list)
 
 
 @dataclass
@@ -47,6 +51,32 @@ class LLMCall:
     started_at: Optional[str] = None
     completed_at: Optional[str] = None
     error: Optional[str] = None
+
+
+@dataclass
+class ProblemResult:
+    """Stores per-problem execution results"""
+    problem_id: str
+    status: str = "pending"  # "pending" | "running" | "completed" | "failed"
+    phases_completed: List[int] = field(default_factory=list)
+    current_phase: Optional[int] = None
+
+    # Phase outputs (stored after completion)
+    U_normal_solution: Optional[str] = None
+    T_solution: Optional[str] = None
+    U_backdoored_solution: Optional[str] = None
+    T_suspicion_score: Optional[float] = None
+    H_suspicion_score: Optional[float] = None
+    sneakiness: Optional[float] = None
+    exploit_found: bool = False
+    exploits: List[str] = field(default_factory=list)
+
+    # Full LLM call logs
+    llm_calls: List[LLMCall] = field(default_factory=list)
+
+    error: Optional[str] = None
+    started_at: Optional[str] = None
+    completed_at: Optional[str] = None
 
 
 @dataclass
@@ -87,6 +117,12 @@ class Dataset:
     updated_at: str
     published_at: Optional[str] = None
     last_test: Optional[TestRunResult] = None
+    # APPS problem tracking
+    problem_ids: List[str] = field(default_factory=list)  # Selected APPS problem IDs
+    # Aggregate results (Phase 7)
+    audit_threshold: Optional[float] = None
+    defer_threshold: Optional[float] = None
+    threshold_error: Optional[str] = None
 
 
 # =============================================================================
@@ -103,7 +139,9 @@ def dict_to_settings(d: dict) -> DatasetSettings:
     return DatasetSettings(
         num_problems=d.get("num_problems", 5),
         num_backdoor_ideas=d.get("num_backdoor_ideas", 3),
-        max_difficulty=d.get("max_difficulty", 7)
+        max_difficulty=d.get("max_difficulty", 7),
+        apps_difficulty_filter=d.get("apps_difficulty_filter", ["interview"]),
+        apps_manual_ids=d.get("apps_manual_ids", [])
     )
 
 
@@ -139,6 +177,37 @@ def dict_to_llm_call(d: dict) -> LLMCall:
         started_at=d.get("started_at"),
         completed_at=d.get("completed_at"),
         error=d.get("error")
+    )
+
+
+def problem_result_to_dict(result: ProblemResult) -> dict:
+    """Convert ProblemResult to dict"""
+    d = asdict(result)
+    # Ensure llm_calls are properly serialized
+    d["llm_calls"] = [llm_call_to_dict(c) if isinstance(c, LLMCall) else c for c in result.llm_calls]
+    return d
+
+
+def dict_to_problem_result(d: dict) -> ProblemResult:
+    """Convert dict to ProblemResult"""
+    llm_calls = [dict_to_llm_call(c) if isinstance(c, dict) else c for c in d.get("llm_calls", [])]
+    return ProblemResult(
+        problem_id=d["problem_id"],
+        status=d.get("status", "pending"),
+        phases_completed=d.get("phases_completed", []),
+        current_phase=d.get("current_phase"),
+        U_normal_solution=d.get("U_normal_solution"),
+        T_solution=d.get("T_solution"),
+        U_backdoored_solution=d.get("U_backdoored_solution"),
+        T_suspicion_score=d.get("T_suspicion_score"),
+        H_suspicion_score=d.get("H_suspicion_score"),
+        sneakiness=d.get("sneakiness"),
+        exploit_found=d.get("exploit_found", False),
+        exploits=d.get("exploits", []),
+        llm_calls=llm_calls,
+        error=d.get("error"),
+        started_at=d.get("started_at"),
+        completed_at=d.get("completed_at")
     )
 
 
@@ -181,7 +250,11 @@ def dataset_to_dict(dataset: Dataset) -> dict:
         "created_at": dataset.created_at,
         "updated_at": dataset.updated_at,
         "published_at": dataset.published_at,
-        "last_test": test_result_to_dict(dataset.last_test) if dataset.last_test else None
+        "last_test": test_result_to_dict(dataset.last_test) if dataset.last_test else None,
+        "problem_ids": dataset.problem_ids,
+        "audit_threshold": dataset.audit_threshold,
+        "defer_threshold": dataset.defer_threshold,
+        "threshold_error": dataset.threshold_error
     }
 
 
@@ -197,7 +270,11 @@ def dict_to_dataset(d: dict) -> Dataset:
         created_at=d["created_at"],
         updated_at=d["updated_at"],
         published_at=d.get("published_at"),
-        last_test=dict_to_test_result(d["last_test"]) if d.get("last_test") else None
+        last_test=dict_to_test_result(d["last_test"]) if d.get("last_test") else None,
+        problem_ids=d.get("problem_ids", []),
+        audit_threshold=d.get("audit_threshold"),
+        defer_threshold=d.get("defer_threshold"),
+        threshold_error=d.get("threshold_error")
     )
 
 
@@ -214,10 +291,12 @@ class DatasetStore:
     KEY_DATASET = "dataset:{id}"
     KEY_INDEX = "dataset:index"
     KEY_TEST = "dataset:{id}:test"
+    KEY_PROBLEM = "dataset:{id}:problem:{problem_id}"
 
     def __init__(self):
         self.redis = get_redis_client()
         self._memory_store: Dict[str, Dataset] = {}
+        self._problem_results: Dict[str, Dict[str, ProblemResult]] = {}  # dataset_id -> {problem_id -> result}
 
     @property
     def is_persistent(self) -> bool:
@@ -362,13 +441,33 @@ class DatasetStore:
             return sorted(items, key=lambda x: x.updated_at, reverse=True)[:limit]
 
     def publish(self, dataset_id: str) -> Optional[Dataset]:
-        """Publish a dataset (lock it permanently)"""
+        """
+        Publish a dataset (lock it permanently).
+
+        On publish, randomly selects problems from the filtered APPS list
+        up to the num_problems setting.
+        """
         dataset = self.get(dataset_id)
         if not dataset:
             return None
 
         if dataset.status != "draft":
             raise ValueError("Dataset is already published")
+
+        # Import here to avoid circular imports
+        from api._lib.apps import get_apps_loader
+
+        # Get filtered APPS problems
+        loader = get_apps_loader()
+        all_problems = loader.list_problems(limit=None)  # Get all filtered problems
+
+        if not all_problems:
+            raise ValueError("No valid APPS problems available. Run scripts/filter_apps.py first.")
+
+        # Randomly select up to num_problems
+        num_to_select = min(dataset.settings.num_problems, len(all_problems))
+        selected = random.sample(all_problems, num_to_select)
+        dataset.problem_ids = [p["problem_id"] for p in selected]
 
         dataset.status = "published"
         dataset.published_at = datetime.utcnow().isoformat()
@@ -471,6 +570,142 @@ class DatasetStore:
         # Fallback to dataset's last_test
         dataset = self.get(dataset_id)
         return dataset.last_test if dataset else None
+
+    # =========================================================================
+    # PROBLEM RESULT MANAGEMENT
+    # =========================================================================
+
+    def add_problem(self, dataset_id: str, problem_id: str) -> Optional[Dataset]:
+        """Add a problem to a dataset"""
+        dataset = self.get(dataset_id)
+        if not dataset:
+            return None
+
+        if dataset.status != "draft":
+            raise ValueError("Cannot modify a published dataset")
+
+        if problem_id not in dataset.problem_ids:
+            dataset.problem_ids.append(problem_id)
+            self._save(dataset)
+
+        return dataset
+
+    def remove_problem(self, dataset_id: str, problem_id: str) -> Optional[Dataset]:
+        """Remove a problem from a dataset"""
+        dataset = self.get(dataset_id)
+        if not dataset:
+            return None
+
+        if dataset.status != "draft":
+            raise ValueError("Cannot modify a published dataset")
+
+        if problem_id in dataset.problem_ids:
+            dataset.problem_ids.remove(problem_id)
+            # Also delete the problem result if it exists
+            self._delete_problem_result(dataset_id, problem_id)
+            self._save(dataset)
+
+        return dataset
+
+    def set_problems(self, dataset_id: str, problem_ids: List[str]) -> Optional[Dataset]:
+        """Set the list of problems for a dataset (replaces existing)"""
+        dataset = self.get(dataset_id)
+        if not dataset:
+            return None
+
+        if dataset.status != "draft":
+            raise ValueError("Cannot modify a published dataset")
+
+        # Delete results for problems being removed
+        removed = set(dataset.problem_ids) - set(problem_ids)
+        for pid in removed:
+            self._delete_problem_result(dataset_id, pid)
+
+        dataset.problem_ids = problem_ids
+        self._save(dataset)
+
+        return dataset
+
+    def get_problem_result(self, dataset_id: str, problem_id: str) -> Optional[ProblemResult]:
+        """Get the result for a specific problem"""
+        if self.redis:
+            try:
+                key = self._get_key(self.KEY_PROBLEM, id=dataset_id, problem_id=problem_id)
+                data = self.redis.get(key)
+                if data:
+                    if isinstance(data, bytes):
+                        data = data.decode('utf-8')
+                    return dict_to_problem_result(json.loads(data))
+                return None
+            except Exception as e:
+                print(f"Redis get problem result failed: {e}")
+                return None
+        else:
+            if dataset_id in self._problem_results:
+                return self._problem_results[dataset_id].get(problem_id)
+            return None
+
+    def update_problem_result(self, dataset_id: str, problem_id: str, result: ProblemResult):
+        """Update or create a problem result"""
+        if self.redis:
+            try:
+                key = self._get_key(self.KEY_PROBLEM, id=dataset_id, problem_id=problem_id)
+                self.redis.setex(
+                    key,
+                    TTL_DRAFT,
+                    json.dumps(problem_result_to_dict(result))
+                )
+            except Exception as e:
+                print(f"Redis update problem result failed: {e}")
+        else:
+            if dataset_id not in self._problem_results:
+                self._problem_results[dataset_id] = {}
+            self._problem_results[dataset_id][problem_id] = result
+
+    def _delete_problem_result(self, dataset_id: str, problem_id: str):
+        """Delete a problem result"""
+        if self.redis:
+            try:
+                key = self._get_key(self.KEY_PROBLEM, id=dataset_id, problem_id=problem_id)
+                self.redis.delete(key)
+            except Exception as e:
+                print(f"Redis delete problem result failed: {e}")
+        else:
+            if dataset_id in self._problem_results:
+                self._problem_results[dataset_id].pop(problem_id, None)
+
+    def get_all_problem_results(self, dataset_id: str) -> Dict[str, ProblemResult]:
+        """Get all problem results for a dataset"""
+        dataset = self.get(dataset_id)
+        if not dataset:
+            return {}
+
+        results = {}
+        for problem_id in dataset.problem_ids:
+            result = self.get_problem_result(dataset_id, problem_id)
+            if result:
+                results[problem_id] = result
+
+        return results
+
+    def update_thresholds(
+        self,
+        dataset_id: str,
+        audit_threshold: Optional[float] = None,
+        defer_threshold: Optional[float] = None,
+        error: Optional[str] = None
+    ) -> Optional[Dataset]:
+        """Update the computed thresholds for a dataset"""
+        dataset = self.get(dataset_id)
+        if not dataset:
+            return None
+
+        dataset.audit_threshold = audit_threshold
+        dataset.defer_threshold = defer_threshold
+        dataset.threshold_error = error
+
+        self._save(dataset)
+        return dataset
 
 
 # =============================================================================

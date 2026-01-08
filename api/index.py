@@ -40,8 +40,11 @@ from api._lib.dataset import (
     dataset_store, Dataset, DatasetSettings, DatasetModels,
     dataset_to_dict, dict_to_settings, dict_to_models,
     create_dataset, get_dataset, update_dataset, delete_dataset,
-    list_datasets, publish_dataset, duplicate_dataset
+    list_datasets, publish_dataset, duplicate_dataset,
+    problem_result_to_dict
 )
+from api._lib.apps import get_apps_loader, APPSProblem
+from api._lib.precompute import run_single_problem, compute_thresholds
 
 # FastAPI app
 app = FastAPI(
@@ -917,6 +920,386 @@ def duplicate_existing_dataset(dataset_id: str, request: DatasetDuplicateRequest
 
         return dataset_to_dict(dataset)
 
+    except Exception as e:
+        import traceback
+        raise HTTPException(status_code=400, detail=f"{str(e)}\n{traceback.format_exc()}")
+
+
+# =============================================================================
+# APPS PROBLEM ENDPOINTS
+# =============================================================================
+
+class APPSFilterRequest(BaseModel):
+    """Request to filter APPS problems"""
+    difficulty: Optional[list] = None  # ["introductory", "interview", "competition"]
+    limit: Optional[int] = 50
+    offset: Optional[int] = 0
+
+
+class AddProblemsRequest(BaseModel):
+    """Request to add problems to a dataset"""
+    problem_ids: list  # List of APPS problem IDs
+
+
+class SetProblemsRequest(BaseModel):
+    """Request to set the problem list for a dataset"""
+    problem_ids: list  # List of APPS problem IDs
+
+
+@app.get("/api/apps/problems")
+def list_apps_problems(
+    difficulty: Optional[str] = None,
+    limit: int = 50,
+    offset: int = 0
+):
+    """
+    List/filter APPS problems.
+
+    Query params:
+    - difficulty: Comma-separated list of difficulty levels (e.g., "interview,competition")
+    - limit: Maximum number to return (default 50)
+    - offset: Skip this many problems (for pagination)
+    """
+    try:
+        loader = get_apps_loader()
+
+        # Parse difficulty filter
+        diff_filter = None
+        if difficulty:
+            diff_filter = [d.strip() for d in difficulty.split(",")]
+
+        problems = loader.list_problems(
+            difficulty=diff_filter,
+            limit=limit,
+            offset=offset
+        )
+
+        # Get total count for pagination
+        total = loader.count_problems(difficulty=diff_filter)
+
+        return {
+            "problems": problems,
+            "total": total,
+            "limit": limit,
+            "offset": offset,
+            "difficulties": loader.get_difficulties()
+        }
+
+    except Exception as e:
+        import traceback
+        raise HTTPException(status_code=400, detail=f"{str(e)}\n{traceback.format_exc()}")
+
+
+@app.get("/api/apps/problems/{problem_id}")
+def get_apps_problem(problem_id: str):
+    """Get a specific APPS problem by ID."""
+    try:
+        loader = get_apps_loader()
+        problem = loader.load_problem(problem_id)
+
+        if not problem:
+            raise HTTPException(status_code=404, detail=f"Problem {problem_id} not found")
+
+        return problem.to_dict()
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        raise HTTPException(status_code=400, detail=f"{str(e)}\n{traceback.format_exc()}")
+
+
+# =============================================================================
+# DATASET PROBLEM MANAGEMENT ENDPOINTS
+# =============================================================================
+
+@app.get("/api/datasets/{dataset_id}/problems")
+def get_dataset_problems(dataset_id: str):
+    """Get all problems in a dataset with their results."""
+    dataset = get_dataset(dataset_id)
+    if not dataset:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+
+    # Get all problem results
+    results = dataset_store.get_all_problem_results(dataset_id)
+
+    # Build response with problem info and results
+    problems_data = []
+    loader = get_apps_loader()
+
+    for problem_id in dataset.problem_ids:
+        problem_info = {"problem_id": problem_id}
+
+        # Try to get APPS problem metadata
+        apps_problem = loader.load_problem(problem_id)
+        if apps_problem:
+            problem_info["difficulty"] = apps_problem.difficulty
+            problem_info["question_preview"] = apps_problem.question[:200] + "..." if len(apps_problem.question) > 200 else apps_problem.question
+
+        # Get result if exists
+        result = results.get(problem_id)
+        if result:
+            problem_info["result"] = {
+                "status": result.status,
+                "current_phase": result.current_phase,
+                "phases_completed": result.phases_completed,
+                "H_suspicion_score": result.H_suspicion_score,
+                "exploit_found": result.exploit_found,
+                "error": result.error,
+                "started_at": result.started_at,
+                "completed_at": result.completed_at
+            }
+        else:
+            problem_info["result"] = None
+
+        problems_data.append(problem_info)
+
+    return {
+        "dataset_id": dataset_id,
+        "problems": problems_data,
+        "total": len(dataset.problem_ids)
+    }
+
+
+@app.post("/api/datasets/{dataset_id}/problems")
+def add_dataset_problems(dataset_id: str, request: AddProblemsRequest):
+    """Add problems to a dataset."""
+    try:
+        dataset = get_dataset(dataset_id)
+        if not dataset:
+            raise HTTPException(status_code=404, detail="Dataset not found")
+
+        if dataset.status != "draft":
+            raise HTTPException(status_code=400, detail="Cannot modify a published dataset")
+
+        # Validate problem IDs
+        loader = get_apps_loader()
+        valid_results = loader.validate_problem_ids(request.problem_ids)
+
+        invalid = [pid for pid, valid in valid_results.items() if not valid]
+        if invalid:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid problem IDs: {', '.join(invalid)}"
+            )
+
+        # Add each problem
+        for problem_id in request.problem_ids:
+            dataset_store.add_problem(dataset_id, problem_id)
+
+        # Get updated dataset
+        dataset = get_dataset(dataset_id)
+
+        return {
+            "dataset_id": dataset_id,
+            "problem_ids": dataset.problem_ids,
+            "total": len(dataset.problem_ids)
+        }
+
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        import traceback
+        raise HTTPException(status_code=400, detail=f"{str(e)}\n{traceback.format_exc()}")
+
+
+@app.put("/api/datasets/{dataset_id}/problems")
+def set_dataset_problems(dataset_id: str, request: SetProblemsRequest):
+    """Set the complete list of problems for a dataset (replaces existing)."""
+    try:
+        dataset = get_dataset(dataset_id)
+        if not dataset:
+            raise HTTPException(status_code=404, detail="Dataset not found")
+
+        if dataset.status != "draft":
+            raise HTTPException(status_code=400, detail="Cannot modify a published dataset")
+
+        # Validate problem IDs
+        loader = get_apps_loader()
+        valid_results = loader.validate_problem_ids(request.problem_ids)
+
+        invalid = [pid for pid, valid in valid_results.items() if not valid]
+        if invalid:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid problem IDs: {', '.join(invalid)}"
+            )
+
+        # Set problems
+        dataset = dataset_store.set_problems(dataset_id, request.problem_ids)
+
+        return {
+            "dataset_id": dataset_id,
+            "problem_ids": dataset.problem_ids,
+            "total": len(dataset.problem_ids)
+        }
+
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        import traceback
+        raise HTTPException(status_code=400, detail=f"{str(e)}\n{traceback.format_exc()}")
+
+
+@app.delete("/api/datasets/{dataset_id}/problems/{problem_id}")
+def remove_dataset_problem(dataset_id: str, problem_id: str):
+    """Remove a problem from a dataset."""
+    try:
+        dataset = get_dataset(dataset_id)
+        if not dataset:
+            raise HTTPException(status_code=404, detail="Dataset not found")
+
+        if problem_id not in dataset.problem_ids:
+            raise HTTPException(status_code=404, detail="Problem not in dataset")
+
+        dataset = dataset_store.remove_problem(dataset_id, problem_id)
+
+        return {
+            "status": "removed",
+            "dataset_id": dataset_id,
+            "problem_id": problem_id,
+            "remaining": len(dataset.problem_ids)
+        }
+
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        import traceback
+        raise HTTPException(status_code=400, detail=f"{str(e)}\n{traceback.format_exc()}")
+
+
+@app.get("/api/datasets/{dataset_id}/problems/{problem_id}")
+def get_dataset_problem_result(dataset_id: str, problem_id: str):
+    """Get the result and logs for a specific problem."""
+    dataset = get_dataset(dataset_id)
+    if not dataset:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+
+    if problem_id not in dataset.problem_ids:
+        raise HTTPException(status_code=404, detail="Problem not in dataset")
+
+    result = dataset_store.get_problem_result(dataset_id, problem_id)
+
+    # Get APPS problem info
+    loader = get_apps_loader()
+    apps_problem = loader.load_problem(problem_id)
+
+    response = {
+        "problem_id": problem_id,
+        "apps_problem": apps_problem.to_dict() if apps_problem else None,
+        "result": problem_result_to_dict(result) if result else None
+    }
+
+    return response
+
+
+@app.post("/api/datasets/{dataset_id}/problems/{problem_id}/run")
+def run_dataset_problem(
+    dataset_id: str,
+    problem_id: str,
+    x_anthropic_key: Optional[str] = Header(None, alias="X-Anthropic-Key"),
+    x_openai_key: Optional[str] = Header(None, alias="X-OpenAI-Key"),
+):
+    """Run phases 1-6 for a single problem. Only allowed for published datasets."""
+    try:
+        dataset = get_dataset(dataset_id)
+        if not dataset:
+            raise HTTPException(status_code=404, detail="Dataset not found")
+
+        if dataset.status != "published":
+            raise HTTPException(
+                status_code=400,
+                detail="Cannot run problems on draft datasets. Publish the dataset first."
+            )
+
+        if problem_id not in dataset.problem_ids:
+            raise HTTPException(status_code=404, detail="Problem not in dataset")
+
+        # Load APPS problem
+        loader = get_apps_loader()
+        apps_problem = loader.load_problem(problem_id)
+        if not apps_problem:
+            raise HTTPException(status_code=404, detail=f"APPS problem {problem_id} not found")
+
+        # Build models dict
+        models = {
+            "human_model": dataset.models.human_model,
+            "trusted_model": dataset.models.trusted_model,
+            "untrusted_model": dataset.models.untrusted_model
+        }
+
+        # Run in background thread
+        def run_problem_async():
+            try:
+                run_single_problem(
+                    dataset_id=dataset_id,
+                    problem_id=problem_id,
+                    problem_text=apps_problem.question,
+                    solutions=apps_problem.solutions,
+                    models=models,
+                    prompts=dataset.prompts if dataset.prompts else None,
+                    openai_key=x_openai_key,
+                    anthropic_key=x_anthropic_key
+                )
+            except Exception as e:
+                logger.error(f"[RUN_PROBLEM] Failed: {e}")
+
+        # Start background thread
+        thread = threading.Thread(target=run_problem_async, daemon=True)
+        thread.start()
+
+        # Return immediately - result will be updated in storage
+        return {
+            "status": "started",
+            "dataset_id": dataset_id,
+            "problem_id": problem_id,
+            "message": "Problem execution started. Poll GET endpoint for progress."
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        raise HTTPException(status_code=400, detail=f"{str(e)}\n{traceback.format_exc()}")
+
+
+@app.post("/api/datasets/{dataset_id}/compute-thresholds")
+def compute_dataset_thresholds(dataset_id: str):
+    """
+    Compute audit and defer thresholds from all problem results (Phase 7).
+    Requires all problems to have completed results. Only for published datasets.
+    """
+    try:
+        dataset = get_dataset(dataset_id)
+        if not dataset:
+            raise HTTPException(status_code=404, detail="Dataset not found")
+
+        if dataset.status != "published":
+            raise HTTPException(
+                status_code=400,
+                detail="Cannot compute thresholds on draft datasets. Publish the dataset first."
+            )
+
+        audit_threshold, defer_threshold = compute_thresholds(
+            dataset_id=dataset_id,
+            validate_complete=True
+        )
+
+        return {
+            "status": "completed",
+            "dataset_id": dataset_id,
+            "audit_threshold": audit_threshold,
+            "defer_threshold": defer_threshold
+        }
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         import traceback
         raise HTTPException(status_code=400, detail=f"{str(e)}\n{traceback.format_exc()}")
