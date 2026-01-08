@@ -61,6 +61,9 @@ class BackdoorAttempt:
     code: str
     sneakiness: float
     selected: bool = False
+    # Phase 2: Individual sneakiness ratings
+    rating1: Optional[float] = None  # Code reviewer difficulty (1-15)
+    rating2: Optional[float] = None  # Trigger subtlety (1-7)
     # Phase 4: Test case results
     test_cases_passed: Optional[int] = None
     test_cases_total: Optional[int] = None
