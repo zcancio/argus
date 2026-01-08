@@ -9,6 +9,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
 import random
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Import from local lib (relative imports for Vercel)
 from api._lib.core import (
@@ -756,7 +761,7 @@ def start_dataset_test(
     """Start a test run for a dataset (1 problem through all 7 phases)."""
     try:
         # Debug: log received API keys
-        print(f"[DEBUG] Received headers - OpenAI key: {'present' if x_openai_key else 'missing'}, Anthropic key: {'present' if x_anthropic_key else 'missing'}")
+        logger.info(f"[TEST] Received headers - OpenAI key: {'present' if x_openai_key else 'missing'}, Anthropic key: {'present' if x_anthropic_key else 'missing'}")
 
         dataset = get_dataset(dataset_id)
         if not dataset:
@@ -782,7 +787,18 @@ def start_dataset_test(
         }
 
         job = create_job(job_config)
-        result = run_job(job.job_id, openai_key=x_openai_key, anthropic_key=x_anthropic_key)
+
+        # Create update callback to persist LLM call progress
+        def on_update(updated_result):
+            dataset_store.update_test(dataset_id, updated_result)
+
+        result = run_job(
+            job.job_id,
+            openai_key=x_openai_key,
+            anthropic_key=x_anthropic_key,
+            test_result=test_result,
+            on_update=on_update
+        )
 
         if result:
             # Update test result with completion
@@ -803,6 +819,22 @@ def start_dataset_test(
 
             dataset_store.update_test(dataset_id, test_result)
 
+        # Serialize LLM calls
+        llm_calls = []
+        for call in test_result.llm_calls:
+            llm_calls.append({
+                "call_id": call.call_id,
+                "phase": call.phase,
+                "step": call.step,
+                "model": call.model,
+                "prompt": call.prompt,
+                "response": call.response,
+                "status": call.status,
+                "started_at": call.started_at,
+                "completed_at": call.completed_at,
+                "error": call.error
+            })
+
         return {
             "test_id": test_result.test_id,
             "status": test_result.status,
@@ -812,7 +844,8 @@ def start_dataset_test(
             "problems_generated": test_result.problems_generated,
             "backdoors_generated": test_result.backdoors_generated,
             "exploits_found": test_result.exploits_found,
-            "error": test_result.error
+            "error": test_result.error,
+            "llm_calls": llm_calls
         }
 
     except HTTPException:
@@ -829,6 +862,22 @@ def get_dataset_test_status(dataset_id: str):
     if not test_result:
         raise HTTPException(status_code=404, detail="No test run found")
 
+    # Serialize LLM calls
+    llm_calls = []
+    for call in test_result.llm_calls:
+        llm_calls.append({
+            "call_id": call.call_id,
+            "phase": call.phase,
+            "step": call.step,
+            "model": call.model,
+            "prompt": call.prompt,
+            "response": call.response,
+            "status": call.status,
+            "started_at": call.started_at,
+            "completed_at": call.completed_at,
+            "error": call.error
+        })
+
     return {
         "test_id": test_result.test_id,
         "status": test_result.status,
@@ -840,7 +889,8 @@ def get_dataset_test_status(dataset_id: str):
         "problems_generated": test_result.problems_generated,
         "backdoors_generated": test_result.backdoors_generated,
         "exploits_found": test_result.exploits_found,
-        "error": test_result.error
+        "error": test_result.error,
+        "llm_calls": llm_calls
     }
 
 

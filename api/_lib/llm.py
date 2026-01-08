@@ -6,6 +6,9 @@ Provides a unified interface for calling OpenAI and Anthropic models.
 
 from typing import Optional, Dict, Any
 import os
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class LLMClient:
@@ -18,7 +21,7 @@ class LLMClient:
         self.anthropic_key = anthropic_key or os.environ.get("ANTHROPIC_API_KEY")
 
         # Debug: log key status
-        print(f"[DEBUG] LLMClient init - OpenAI key: {'present' if self.openai_key else 'missing'}, Anthropic key: {'present' if self.anthropic_key else 'missing'}")
+        logger.info(f"[LLM] Client init - OpenAI key: {'present' if self.openai_key else 'missing'}, Anthropic key: {'present' if self.anthropic_key else 'missing'}")
 
         self._openai_client = None
         self._anthropic_client = None
@@ -30,8 +33,11 @@ class LLMClient:
             try:
                 from openai import OpenAI
                 self._openai_client = OpenAI(api_key=self.openai_key)
-            except ImportError:
-                pass
+                logger.info("[LLM] OpenAI client created successfully")
+            except ImportError as e:
+                logger.error(f"[LLM] Failed to import OpenAI: {e}")
+            except Exception as e:
+                logger.error(f"[LLM] Failed to create OpenAI client: {e}")
         return self._openai_client
 
     @property

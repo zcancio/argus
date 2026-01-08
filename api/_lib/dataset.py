@@ -35,6 +35,21 @@ class DatasetModels:
 
 
 @dataclass
+class LLMCall:
+    """Record of a single LLM API call"""
+    call_id: str
+    phase: int
+    step: str  # e.g., "generate_u_solution", "rate_sneakiness"
+    model: str
+    prompt: str
+    response: Optional[str] = None
+    status: str = "pending"  # pending, running, completed, failed
+    started_at: Optional[str] = None
+    completed_at: Optional[str] = None
+    error: Optional[str] = None
+
+
+@dataclass
 class TestRunResult:
     """Result of a test run"""
     test_id: str
@@ -49,6 +64,8 @@ class TestRunResult:
     problems_generated: int = 0
     backdoors_generated: int = 0
     exploits_found: int = 0
+    # LLM call tracking
+    llm_calls: List[LLMCall] = field(default_factory=list)
 
 
 @dataclass
@@ -104,13 +121,38 @@ def dict_to_models(d: dict) -> DatasetModels:
     )
 
 
+def llm_call_to_dict(call: LLMCall) -> dict:
+    """Convert LLMCall to dict"""
+    return asdict(call)
+
+
+def dict_to_llm_call(d: dict) -> LLMCall:
+    """Convert dict to LLMCall"""
+    return LLMCall(
+        call_id=d["call_id"],
+        phase=d["phase"],
+        step=d["step"],
+        model=d["model"],
+        prompt=d["prompt"],
+        response=d.get("response"),
+        status=d.get("status", "pending"),
+        started_at=d.get("started_at"),
+        completed_at=d.get("completed_at"),
+        error=d.get("error")
+    )
+
+
 def test_result_to_dict(result: TestRunResult) -> dict:
     """Convert TestRunResult to dict"""
-    return asdict(result)
+    d = asdict(result)
+    # Ensure llm_calls are properly serialized
+    d["llm_calls"] = [llm_call_to_dict(c) if isinstance(c, LLMCall) else c for c in result.llm_calls]
+    return d
 
 
 def dict_to_test_result(d: dict) -> TestRunResult:
     """Convert dict to TestRunResult"""
+    llm_calls = [dict_to_llm_call(c) if isinstance(c, dict) else c for c in d.get("llm_calls", [])]
     return TestRunResult(
         test_id=d["test_id"],
         status=d["status"],
@@ -122,7 +164,8 @@ def dict_to_test_result(d: dict) -> TestRunResult:
         error=d.get("error"),
         problems_generated=d.get("problems_generated", 0),
         backdoors_generated=d.get("backdoors_generated", 0),
-        exploits_found=d.get("exploits_found", 0)
+        exploits_found=d.get("exploits_found", 0),
+        llm_calls=llm_calls
     )
 
 

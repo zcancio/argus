@@ -1559,7 +1559,145 @@ function DatasetEditorPanel({ dataset, onSave, onTest, onPublish, onDelete, onDu
   );
 }
 
+function LLMCallCard({ call }) {
+  const [expanded, setExpanded] = useState(false);
+
+  const statusColors = {
+    pending: colors.text.muted,
+    running: colors.accent.amber,
+    completed: colors.accent.green,
+    failed: colors.accent.red,
+  };
+
+  return (
+    <div style={{
+      background: colors.bg.primary,
+      border: `1px solid ${colors.border}`,
+      borderRadius: '6px',
+      marginBottom: '8px',
+      overflow: 'hidden',
+    }}>
+      <div
+        onClick={() => setExpanded(!expanded)}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          padding: '10px 12px',
+          cursor: 'pointer',
+        }}
+      >
+        {/* Status indicator */}
+        <div style={{
+          width: '8px',
+          height: '8px',
+          borderRadius: '50%',
+          background: statusColors[call.status] || colors.text.muted,
+          animation: call.status === 'running' ? 'pulse 1.5s infinite' : 'none',
+        }} />
+
+        {/* Step name */}
+        <span style={{
+          flex: 1,
+          color: colors.text.primary,
+          fontSize: '12px',
+          fontFamily: 'JetBrains Mono, monospace',
+        }}>
+          {call.step}
+        </span>
+
+        {/* Model */}
+        <span style={{
+          padding: '2px 6px',
+          background: colors.bg.tertiary,
+          borderRadius: '4px',
+          fontSize: '10px',
+          color: colors.text.muted,
+        }}>
+          {call.model}
+        </span>
+
+        {/* Expand indicator */}
+        <span style={{ color: colors.text.muted, fontSize: '12px' }}>
+          {expanded ? '▼' : '▶'}
+        </span>
+      </div>
+
+      {/* Expanded content */}
+      {expanded && (
+        <div style={{ padding: '12px', borderTop: `1px solid ${colors.border}` }}>
+          {/* Prompt */}
+          <div style={{ marginBottom: '12px' }}>
+            <div style={{ color: colors.text.muted, fontSize: '10px', marginBottom: '4px', textTransform: 'uppercase' }}>
+              Prompt
+            </div>
+            <pre style={{
+              background: colors.bg.tertiary,
+              padding: '8px',
+              borderRadius: '4px',
+              fontSize: '11px',
+              color: colors.text.secondary,
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-word',
+              maxHeight: '150px',
+              overflow: 'auto',
+              margin: 0,
+            }}>
+              {call.prompt}
+            </pre>
+          </div>
+
+          {/* Response */}
+          {call.response && (
+            <div>
+              <div style={{ color: colors.text.muted, fontSize: '10px', marginBottom: '4px', textTransform: 'uppercase' }}>
+                Response
+              </div>
+              <pre style={{
+                background: colors.bg.tertiary,
+                padding: '8px',
+                borderRadius: '4px',
+                fontSize: '11px',
+                color: colors.accent.green,
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-word',
+                maxHeight: '150px',
+                overflow: 'auto',
+                margin: 0,
+              }}>
+                {call.response}
+              </pre>
+            </div>
+          )}
+
+          {/* Error */}
+          {call.error && (
+            <div>
+              <div style={{ color: colors.accent.red, fontSize: '10px', marginBottom: '4px', textTransform: 'uppercase' }}>
+                Error
+              </div>
+              <pre style={{
+                background: colors.accent.red + '20',
+                padding: '8px',
+                borderRadius: '4px',
+                fontSize: '11px',
+                color: colors.accent.red,
+                whiteSpace: 'pre-wrap',
+                margin: 0,
+              }}>
+                {call.error}
+              </pre>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function TestProgressModal({ isOpen, testResult, onClose }) {
+  const [expandedPhases, setExpandedPhases] = useState({});
+
   if (!isOpen) return null;
 
   const phases = [
@@ -1571,6 +1709,22 @@ function TestProgressModal({ isOpen, testResult, onClose }) {
     { num: 6, name: 'Select Best' },
     { num: 7, name: 'Compute Thresholds' },
   ];
+
+  // Group LLM calls by phase
+  const callsByPhase = {};
+  (testResult?.llm_calls || []).forEach(call => {
+    if (!callsByPhase[call.phase]) {
+      callsByPhase[call.phase] = [];
+    }
+    callsByPhase[call.phase].push(call);
+  });
+
+  const togglePhase = (phaseNum) => {
+    setExpandedPhases(prev => ({
+      ...prev,
+      [phaseNum]: !prev[phaseNum]
+    }));
+  };
 
   return (
     <div style={{
@@ -1590,8 +1744,12 @@ function TestProgressModal({ isOpen, testResult, onClose }) {
         border: `1px solid ${colors.border}`,
         borderRadius: '12px',
         padding: '32px',
-        width: '500px',
+        width: '700px',
         maxWidth: '90vw',
+        maxHeight: '85vh',
+        overflow: 'hidden',
+        display: 'flex',
+        flexDirection: 'column',
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
           <h3 style={{ color: colors.text.primary, margin: 0, fontSize: '16px' }}>
@@ -1618,6 +1776,7 @@ function TestProgressModal({ isOpen, testResult, onClose }) {
           borderRadius: '2px',
           overflow: 'hidden',
           marginBottom: '24px',
+          flexShrink: 0,
         }}>
           <div style={{
             height: '100%',
@@ -1629,53 +1788,88 @@ function TestProgressModal({ isOpen, testResult, onClose }) {
           }} />
         </div>
 
-        {/* Phase checklist */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '24px' }}>
-          {phases.map(phase => {
-            const isComplete = testResult?.phases_completed?.includes(phase.num);
-            const isCurrent = testResult?.current_phase?.includes(`Phase ${phase.num}`);
+        {/* Scrollable content */}
+        <div style={{ flex: 1, overflow: 'auto', marginBottom: '16px' }}>
+          {/* Phase list with LLM calls */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {phases.map(phase => {
+              const isComplete = testResult?.phases_completed?.includes(phase.num);
+              const isCurrent = testResult?.current_phase?.includes(`Phase ${phase.num}`);
+              const phaseCalls = callsByPhase[phase.num] || [];
+              const isExpanded = expandedPhases[phase.num];
+              const hasRunningCall = phaseCalls.some(c => c.status === 'running');
 
-            return (
-              <div
-                key={phase.num}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '12px',
-                  padding: '8px 12px',
-                  background: isCurrent ? colors.bg.tertiary : 'transparent',
-                  borderRadius: '6px',
-                }}
-              >
-                <span style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  width: '20px',
-                  height: '20px',
-                  borderRadius: '50%',
-                  background: isComplete ? colors.accent.green + '30' :
-                             isCurrent ? colors.accent.cyan + '30' :
-                             colors.bg.primary,
-                  color: isComplete ? colors.accent.green :
-                         isCurrent ? colors.accent.cyan :
-                         colors.text.muted,
-                  fontSize: '10px',
-                  fontWeight: '600',
-                }}>
-                  {isComplete ? '✓' : phase.num}
-                </span>
-                <span style={{
-                  color: isComplete ? colors.text.primary :
-                         isCurrent ? colors.accent.cyan :
-                         colors.text.muted,
-                  fontSize: '13px',
-                }}>
-                  {phase.name}
-                </span>
-              </div>
-            );
-          })}
+              return (
+                <div key={phase.num}>
+                  <div
+                    onClick={() => phaseCalls.length > 0 && togglePhase(phase.num)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '12px',
+                      padding: '10px 12px',
+                      background: isCurrent ? colors.bg.tertiary : 'transparent',
+                      borderRadius: '6px',
+                      cursor: phaseCalls.length > 0 ? 'pointer' : 'default',
+                    }}
+                  >
+                    <span style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: '20px',
+                      height: '20px',
+                      borderRadius: '50%',
+                      background: isComplete ? colors.accent.green + '30' :
+                                 isCurrent ? colors.accent.cyan + '30' :
+                                 colors.bg.primary,
+                      color: isComplete ? colors.accent.green :
+                             isCurrent ? colors.accent.cyan :
+                             colors.text.muted,
+                      fontSize: '10px',
+                      fontWeight: '600',
+                    }}>
+                      {isComplete ? '✓' : hasRunningCall ? '⟳' : phase.num}
+                    </span>
+                    <span style={{
+                      flex: 1,
+                      color: isComplete ? colors.text.primary :
+                             isCurrent ? colors.accent.cyan :
+                             colors.text.muted,
+                      fontSize: '13px',
+                    }}>
+                      {phase.name}
+                    </span>
+                    {phaseCalls.length > 0 && (
+                      <>
+                        <span style={{
+                          padding: '2px 8px',
+                          background: colors.bg.primary,
+                          borderRadius: '10px',
+                          fontSize: '10px',
+                          color: colors.text.muted,
+                        }}>
+                          {phaseCalls.filter(c => c.status === 'completed').length}/{phaseCalls.length} calls
+                        </span>
+                        <span style={{ color: colors.text.muted, fontSize: '10px' }}>
+                          {isExpanded ? '▼' : '▶'}
+                        </span>
+                      </>
+                    )}
+                  </div>
+
+                  {/* LLM calls for this phase */}
+                  {isExpanded && phaseCalls.length > 0 && (
+                    <div style={{ padding: '8px 0 8px 32px' }}>
+                      {phaseCalls.map(call => (
+                        <LLMCallCard key={call.call_id} call={call} />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
 
         {/* Results summary */}
@@ -1684,7 +1878,8 @@ function TestProgressModal({ isOpen, testResult, onClose }) {
             display: 'grid',
             gridTemplateColumns: 'repeat(3, 1fr)',
             gap: '12px',
-            marginBottom: '24px',
+            marginBottom: '16px',
+            flexShrink: 0,
           }}>
             <div style={{ padding: '12px', background: colors.bg.tertiary, borderRadius: '6px', textAlign: 'center' }}>
               <div style={{ color: colors.accent.cyan, fontSize: '20px', fontWeight: '600' }}>
@@ -1714,9 +1909,10 @@ function TestProgressModal({ isOpen, testResult, onClose }) {
             background: colors.accent.red + '20',
             border: `1px solid ${colors.accent.red}`,
             borderRadius: '6px',
-            marginBottom: '24px',
+            marginBottom: '16px',
             fontSize: '13px',
             color: colors.accent.red,
+            flexShrink: 0,
           }}>
             {testResult.error}
           </div>
@@ -1735,12 +1931,20 @@ function TestProgressModal({ isOpen, testResult, onClose }) {
               color: colors.text.primary,
               fontSize: '13px',
               cursor: 'pointer',
+              flexShrink: 0,
             }}
           >
             Close
           </button>
         )}
       </div>
+
+      <style>{`
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.4; }
+        }
+      `}</style>
     </div>
   );
 }
