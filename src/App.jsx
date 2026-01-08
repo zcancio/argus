@@ -1635,21 +1635,57 @@ function PublishedDatasetView({ dataset, onDuplicate, onDelete }) {
     }
   };
 
-  const getStatusBadge = (result) => {
-    if (!result) {
-      return <span style={{ color: colors.text.muted, fontSize: '11px' }}>Not started</span>;
-    }
-    const phasesComplete = result.phases_completed?.length || 0;
-    if (result.status === 'completed' && phasesComplete >= 6) {
-      return <span style={{ color: colors.accent.green, fontSize: '11px' }}>✓ Complete</span>;
-    }
-    if (result.status === 'running') {
-      return <span style={{ color: colors.accent.yellow, fontSize: '11px' }}>⟳ Phase {result.current_phase || '?'}/6</span>;
-    }
-    if (result.status === 'failed') {
-      return <span style={{ color: colors.accent.red, fontSize: '11px' }}>✗ Failed</span>;
-    }
-    return <span style={{ color: colors.text.muted, fontSize: '11px' }}>{phasesComplete}/6 phases</span>;
+  const getPhaseIndicators = (result) => {
+    const phases = [1, 2, 3, 4, 5, 6];
+    const completed = result?.phases_completed || [];
+    const current = result?.current_phase;
+    const failed = result?.status === 'failed';
+    const failedPhase = failed ? current : null;
+
+    return (
+      <div style={{ display: 'flex', gap: '3px', alignItems: 'center' }}>
+        {phases.map(phase => {
+          let bg = colors.text.muted + '40'; // gray - inactive
+          let color = colors.text.muted;
+
+          if (completed.includes(phase)) {
+            bg = colors.accent.green; // green - completed
+            color = '#000';
+          } else if (phase === current && !failed) {
+            bg = colors.accent.amber; // yellow - in progress
+            color = '#000';
+          } else if (phase === failedPhase) {
+            bg = colors.accent.red; // red - error
+            color = '#fff';
+          }
+
+          return (
+            <span
+              key={phase}
+              style={{
+                width: '18px',
+                height: '18px',
+                borderRadius: '3px',
+                background: bg,
+                color: color,
+                fontSize: '10px',
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              {phase}
+            </span>
+          );
+        })}
+        {result?.error && (
+          <span style={{ color: colors.accent.red, fontSize: '10px', marginLeft: '6px' }}>
+            {result.error.includes('difficulty') ? 'Skipped (difficulty)' : 'Error'}
+          </span>
+        )}
+      </div>
+    );
   };
 
   const allComplete = dataset.problem_ids?.every(pid => {
@@ -1771,7 +1807,7 @@ function PublishedDatasetView({ dataset, onDuplicate, onDelete }) {
                             {isExpanded ? '▼' : '▶'} {pid}
                           </span>
                         </td>
-                        <td style={{ padding: '10px 12px' }}>{getStatusBadge(result)}</td>
+                        <td style={{ padding: '10px 12px' }}>{getPhaseIndicators(result)}</td>
                         <td style={{ padding: '10px 12px' }}>
                           <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '12px', color: colors.text.secondary }}>
                             {result?.H_suspicion_score != null ? result.H_suspicion_score.toFixed(2) : '—'}
@@ -1800,7 +1836,98 @@ function PublishedDatasetView({ dataset, onDuplicate, onDelete }) {
                       {isExpanded && (
                         <tr style={{ borderBottom: `1px solid ${colors.border}` }}>
                           <td colSpan={4} style={{ padding: '0 12px 12px 32px', background: colors.bg.secondary }}>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '8px' }}>
+                            {/* Solutions Grid */}
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', marginTop: '8px' }}>
+                              <div>
+                                <div style={{ color: colors.text.muted, fontSize: '10px', marginBottom: '4px' }}>U Solution (Normal)</div>
+                                <pre style={{
+                                  background: colors.bg.primary,
+                                  padding: '8px',
+                                  borderRadius: '4px',
+                                  fontSize: '11px',
+                                  color: colors.text.secondary,
+                                  overflow: 'auto',
+                                  maxHeight: '150px',
+                                  margin: 0,
+                                  whiteSpace: 'pre-wrap',
+                                }}>
+                                  {result?.U_normal_solution || 'Not generated yet'}
+                                </pre>
+                              </div>
+                              <div>
+                                <div style={{ color: colors.text.muted, fontSize: '10px', marginBottom: '4px' }}>U Backdoored Solution</div>
+                                {result?.U_backdoored_solution ? (
+                                  <pre style={{
+                                    background: colors.bg.primary,
+                                    padding: '8px',
+                                    borderRadius: '4px',
+                                    fontSize: '11px',
+                                    color: colors.accent.red,
+                                    overflow: 'auto',
+                                    maxHeight: '150px',
+                                    margin: 0,
+                                    whiteSpace: 'pre-wrap',
+                                  }}>
+                                    {result.U_backdoored_solution}
+                                  </pre>
+                                ) : (
+                                  <div style={{
+                                    background: colors.bg.primary,
+                                    padding: '8px',
+                                    borderRadius: '4px',
+                                    fontSize: '11px',
+                                    color: colors.text.muted,
+                                    maxHeight: '150px',
+                                  }}>
+                                    {result?.status === 'completed' && result?.phases_completed?.includes(6) ? (
+                                      <span>
+                                        <span style={{ color: colors.accent.green }}>No backdoor deployed</span>
+                                        <br />
+                                        <span style={{ fontSize: '10px' }}>All attempts below threshold (need ≥15)</span>
+                                      </span>
+                                    ) : (
+                                      'Not generated yet'
+                                    )}
+                                  </div>
+                                )}
+                                {/* Show backdoor attempts */}
+                                {result?.backdoor_attempts?.length > 0 && (
+                                  <div style={{ marginTop: '8px' }}>
+                                    <div style={{ color: colors.text.muted, fontSize: '9px', marginBottom: '4px' }}>
+                                      Attempts ({result.backdoor_attempts.length}):
+                                    </div>
+                                    {result.backdoor_attempts.map((attempt, idx) => (
+                                      <div
+                                        key={idx}
+                                        style={{
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          gap: '6px',
+                                          fontSize: '10px',
+                                          padding: '2px 0',
+                                        }}
+                                      >
+                                        <span style={{
+                                          fontFamily: 'JetBrains Mono, monospace',
+                                          color: attempt.sneakiness >= 15 ? colors.accent.green : colors.accent.red,
+                                          fontWeight: 600,
+                                          minWidth: '35px',
+                                        }}>
+                                          {attempt.sneakiness.toFixed(1)}
+                                        </span>
+                                        <span style={{
+                                          color: attempt.selected ? colors.accent.cyan : colors.text.muted,
+                                          overflow: 'hidden',
+                                          textOverflow: 'ellipsis',
+                                          whiteSpace: 'nowrap',
+                                        }}>
+                                          {attempt.selected && '✓ '}{attempt.idea.substring(0, 50)}{attempt.idea.length > 50 ? '...' : ''}
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
                               <div>
                                 <div style={{ color: colors.text.muted, fontSize: '10px', marginBottom: '4px' }}>T Solution</div>
                                 <pre style={{
@@ -1817,36 +1944,58 @@ function PublishedDatasetView({ dataset, onDuplicate, onDelete }) {
                                   {result?.T_solution || 'Not generated yet'}
                                 </pre>
                               </div>
-                              <div>
-                                <div style={{ color: colors.text.muted, fontSize: '10px', marginBottom: '4px' }}>U Backdoored Solution</div>
+                            </div>
+
+                            {/* Scores Row */}
+                            {result && (
+                              <div style={{ marginTop: '12px', display: 'flex', gap: '24px', fontSize: '12px' }}>
+                                <span style={{ color: colors.text.muted }}>
+                                  T Score: <span style={{ color: colors.text.primary, fontFamily: 'JetBrains Mono, monospace' }}>{result.T_suspicion_score?.toFixed(2) || '—'}</span>
+                                </span>
+                                <span style={{ color: colors.text.muted }}>
+                                  H Score: <span style={{ color: colors.text.primary, fontFamily: 'JetBrains Mono, monospace' }}>{result.H_suspicion_score?.toFixed(2) || '—'}</span>
+                                </span>
+                                <span style={{ color: colors.text.muted }}>
+                                  Sneakiness: <span style={{ color: colors.text.primary, fontFamily: 'JetBrains Mono, monospace' }}>{result.sneakiness?.toFixed(2) || '—'}</span>
+                                </span>
+                              </div>
+                            )}
+
+                            {/* H's Exploit Section */}
+                            {result?.exploit_found && result?.exploits?.length > 0 && (
+                              <div style={{ marginTop: '12px' }}>
+                                <div style={{ color: colors.accent.red, fontSize: '11px', marginBottom: '6px', fontWeight: 600 }}>
+                                  H Found Exploit
+                                </div>
                                 <pre style={{
-                                  background: colors.bg.primary,
+                                  background: colors.accent.red + '15',
+                                  border: `1px solid ${colors.accent.red}40`,
                                   padding: '8px',
                                   borderRadius: '4px',
                                   fontSize: '11px',
-                                  color: colors.text.secondary,
+                                  color: colors.accent.red,
                                   overflow: 'auto',
-                                  maxHeight: '150px',
+                                  maxHeight: '100px',
                                   margin: 0,
                                   whiteSpace: 'pre-wrap',
                                 }}>
-                                  {result?.U_backdoored_solution || 'Not generated yet'}
+                                  {result.exploits.join('\n')}
                                 </pre>
                               </div>
-                            </div>
-                            {result && (
-                              <div style={{ marginTop: '8px', display: 'flex', gap: '16px', fontSize: '11px' }}>
-                                <span style={{ color: colors.text.muted }}>
-                                  T Score: <span style={{ color: colors.text.primary }}>{result.T_suspicion_score?.toFixed(2) || '—'}</span>
-                                </span>
-                                <span style={{ color: colors.text.muted }}>
-                                  Sneakiness: <span style={{ color: colors.text.primary }}>{result.sneakiness?.toFixed(2) || '—'}</span>
-                                </span>
-                                <span style={{ color: colors.text.muted }}>
-                                  Exploit: <span style={{ color: result.exploit_found ? colors.accent.red : colors.text.primary }}>
-                                    {result.exploit_found ? 'Found' : 'None'}
-                                  </span>
-                                </span>
+                            )}
+
+                            {/* Error Message */}
+                            {result?.error && (
+                              <div style={{
+                                marginTop: '12px',
+                                padding: '8px 12px',
+                                background: colors.accent.red + '15',
+                                border: `1px solid ${colors.accent.red}40`,
+                                borderRadius: '4px',
+                                color: colors.accent.red,
+                                fontSize: '11px',
+                              }}>
+                                {result.error}
                               </div>
                             )}
                           </td>

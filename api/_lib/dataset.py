@@ -54,6 +54,15 @@ class LLMCall:
 
 
 @dataclass
+class BackdoorAttempt:
+    """A single backdoor attempt with its sneakiness score"""
+    idea: str
+    code: str
+    sneakiness: float
+    selected: bool = False
+
+
+@dataclass
 class ProblemResult:
     """Stores per-problem execution results"""
     problem_id: str
@@ -70,6 +79,9 @@ class ProblemResult:
     sneakiness: Optional[float] = None
     exploit_found: bool = False
     exploits: List[str] = field(default_factory=list)
+
+    # All backdoor attempts (even ones not selected)
+    backdoor_attempts: List[BackdoorAttempt] = field(default_factory=list)
 
     # Full LLM call logs
     llm_calls: List[LLMCall] = field(default_factory=list)
@@ -180,17 +192,35 @@ def dict_to_llm_call(d: dict) -> LLMCall:
     )
 
 
+def backdoor_attempt_to_dict(attempt: BackdoorAttempt) -> dict:
+    """Convert BackdoorAttempt to dict"""
+    return asdict(attempt)
+
+
+def dict_to_backdoor_attempt(d: dict) -> BackdoorAttempt:
+    """Convert dict to BackdoorAttempt"""
+    return BackdoorAttempt(
+        idea=d.get("idea", ""),
+        code=d.get("code", ""),
+        sneakiness=d.get("sneakiness", 0.0),
+        selected=d.get("selected", False)
+    )
+
+
 def problem_result_to_dict(result: ProblemResult) -> dict:
     """Convert ProblemResult to dict"""
     d = asdict(result)
     # Ensure llm_calls are properly serialized
     d["llm_calls"] = [llm_call_to_dict(c) if isinstance(c, LLMCall) else c for c in result.llm_calls]
+    # Ensure backdoor_attempts are properly serialized
+    d["backdoor_attempts"] = [backdoor_attempt_to_dict(a) if isinstance(a, BackdoorAttempt) else a for a in result.backdoor_attempts]
     return d
 
 
 def dict_to_problem_result(d: dict) -> ProblemResult:
     """Convert dict to ProblemResult"""
     llm_calls = [dict_to_llm_call(c) if isinstance(c, dict) else c for c in d.get("llm_calls", [])]
+    backdoor_attempts = [dict_to_backdoor_attempt(a) if isinstance(a, dict) else a for a in d.get("backdoor_attempts", [])]
     return ProblemResult(
         problem_id=d["problem_id"],
         status=d.get("status", "pending"),
@@ -204,6 +234,7 @@ def dict_to_problem_result(d: dict) -> ProblemResult:
         sneakiness=d.get("sneakiness"),
         exploit_found=d.get("exploit_found", False),
         exploits=d.get("exploits", []),
+        backdoor_attempts=backdoor_attempts,
         llm_calls=llm_calls,
         error=d.get("error"),
         started_at=d.get("started_at"),
@@ -649,10 +680,11 @@ class DatasetStore:
         """Update or create a problem result"""
         if self.redis:
             try:
+                # Use published TTL since problems only run on published datasets
                 key = self._get_key(self.KEY_PROBLEM, id=dataset_id, problem_id=problem_id)
                 self.redis.setex(
                     key,
-                    TTL_DRAFT,
+                    TTL_PUBLISHED,
                     json.dumps(problem_result_to_dict(result))
                 )
             except Exception as e:

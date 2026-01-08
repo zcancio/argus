@@ -1043,8 +1043,18 @@ def get_dataset_problems(dataset_id: str):
                 "status": result.status,
                 "current_phase": result.current_phase,
                 "phases_completed": result.phases_completed,
+                "T_solution": result.T_solution,
+                "U_normal_solution": result.U_normal_solution,
+                "U_backdoored_solution": result.U_backdoored_solution,
+                "T_suspicion_score": result.T_suspicion_score,
                 "H_suspicion_score": result.H_suspicion_score,
+                "sneakiness": result.sneakiness,
                 "exploit_found": result.exploit_found,
+                "exploits": result.exploits,
+                "backdoor_attempts": [
+                    {"idea": a.idea, "code": a.code, "sneakiness": a.sneakiness, "selected": a.selected}
+                    for a in result.backdoor_attempts
+                ],
                 "error": result.error,
                 "started_at": result.started_at,
                 "completed_at": result.completed_at
