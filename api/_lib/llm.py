@@ -32,8 +32,14 @@ class LLMClient:
         if self._openai_client is None and self.openai_key:
             try:
                 from openai import OpenAI
-                self._openai_client = OpenAI(api_key=self.openai_key)
-                logger.info("[LLM] OpenAI client created successfully")
+                # Support custom base URL for mock server testing
+                base_url = os.environ.get("OPENAI_BASE_URL")
+                if base_url:
+                    self._openai_client = OpenAI(api_key=self.openai_key, base_url=base_url)
+                    logger.info(f"[LLM] OpenAI client created with custom base URL: {base_url}")
+                else:
+                    self._openai_client = OpenAI(api_key=self.openai_key)
+                    logger.info("[LLM] OpenAI client created successfully")
             except ImportError as e:
                 logger.error(f"[LLM] Failed to import OpenAI: {e}")
             except Exception as e:
