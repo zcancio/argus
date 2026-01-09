@@ -2840,6 +2840,12 @@ function PublishedDatasetView({ dataset, onDuplicate, onDelete }) {
               {dataset.models?.untrusted_model || 'gpt-4o'}
             </div>
           </div>
+          <div style={{ padding: '10px', background: colors.bg.tertiary, borderRadius: '6px' }}>
+            <div style={{ color: colors.text.muted, fontSize: '10px', marginBottom: '2px' }}>Red Team</div>
+            <div style={{ color: colors.text.primary, fontSize: '13px', fontFamily: 'JetBrains Mono, monospace' }}>
+              {dataset.models?.red_team_model || 'gpt-4o'}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -3705,6 +3711,33 @@ function DatasetEditorPanel({ dataset, onSave, onTest, onPublish, onDelete, onDu
               <select
                 value={localDataset.models.untrusted_model}
                 onChange={(e) => handleModelsChange('untrusted_model', e.target.value)}
+                style={selectStyle}
+              >
+                {MODEL_OPTIONS.map(opt => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label style={{ display: 'flex', alignItems: 'center', color: colors.text.muted, fontSize: '11px', marginBottom: '6px' }}>
+                <span style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '20px',
+                  height: '20px',
+                  borderRadius: '4px',
+                  background: colors.accent.red + '30',
+                  color: colors.accent.red,
+                  fontSize: '11px',
+                  fontWeight: '600',
+                  marginRight: '8px',
+                }}>R</span>
+                Red Team Model
+              </label>
+              <select
+                value={localDataset.models.red_team_model}
+                onChange={(e) => handleModelsChange('red_team_model', e.target.value)}
                 style={selectStyle}
               >
                 {MODEL_OPTIONS.map(opt => (

@@ -653,6 +653,7 @@ class DatasetModelsModel(BaseModel):
     human_model: str = "gpt-4o"
     trusted_model: str = "gpt-3.5-turbo"
     untrusted_model: str = "gpt-4o"
+    red_team_model: str = "gpt-4o"
 
 
 class DatasetCreateRequest(BaseModel):
@@ -791,6 +792,7 @@ def start_dataset_test(
             "human_model": dataset.models.human_model,
             "trusted_model": dataset.models.trusted_model,
             "untrusted_model": dataset.models.untrusted_model,
+            "red_team_model": dataset.models.red_team_model,
             "prompts": dataset.prompts if dataset.prompts else None,
         }
 
@@ -1225,7 +1227,8 @@ def run_dataset_problem(
         models = {
             "human_model": dataset.models.human_model,
             "trusted_model": dataset.models.trusted_model,
-            "untrusted_model": dataset.models.untrusted_model
+            "untrusted_model": dataset.models.untrusted_model,
+            "red_team_model": dataset.models.red_team_model
         }
 
         # Run in background thread
@@ -1309,7 +1312,8 @@ def run_problem_from_phase(
         models = {
             "human_model": dataset.models.human_model,
             "trusted_model": dataset.models.trusted_model,
-            "untrusted_model": dataset.models.untrusted_model
+            "untrusted_model": dataset.models.untrusted_model,
+            "red_team_model": dataset.models.red_team_model
         }
 
         # Run in background thread

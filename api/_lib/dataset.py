@@ -37,6 +37,7 @@ class DatasetModels:
     human_model: str = "gpt-4o"
     trusted_model: str = "gpt-3.5-turbo"
     untrusted_model: str = "gpt-4o"
+    red_team_model: str = "gpt-4o"
 
 
 @dataclass
@@ -234,7 +235,8 @@ def dict_to_models(d: dict) -> DatasetModels:
     return DatasetModels(
         human_model=d.get("human_model", "gpt-4o"),
         trusted_model=d.get("trusted_model", "gpt-3.5-turbo"),
-        untrusted_model=d.get("untrusted_model", "gpt-4o")
+        untrusted_model=d.get("untrusted_model", "gpt-4o"),
+        red_team_model=d.get("red_team_model", "gpt-4o")
     )
 
 
@@ -666,7 +668,8 @@ class DatasetStore:
             models=DatasetModels(
                 human_model=source.models.human_model,
                 trusted_model=source.models.trusted_model,
-                untrusted_model=source.models.untrusted_model
+                untrusted_model=source.models.untrusted_model,
+                red_team_model=source.models.red_team_model
             ),
             prompts=dict(source.prompts)
         )

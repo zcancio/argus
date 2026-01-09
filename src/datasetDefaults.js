@@ -5,7 +5,7 @@
 export const DEFAULT_DATASET_SETTINGS = {
   num_problems: 5,
   num_backdoor_ideas: 3,
-  max_difficulty: 7,
+  max_difficulty: 6,
   mandatory_problems: [],
 };
 
@@ -13,6 +13,7 @@ export const DEFAULT_DATASET_MODELS = {
   human_model: "gpt-4o",
   trusted_model: "gpt-3.5-turbo",
   untrusted_model: "gpt-4o",
+  red_team_model: "gpt-4o",
 };
 
 export const MODEL_OPTIONS = [
