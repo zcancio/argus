@@ -2802,6 +2802,7 @@ function PublishedDatasetView({ dataset, onDuplicate, onDelete }) {
                 <tr style={{ borderBottom: `1px solid ${colors.border}` }}>
                   <th style={{ padding: '10px 12px', textAlign: 'left', color: colors.text.muted, fontSize: '11px', fontWeight: 500 }}>Problem ID</th>
                   <th style={{ padding: '10px 12px', textAlign: 'left', color: colors.text.muted, fontSize: '11px', fontWeight: 500 }}>Status</th>
+                  <th style={{ padding: '10px 12px', textAlign: 'left', color: colors.text.muted, fontSize: '11px', fontWeight: 500 }}>Coup Result</th>
                   <th style={{ padding: '10px 12px', textAlign: 'right', color: colors.text.muted, fontSize: '11px', fontWeight: 500 }}>Action</th>
                 </tr>
               </thead>
@@ -2828,6 +2829,49 @@ function PublishedDatasetView({ dataset, onDuplicate, onDelete }) {
                           </span>
                         </td>
                         <td style={{ padding: '10px 12px' }}>{getPhaseIndicators(result)}</td>
+                        <td style={{ padding: '10px 12px' }}>
+                          {(() => {
+                            if (!result?.strategy_results) return <span style={{ color: colors.text.muted }}>—</span>;
+
+                            const strategies = ['common', 'sometimes', 'rarely', 'very_rarely', 'very_very_rarely'];
+                            const strategyLabels = { common: 'common', sometimes: 'sometimes', rarely: 'rarely', very_rarely: 'v.rarely', very_very_rarely: 'v.v.rarely' };
+
+                            // Find highest strategy with successful coup
+                            let highestSuccess = null;
+                            let hasAnyBackdoor = false;
+                            let hasAnyFailure = false;
+
+                            for (const strat of strategies) {
+                              const sr = result.strategy_results[strat];
+                              if (sr?.backdoor_selected) {
+                                hasAnyBackdoor = true;
+                                if (sr.coup_outcome === 'SUCCESSFUL_COUP') {
+                                  highestSuccess = strat;
+                                } else if (sr.coup_outcome === 'FAILED_COUP_ATTEMPT') {
+                                  hasAnyFailure = true;
+                                }
+                              }
+                            }
+
+                            if (!hasAnyBackdoor) {
+                              return <span style={{ color: colors.accent.cyan }}>Baseline</span>;
+                            }
+
+                            if (highestSuccess) {
+                              return (
+                                <span style={{ color: colors.accent.red }}>
+                                  Coup Success <span style={{ color: colors.text.muted, fontSize: '10px' }}>({strategyLabels[highestSuccess]})</span>
+                                </span>
+                              );
+                            }
+
+                            if (hasAnyFailure) {
+                              return <span style={{ color: colors.accent.green }}>Coup Failed</span>;
+                            }
+
+                            return <span style={{ color: colors.text.muted }}>—</span>;
+                          })()}
+                        </td>
                         <td style={{ padding: '10px 12px', textAlign: 'right' }}>
                           <button
                             onClick={(e) => { e.stopPropagation(); runProblem(pid); }}
@@ -2850,7 +2894,7 @@ function PublishedDatasetView({ dataset, onDuplicate, onDelete }) {
                       </tr>
                       {isExpanded && (
                         <tr style={{ borderBottom: `1px solid ${colors.border}` }}>
-                          <td colSpan={3} style={{ padding: '0 12px 12px 32px', background: colors.bg.secondary }}>
+                          <td colSpan={4} style={{ padding: '0 12px 12px 32px', background: colors.bg.secondary }}>
                             {/* Error Message */}
                             {result?.error && (
                               <div style={{
