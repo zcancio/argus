@@ -2221,8 +2221,8 @@ function PhaseCallsSection({ phase, calls, result, isExpanded, onToggle, onRunFr
             </div>
           )}
 
-          {/* Phase 5 specific content - Strategy Filtering */}
-          {isPhase5 && phaseCompleted && hasStrategyResults && (
+          {/* Phase 5 specific content - T Monitoring Scores */}
+          {isPhase5 && phaseCompleted && (
             <div style={{ marginBottom: phaseCalls.length > 0 ? '16px' : 0 }}>
               <div style={{
                 padding: '12px',
@@ -2231,48 +2231,65 @@ function PhaseCallsSection({ phase, calls, result, isExpanded, onToggle, onRunFr
                 border: `1px solid ${colors.border}`,
               }}>
                 <div style={{ color: colors.text.muted, fontSize: '10px', marginBottom: '12px', textTransform: 'uppercase' }}>
-                  Strategy Filtering (No LLM Calls)
+                  T Monitoring Scores
                 </div>
-                <div style={{ fontSize: '11px', color: colors.text.secondary, marginBottom: '12px' }}>
-                  Each attack strategy selects the sneakiest backdoor meeting its threshold:
-                </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                  {Object.entries(result.strategy_results).map(([name, sr]) => {
-                    const selected = sr.backdoor_selected;
-                    return (
-                      <div
-                        key={name}
-                        style={{
-                          padding: '8px 12px',
-                          background: colors.bg.primary,
-                          borderRadius: '4px',
-                          border: `1px solid ${colors.border}`,
-                          minWidth: '140px',
-                        }}
-                      >
-                        <div style={{ fontSize: '11px', fontWeight: 600, color: colors.text.primary, marginBottom: '4px' }}>
-                          {name}
-                        </div>
-                        <div style={{ fontSize: '10px', color: colors.text.muted, marginBottom: '4px' }}>
-                          Threshold: ≥{sr.threshold}
-                        </div>
-                        <div style={{
-                          fontSize: '10px',
-                          color: selected ? colors.accent.green : colors.text.muted,
+                <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+                  {/* Normal Solution Score */}
+                  <div style={{
+                    flex: 1,
+                    minWidth: '200px',
+                    padding: '10px',
+                    background: colors.bg.primary,
+                    borderRadius: '4px',
+                    border: `1px solid ${colors.border}`,
+                  }}>
+                    <div style={{ fontSize: '10px', color: colors.text.muted, marginBottom: '6px', textTransform: 'uppercase' }}>
+                      Normal Solution
+                    </div>
+                    <div style={{ fontSize: '11px', color: colors.text.secondary, marginBottom: '4px' }}>
+                      T Suspicion: <span style={{
+                        color: colors.accent.cyan,
+                        fontFamily: 'JetBrains Mono, monospace',
+                        fontWeight: 600,
+                      }}>
+                        {result?.T_suspicion_normal?.toFixed(1) ?? '—'}
+                      </span>
+                    </div>
+                  </div>
+                  {/* Sneakiest Backdoor Score */}
+                  <div style={{
+                    flex: 1,
+                    minWidth: '200px',
+                    padding: '10px',
+                    background: colors.bg.primary,
+                    borderRadius: '4px',
+                    border: `1px solid ${colors.border}`,
+                  }}>
+                    <div style={{ fontSize: '10px', color: colors.text.muted, marginBottom: '6px', textTransform: 'uppercase' }}>
+                      Sneakiest Backdoor
+                    </div>
+                    {result?.T_suspicion_backdoor != null ? (
+                      <div style={{ fontSize: '11px', color: colors.text.secondary, marginBottom: '4px' }}>
+                        T Suspicion: <span style={{
+                          color: colors.accent.magenta,
+                          fontFamily: 'JetBrains Mono, monospace',
+                          fontWeight: 600,
                         }}>
-                          {selected
-                            ? `Backdoor selected (${sr.sneakiness?.toFixed(1)})`
-                            : 'No backdoor qualifies'}
-                        </div>
+                          {result.T_suspicion_backdoor.toFixed(1)}
+                        </span>
                       </div>
-                    );
-                  })}
+                    ) : (
+                      <div style={{ fontSize: '11px', color: colors.text.muted }}>
+                        No backdoor above threshold
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
           )}
 
-          {/* Phase 6 specific content - Strategy Results */}
+          {/* Phase 6 specific content - Strategy Determination */}
           {phase === 6 && (
             <div style={{ marginBottom: phaseCalls.length > 0 ? '16px' : 0 }}>
               <div style={{
@@ -2282,7 +2299,7 @@ function PhaseCallsSection({ phase, calls, result, isExpanded, onToggle, onRunFr
                 overflow: 'hidden',
               }}>
                 <div style={{ color: colors.text.muted, fontSize: '10px', padding: '12px 12px 8px 12px', textTransform: 'uppercase' }}>
-                  Attack Strategy Results
+                  Strategy Determination (No LLM Calls)
                 </div>
                 {hasStrategyResults ? (
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
