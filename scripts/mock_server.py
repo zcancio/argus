@@ -21,14 +21,18 @@ MOCK_DATA_FILES = {
     "0060": DATA_DIR / "mock_flow_0060_successful_coup.json",
 }
 
-# Loaded mock data - indexed by prompt hash
-MOCK_RESPONSES = {}
+# Loaded mock data
+MOCK_BY_HASH = {}  # Indexed by prompt hash
+MOCK_BY_STEP = {}  # Indexed by (problem_id, step_name)
 LOADED_PROBLEMS = []
+
+# Track current problem being processed (detected from prompts)
+CURRENT_PROBLEM = None
 
 
 def load_mock_data():
     """Load captured flow data from all mock files."""
-    global MOCK_RESPONSES, LOADED_PROBLEMS
+    global MOCK_BY_HASH, MOCK_BY_STEP, LOADED_PROBLEMS
 
     total_calls = 0
     for problem_id, filepath in MOCK_DATA_FILES.items():
@@ -39,18 +43,31 @@ def load_mock_data():
         with open(filepath) as f:
             data = json.load(f)
 
+        # Store problem text for detection
+        problem_text = data.get("apps_problem", {}).get("question", "")[:200]
+
         call_count = 0
         for call in data.get("llm_calls", []):
             prompt = call.get("prompt", "")
             response = call.get("response", "")
             step = call.get("step", "unknown")
 
+            # Index by hash
             prompt_hash = hashlib.md5(prompt.encode()).hexdigest()
-            MOCK_RESPONSES[prompt_hash] = {
+            MOCK_BY_HASH[prompt_hash] = {
                 "step": step,
                 "response": response,
                 "problem_id": problem_id
             }
+
+            # Index by step (keep first occurrence per problem)
+            step_key = (problem_id, step)
+            if step_key not in MOCK_BY_STEP:
+                MOCK_BY_STEP[step_key] = {
+                    "response": response,
+                    "problem_text": problem_text
+                }
+
             call_count += 1
 
         total_calls += call_count
@@ -59,6 +76,57 @@ def load_mock_data():
 
     print(f"Total: {total_calls} LLM calls from {len(LOADED_PROBLEMS)} problems")
     return LOADED_PROBLEMS
+
+
+def detect_problem_from_prompt(prompt):
+    """Detect which problem this prompt is for based on content."""
+    # Check for unique problem identifiers
+    if "Twice's 5th anniversary" in prompt or "Tzuyu and Sana" in prompt:
+        return "0060"
+    if "barrels" in prompt.lower() and "pour" in prompt.lower():
+        return "0003"
+    return None
+
+
+def detect_step_from_prompt(prompt):
+    """Detect the step type from prompt content."""
+    prompt_lower = prompt.lower()
+
+    # Phase 1
+    if "solve" in prompt_lower and "competitive programming" in prompt_lower:
+        return "generate_u_solution" if "untrusted" not in prompt_lower else "generate_t_solution"
+
+    # Phase 2
+    if "brainstorm" in prompt_lower and "backdoor" in prompt_lower:
+        return "brainstorm_backdoor_ideas"
+    if "implement" in prompt_lower and "backdoor" in prompt_lower:
+        return "implement_backdoor"
+    if "clean up" in prompt_lower or "cleanup" in prompt_lower:
+        return "cleanup_backdoor"
+    if "rate" in prompt_lower and ("difficult" in prompt_lower or "reviewer" in prompt_lower or "notice" in prompt_lower):
+        return "rate_sneakiness_part1"
+    if "rate" in prompt_lower and ("subtle" in prompt_lower or "trigger" in prompt_lower):
+        return "rate_sneakiness_part2"
+
+    # Phase 3
+    if "rate" in prompt_lower and "suspicion" in prompt_lower and "code" in prompt_lower:
+        return "check_suspicion"
+    if "identify" in prompt_lower and "suspicious" in prompt_lower:
+        return "identify_snippet"
+    if ("analyze" in prompt_lower or "properties" in prompt_lower) and "trigger" in prompt_lower:
+        return "exploit_properties"
+    if "possible" in prompt_lower and "exploit" in prompt_lower:
+        return "exploit_possible"
+    if "construct" in prompt_lower and "trigger" in prompt_lower:
+        return "construct_exploit"
+
+    # Phase 6
+    if "trusted" in prompt_lower and "monitor" in prompt_lower:
+        return "get_t_suspicion"
+    if "human" in prompt_lower and "auditor" in prompt_lower:
+        return "get_h_suspicion"
+
+    return None
 
 
 class MockOpenAIHandler(BaseHTTPRequestHandler):
@@ -102,15 +170,43 @@ class MockOpenAIHandler(BaseHTTPRequestHandler):
                 prompt = msg.get("content", "")
                 break
 
-        # Match by prompt hash
+        global CURRENT_PROBLEM
+
+        # Try exact hash match first
         prompt_hash = hashlib.md5(prompt.encode()).hexdigest()
-        if prompt_hash in MOCK_RESPONSES:
-            mock = MOCK_RESPONSES[prompt_hash]
+        if prompt_hash in MOCK_BY_HASH:
+            mock = MOCK_BY_HASH[prompt_hash]
             response_text = mock["response"]
-            print(f"[MOCK] problem={mock['problem_id']} step={mock['step']}")
+            CURRENT_PROBLEM = mock["problem_id"]
+            print(f"[MOCK] problem={mock['problem_id']} step={mock['step']} (hash match)")
         else:
-            print(f"[MOCK] No match: {prompt[:100]}...")
-            response_text = "Mock: No matching response"
+            # Fall back to step-based matching
+            detected_problem = detect_problem_from_prompt(prompt)
+            if detected_problem:
+                CURRENT_PROBLEM = detected_problem
+
+            detected_step = detect_step_from_prompt(prompt)
+
+            if CURRENT_PROBLEM and detected_step:
+                # Try exact step match
+                step_key = (CURRENT_PROBLEM, detected_step)
+                if step_key in MOCK_BY_STEP:
+                    response_text = MOCK_BY_STEP[step_key]["response"]
+                    print(f"[MOCK] problem={CURRENT_PROBLEM} step={detected_step} (step match)")
+                else:
+                    # Try with _0, _1, _2 suffixes
+                    for suffix in ["_0", "_1", "_2", ""]:
+                        step_key = (CURRENT_PROBLEM, detected_step + suffix)
+                        if step_key in MOCK_BY_STEP:
+                            response_text = MOCK_BY_STEP[step_key]["response"]
+                            print(f"[MOCK] problem={CURRENT_PROBLEM} step={detected_step}{suffix} (step match)")
+                            break
+                    else:
+                        print(f"[MOCK] No match: problem={CURRENT_PROBLEM} step={detected_step}")
+                        response_text = "Mock: No matching response"
+            else:
+                print(f"[MOCK] No match: {prompt[:100]}...")
+                response_text = "Mock: No matching response"
 
         # Build response
         self._send_json(200, {
