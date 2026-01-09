@@ -1952,9 +1952,24 @@ function PhaseCallsSection({ phase, calls, result, isExpanded, onToggle, onRunFr
                 <div style={{ color: colors.text.muted, fontSize: '10px', marginBottom: '12px', textTransform: 'uppercase' }}>
                   Code Execution Results
                 </div>
-                {hasBackdoorAttempts ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                    {result.backdoor_attempts.map((attempt, idx) => {
+                {(() => {
+                  const testedBackdoors = hasBackdoorAttempts
+                    ? result.backdoor_attempts
+                        .map((attempt, idx) => ({ attempt, idx }))
+                        .filter(({ attempt }) => attempt.outcome !== 'NO_BACKDOOR')
+                    : [];
+
+                  if (testedBackdoors.length === 0) {
+                    return (
+                      <div style={{ color: colors.text.muted, fontSize: '12px' }}>
+                        No backdoors met the threshold for verification
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      {testedBackdoors.map(({ attempt, idx }) => {
                       const outcomeColors = {
                         'SUCCESSFUL_COUP': { bg: colors.accent.green + '20', color: colors.accent.green, label: 'Successful Coup' },
                         'FAILED_COUP_ATTEMPT': { bg: colors.accent.red + '20', color: colors.accent.red, label: 'Failed Coup' },
@@ -2084,12 +2099,9 @@ function PhaseCallsSection({ phase, calls, result, isExpanded, onToggle, onRunFr
                         </div>
                       );
                     })}
-                  </div>
-                ) : (
-                  <div style={{ color: colors.text.muted, fontSize: '12px' }}>
-                    No backdoor attempts to verify
-                  </div>
-                )}
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           )}
