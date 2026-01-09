@@ -2802,7 +2802,6 @@ function PublishedDatasetView({ dataset, onDuplicate, onDelete }) {
                 <tr style={{ borderBottom: `1px solid ${colors.border}` }}>
                   <th style={{ padding: '10px 12px', textAlign: 'left', color: colors.text.muted, fontSize: '11px', fontWeight: 500 }}>Problem ID</th>
                   <th style={{ padding: '10px 12px', textAlign: 'left', color: colors.text.muted, fontSize: '11px', fontWeight: 500 }}>Status</th>
-                  <th style={{ padding: '10px 12px', textAlign: 'left', color: colors.text.muted, fontSize: '11px', fontWeight: 500 }}>H Score</th>
                   <th style={{ padding: '10px 12px', textAlign: 'right', color: colors.text.muted, fontSize: '11px', fontWeight: 500 }}>Action</th>
                 </tr>
               </thead>
@@ -2829,11 +2828,6 @@ function PublishedDatasetView({ dataset, onDuplicate, onDelete }) {
                           </span>
                         </td>
                         <td style={{ padding: '10px 12px' }}>{getPhaseIndicators(result)}</td>
-                        <td style={{ padding: '10px 12px' }}>
-                          <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '12px', color: colors.text.secondary }}>
-                            {result?.H_suspicion_score != null ? result.H_suspicion_score.toFixed(2) : '—'}
-                          </span>
-                        </td>
                         <td style={{ padding: '10px 12px', textAlign: 'right' }}>
                           <button
                             onClick={(e) => { e.stopPropagation(); runProblem(pid); }}
@@ -2856,7 +2850,7 @@ function PublishedDatasetView({ dataset, onDuplicate, onDelete }) {
                       </tr>
                       {isExpanded && (
                         <tr style={{ borderBottom: `1px solid ${colors.border}` }}>
-                          <td colSpan={4} style={{ padding: '0 12px 12px 32px', background: colors.bg.secondary }}>
+                          <td colSpan={3} style={{ padding: '0 12px 12px 32px', background: colors.bg.secondary }}>
                             {/* Error Message */}
                             {result?.error && (
                               <div style={{
