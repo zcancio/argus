@@ -1905,10 +1905,10 @@ function PhaseCallsSection({ phase, calls, result, isExpanded, onToggle, onRunFr
                       <div>
                         <span style={{ color: colors.text.muted }}>Exploit Found: </span>
                         <span style={{
-                          color: sneakiestBackdoor?.exploit_verified ? colors.accent.green : colors.accent.red,
+                          color: sneakiestBackdoor?.exploit_found ? colors.accent.green : colors.accent.red,
                           fontWeight: 500
                         }}>
-                          {sneakiestBackdoor?.exploit_verified ? 'Yes' : 'No'}
+                          {sneakiestBackdoor?.exploit_found ? 'Yes' : 'No'}
                         </span>
                       </div>
                       {sneakiestBackdoor?.exploit_input && (

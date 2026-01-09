@@ -5,13 +5,17 @@ Saves all LLM calls to a JSON file.
 """
 
 import json
+import os
 import time
 import httpx
 from datetime import datetime
 
 API_URL = "http://localhost:3001"
-OPENAI_KEY = "os.environ.get("OPENAI_API_KEY", "")"
+OPENAI_KEY = os.environ.get("OPENAI_API_KEY", "")
 PROBLEM_ID = "0003"
+
+if not OPENAI_KEY:
+    raise ValueError("OPENAI_API_KEY environment variable is required")
 
 headers = {
     "Content-Type": "application/json",

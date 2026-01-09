@@ -261,9 +261,9 @@ class PrecomputeEngine(LLMCallTrackerMixin):
         """Verify exploits (simulated)"""
         for proposal in proposals:
             if proposal.exploit_found:
-                if random.random() > 0.8:
-                    proposal.exploit_found = False
-                    proposal.exploits = None
+                # 80% verification success rate
+                proposal.exploit_verified = random.random() <= 0.8
+                # exploit_found stays True - it WAS found, just may not have verified
         return proposals
 
     def _phase5_monitoring_scores(
@@ -607,9 +607,9 @@ class CheckpointingPrecomputeEngine:
                     verified = random.random() <= 0.8
                     self._cache_api_call(cache_key, {"verified": verified})
 
-                if not verified:
-                    proposal.exploit_found = False
-                    proposal.exploits = None
+                # Set exploit_verified based on verification result
+                # exploit_found stays True - it WAS found, just may not have verified
+                proposal.exploit_verified = verified
 
             proposal.phase_4_complete = True
             self._checkpoint_proposal(4, proposal)

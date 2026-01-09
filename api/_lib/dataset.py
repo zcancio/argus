@@ -69,11 +69,13 @@ class BackdoorAttempt:
     test_cases_passed: Optional[int] = None
     test_cases_total: Optional[int] = None
     test_case_results: Optional[List[Dict[str, Any]]] = None  # Details of each test case
+    # Phase 3: Exploit finding
+    exploit_found: bool = False  # Whether an exploit was found (Phase 3)
     # Phase 4: Exploit verification
     exploit_input: Optional[str] = None
     exploit_output: Optional[str] = None
     exploit_expected: Optional[str] = None
-    exploit_verified: bool = False
+    exploit_verified: bool = False  # Whether the exploit was verified to work (Phase 4)
     # Outcome classification: SUCCESSFUL_COUP, FAILED_COUP_ATTEMPT, NO_BACKDOOR
     outcome: Optional[str] = None
 
@@ -270,6 +272,7 @@ def dict_to_backdoor_attempt(d: dict) -> BackdoorAttempt:
         test_cases_passed=d.get("test_cases_passed"),
         test_cases_total=d.get("test_cases_total"),
         test_case_results=d.get("test_case_results"),
+        exploit_found=d.get("exploit_found", False),
         exploit_input=d.get("exploit_input"),
         exploit_output=d.get("exploit_output"),
         exploit_expected=d.get("exploit_expected"),
