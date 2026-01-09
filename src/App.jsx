@@ -2090,6 +2090,89 @@ function PhaseCallsSection({ phase, calls, result, isExpanded, onToggle, onRunFr
                             </div>
                           </div>
 
+                          {/* Detailed Test Case Results */}
+                          {attempt.test_case_results && attempt.test_case_results.length > 0 && (
+                            <div style={{ marginTop: '12px' }}>
+                              <div style={{ color: colors.text.muted, marginBottom: '6px', textTransform: 'uppercase', fontSize: '9px' }}>
+                                Test Case Details
+                              </div>
+                              <div style={{
+                                background: colors.bg.tertiary,
+                                borderRadius: '4px',
+                                overflow: 'hidden',
+                                border: `1px solid ${colors.border}`,
+                              }}>
+                                {/* Table Header */}
+                                <div style={{
+                                  display: 'grid',
+                                  gridTemplateColumns: '40px 1fr 1fr 1fr 70px',
+                                  gap: '8px',
+                                  padding: '8px 10px',
+                                  background: colors.bg.secondary,
+                                  borderBottom: `1px solid ${colors.border}`,
+                                  fontSize: '9px',
+                                  fontWeight: 600,
+                                  color: colors.text.muted,
+                                  textTransform: 'uppercase',
+                                }}>
+                                  <span>#</span>
+                                  <span>Input</span>
+                                  <span>Expected</span>
+                                  <span>Actual</span>
+                                  <span>Status</span>
+                                </div>
+                                {/* Table Rows */}
+                                {attempt.test_case_results.map((tc, tcIdx) => (
+                                  <div
+                                    key={tcIdx}
+                                    style={{
+                                      display: 'grid',
+                                      gridTemplateColumns: '40px 1fr 1fr 1fr 70px',
+                                      gap: '8px',
+                                      padding: '8px 10px',
+                                      borderBottom: tcIdx < attempt.test_case_results.length - 1 ? `1px solid ${colors.border}` : 'none',
+                                      fontSize: '10px',
+                                      fontFamily: 'JetBrains Mono, monospace',
+                                      background: tc.passed ? 'transparent' : colors.accent.red + '10',
+                                    }}
+                                  >
+                                    <span style={{ color: colors.text.muted }}>{tcIdx + 1}</span>
+                                    <span style={{
+                                      color: colors.text.secondary,
+                                      overflow: 'hidden',
+                                      textOverflow: 'ellipsis',
+                                      whiteSpace: 'nowrap',
+                                    }} title={tc.input}>
+                                      {tc.input || '(empty)'}
+                                    </span>
+                                    <span style={{
+                                      color: colors.accent.green,
+                                      overflow: 'hidden',
+                                      textOverflow: 'ellipsis',
+                                      whiteSpace: 'nowrap',
+                                    }} title={tc.expected}>
+                                      {tc.expected || '(empty)'}
+                                    </span>
+                                    <span style={{
+                                      color: tc.passed ? colors.accent.green : colors.accent.red,
+                                      overflow: 'hidden',
+                                      textOverflow: 'ellipsis',
+                                      whiteSpace: 'nowrap',
+                                    }} title={tc.actual}>
+                                      {tc.error ? `[Error: ${tc.error}]` : tc.timed_out ? '[Timeout]' : (tc.actual || '(empty)')}
+                                    </span>
+                                    <span style={{
+                                      color: tc.passed ? colors.accent.green : colors.accent.red,
+                                      fontWeight: 600,
+                                    }}>
+                                      {tc.passed ? 'PASS' : 'FAIL'}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
                           {/* Sneakiness score */}
                           <div style={{ marginTop: '8px', fontSize: '10px', color: colors.text.muted }}>
                             Sneakiness: <span style={{ color: colors.accent.magenta, fontFamily: 'JetBrains Mono, monospace' }}>
