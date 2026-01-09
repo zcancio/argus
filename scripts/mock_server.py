@@ -29,6 +29,9 @@ LOADED_PROBLEMS = []
 # Track current problem being processed (detected from prompts)
 CURRENT_PROBLEM = None
 
+# Track call counts for sequential step matching (e.g., implement_backdoor_0, _1, _2)
+STEP_CALL_COUNTS = {}  # {(problem_id, base_step): count}
+
 
 def load_mock_data():
     """Load captured flow data from all mock files."""
@@ -170,7 +173,7 @@ class MockOpenAIHandler(BaseHTTPRequestHandler):
                 prompt = msg.get("content", "")
                 break
 
-        global CURRENT_PROBLEM
+        global CURRENT_PROBLEM, STEP_CALL_COUNTS
 
         # Try exact hash match first
         prompt_hash = hashlib.md5(prompt.encode()).hexdigest()
@@ -182,28 +185,46 @@ class MockOpenAIHandler(BaseHTTPRequestHandler):
         else:
             # Fall back to step-based matching
             detected_problem = detect_problem_from_prompt(prompt)
-            if detected_problem:
+            if detected_problem and detected_problem != CURRENT_PROBLEM:
+                # New problem detected - reset call counts
                 CURRENT_PROBLEM = detected_problem
+                STEP_CALL_COUNTS = {}
+                print(f"[MOCK] New problem detected: {detected_problem}")
 
             detected_step = detect_step_from_prompt(prompt)
 
             if CURRENT_PROBLEM and detected_step:
-                # Try exact step match
+                # Try exact step match first
                 step_key = (CURRENT_PROBLEM, detected_step)
                 if step_key in MOCK_BY_STEP:
                     response_text = MOCK_BY_STEP[step_key]["response"]
                     print(f"[MOCK] problem={CURRENT_PROBLEM} step={detected_step} (step match)")
                 else:
-                    # Try with _0, _1, _2 suffixes
-                    for suffix in ["_0", "_1", "_2", ""]:
-                        step_key = (CURRENT_PROBLEM, detected_step + suffix)
-                        if step_key in MOCK_BY_STEP:
-                            response_text = MOCK_BY_STEP[step_key]["response"]
-                            print(f"[MOCK] problem={CURRENT_PROBLEM} step={detected_step}{suffix} (step match)")
-                            break
+                    # Use call counting for steps with suffixes
+                    count_key = (CURRENT_PROBLEM, detected_step)
+                    call_num = STEP_CALL_COUNTS.get(count_key, 0)
+
+                    # Try with the current call number suffix
+                    step_with_suffix = f"{detected_step}_{call_num}"
+                    step_key = (CURRENT_PROBLEM, step_with_suffix)
+
+                    if step_key in MOCK_BY_STEP:
+                        response_text = MOCK_BY_STEP[step_key]["response"]
+                        STEP_CALL_COUNTS[count_key] = call_num + 1
+                        print(f"[MOCK] problem={CURRENT_PROBLEM} step={step_with_suffix} (sequential match #{call_num})")
                     else:
-                        print(f"[MOCK] No match: problem={CURRENT_PROBLEM} step={detected_step}")
-                        response_text = "Mock: No matching response"
+                        # Fallback: try _0, _1, _2 in order
+                        found = False
+                        for suffix in ["_0", "_1", "_2"]:
+                            step_key = (CURRENT_PROBLEM, detected_step + suffix)
+                            if step_key in MOCK_BY_STEP:
+                                response_text = MOCK_BY_STEP[step_key]["response"]
+                                print(f"[MOCK] problem={CURRENT_PROBLEM} step={detected_step}{suffix} (fallback match)")
+                                found = True
+                                break
+                        if not found:
+                            print(f"[MOCK] No match: problem={CURRENT_PROBLEM} step={detected_step}")
+                            response_text = "Mock: No matching response"
             else:
                 print(f"[MOCK] No match: {prompt[:100]}...")
                 response_text = "Mock: No matching response"
