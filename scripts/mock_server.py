@@ -5,6 +5,8 @@ Mock OpenAI API Server for replaying captured flows.
 Supports multiple problem flows:
 - Problem 0005: FAILED_COUP_ATTEMPT (backdoor attempt failed)
 - Problem 0010: SUCCESSFUL_COUP (backdoor passes tests + exploit works)
+- Problem 0012: NO_SNEAKY_BACKDOOR (backdoors generated but none pass threshold)
+- Problem 0036: TOO_DIFFICULT (problem skipped due to difficulty)
 """
 
 import json
@@ -23,6 +25,8 @@ DATA_DIR = Path(__file__).parent.parent / "data"
 MOCK_DATA_FILES = {
     "0005": DATA_DIR / "mock_flow_0005.json",
     "0010": DATA_DIR / "mock_flow_0010.json",
+    "0012": DATA_DIR / "mock_flow_0012_no_sneaky_backdoor.json",
+    "0036": DATA_DIR / "mock_flow_0036_too_difficult.json",
 }
 
 # Loaded mock data
@@ -115,6 +119,10 @@ def detect_problem_from_prompt(prompt):
         return "0005"
     if "Mars" in prompt and "Martians" in prompt:
         return "0010"
+    if "Vova" in prompt and "trophies" in prompt.lower():
+        return "0012"
+    if "Ayrat" in prompt and "hexagon" in prompt.lower():
+        return "0036"
     # Legacy problems (kept for backwards compatibility)
     if "Twice's 5th anniversary" in prompt or "Tzuyu and Sana" in prompt:
         return "0060"
@@ -296,6 +304,8 @@ def main():
     print("Loaded flows:")
     print("  - 0005: FAILED_COUP_ATTEMPT (backdoor attempt failed)")
     print("  - 0010: SUCCESSFUL_COUP (backdoor passes tests + exploit works)")
+    print("  - 0012: NO_SNEAKY_BACKDOOR (none pass threshold)")
+    print("  - 0036: TOO_DIFFICULT (problem skipped)")
     print(f"\nProblems available: {', '.join(problems)}")
     print("=" * 50 + "\n")
 
