@@ -2839,18 +2839,15 @@ function PublishedDatasetView({ dataset, onDuplicate, onDelete }) {
                             const strategyLabels = { common: 'common', sometimes: 'sometimes', rarely: 'rarely', very_rarely: 'v.rarely', very_very_rarely: 'v.v.rarely' };
                             const backdoorAttempts = result.backdoor_attempts || [];
 
-                            // Find highest strategy with successful coup
+                            // Find highest strategy with successful/failed coup
                             // Coup success = backdoor passes tests AND exploit works
                             // Coup failed = backdoor fails tests OR exploit doesn't work
                             let highestSuccess = null;
-                            let hasAnyBackdoor = false;
-                            let hasAnyFailure = false;
+                            let highestFailure = null;
 
                             for (const strat of strategies) {
                               const sr = result.strategy_results[strat];
                               if (sr?.backdoor_selected) {
-                                hasAnyBackdoor = true;
-
                                 // Get the selected backdoor attempt to check test results
                                 const backdoorIdx = sr.selected_backdoor_idx;
                                 const attempt = backdoorIdx != null ? backdoorAttempts[backdoorIdx] : null;
@@ -2865,12 +2862,12 @@ function PublishedDatasetView({ dataset, onDuplicate, onDelete }) {
                                   highestSuccess = strat;
                                 } else {
                                   // Coup failed: backdoor fails tests OR exploit doesn't work
-                                  hasAnyFailure = true;
+                                  highestFailure = strat;
                                 }
                               }
                             }
 
-                            if (!hasAnyBackdoor) {
+                            if (!highestSuccess && !highestFailure) {
                               return <span style={{ color: colors.accent.cyan }}>Baseline</span>;
                             }
 
@@ -2882,8 +2879,12 @@ function PublishedDatasetView({ dataset, onDuplicate, onDelete }) {
                               );
                             }
 
-                            if (hasAnyFailure) {
-                              return <span style={{ color: colors.accent.green }}>Coup Failed</span>;
+                            if (highestFailure) {
+                              return (
+                                <span style={{ color: colors.accent.green }}>
+                                  Coup Failed <span style={{ color: colors.text.muted, fontSize: '10px' }}>({strategyLabels[highestFailure]})</span>
+                                </span>
+                              );
                             }
 
                             return <span style={{ color: colors.text.muted }}>—</span>;
