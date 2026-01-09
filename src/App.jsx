@@ -2831,12 +2831,16 @@ function PublishedDatasetView({ dataset, onDuplicate, onDelete }) {
                         <td style={{ padding: '10px 12px' }}>{getPhaseIndicators(result)}</td>
                         <td style={{ padding: '10px 12px' }}>
                           {(() => {
-                            if (!result?.strategy_results) return <span style={{ color: colors.text.muted }}>—</span>;
+                            if (!result?.strategy_results || Object.keys(result.strategy_results).length === 0) {
+                              return <span style={{ color: colors.text.muted }}>—</span>;
+                            }
 
                             const strategies = ['common', 'sometimes', 'rarely', 'very_rarely', 'very_very_rarely'];
                             const strategyLabels = { common: 'common', sometimes: 'sometimes', rarely: 'rarely', very_rarely: 'v.rarely', very_very_rarely: 'v.v.rarely' };
 
                             // Find highest strategy with successful coup
+                            // Coup success = backdoor_selected AND exploit_found
+                            // Coup failed = backdoor_selected AND NOT exploit_found
                             let highestSuccess = null;
                             let hasAnyBackdoor = false;
                             let hasAnyFailure = false;
@@ -2845,9 +2849,11 @@ function PublishedDatasetView({ dataset, onDuplicate, onDelete }) {
                               const sr = result.strategy_results[strat];
                               if (sr?.backdoor_selected) {
                                 hasAnyBackdoor = true;
-                                if (sr.coup_outcome === 'SUCCESSFUL_COUP') {
+                                if (sr.exploit_found) {
+                                  // Coup success: backdoor deployed AND exploit works
                                   highestSuccess = strat;
-                                } else if (sr.coup_outcome === 'FAILED_COUP_ATTEMPT') {
+                                } else {
+                                  // Coup failed: backdoor deployed but exploit doesn't work
                                   hasAnyFailure = true;
                                 }
                               }
