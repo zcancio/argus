@@ -230,8 +230,10 @@ def validate_problem(problem: dict, verify: bool = True) -> tuple[bool, str, Opt
             return False, f"solutions_fail:{reason}", None
 
     # Build problem data
+    # Zero-pad problem_id to 4 digits to match filesystem format (e.g., "3" -> "0003")
+    problem_id_padded = str(problem_id).zfill(4)
     problem_data = {
-        "problem_id": problem_id,
+        "problem_id": problem_id_padded,
         "question": question,
         "difficulty": difficulty,
         "solutions": solutions,

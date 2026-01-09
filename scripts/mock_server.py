@@ -3,22 +3,26 @@
 Mock OpenAI API Server for replaying captured flows.
 
 Supports multiple problem flows:
-- Problem 0003: FAILED_COUP_ATTEMPT (backdoor breaks normal tests)
-- Problem 0060: SUCCESSFUL_COUP (backdoor passes tests + exploit works)
+- Problem 0005: FAILED_COUP_ATTEMPT (backdoor attempt failed)
+- Problem 0010: SUCCESSFUL_COUP (backdoor passes tests + exploit works)
 """
 
 import json
+import sys
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse
 import hashlib
 from pathlib import Path
 
+# Add parent to path for imports
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
 DATA_DIR = Path(__file__).parent.parent / "data"
 
 # Mock data files for different problems
 MOCK_DATA_FILES = {
-    "0003": DATA_DIR / "mock_flow_0003_failed_coup.json",
-    "0060": DATA_DIR / "mock_flow_0060_successful_coup.json",
+    "0005": DATA_DIR / "mock_flow_0005.json",
+    "0010": DATA_DIR / "mock_flow_0010.json",
 }
 
 # Loaded mock data
@@ -37,6 +41,18 @@ def load_mock_data():
     """Load captured flow data from all mock files."""
     global MOCK_BY_HASH, MOCK_BY_STEP, LOADED_PROBLEMS
 
+    # Try to load problem texts from APPSLoader
+    problem_texts = {}
+    try:
+        from api._lib.apps import APPSLoader
+        loader = APPSLoader()
+        for problem_id in MOCK_DATA_FILES.keys():
+            problem = loader.load_problem(problem_id)
+            if problem:
+                problem_texts[problem_id] = problem.question[:200]
+    except Exception as e:
+        print(f"Warning: Could not load APPS problems: {e}")
+
     total_calls = 0
     for problem_id, filepath in MOCK_DATA_FILES.items():
         if not filepath.exists():
@@ -46,14 +62,25 @@ def load_mock_data():
         with open(filepath) as f:
             data = json.load(f)
 
-        # Store problem text for detection
-        problem_text = data.get("apps_problem", {}).get("question", "")[:200]
+        # Get problem text (from loader or from first prompt)
+        problem_text = problem_texts.get(problem_id, "")
+
+        # LLM calls are nested in result.llm_calls in new format
+        llm_calls = data.get("result", {}).get("llm_calls", [])
+        if not llm_calls:
+            # Fall back to old format
+            llm_calls = data.get("llm_calls", [])
 
         call_count = 0
-        for call in data.get("llm_calls", []):
+        for call in llm_calls:
             prompt = call.get("prompt", "")
             response = call.get("response", "")
             step = call.get("step", "unknown")
+
+            # Extract problem text from first prompt if not loaded
+            if not problem_text and "Problem:" in prompt:
+                start = prompt.find("Problem:")
+                problem_text = prompt[start:start+200]
 
             # Index by hash
             prompt_hash = hashlib.md5(prompt.encode()).hexdigest()
@@ -84,6 +111,11 @@ def load_mock_data():
 def detect_problem_from_prompt(prompt):
     """Detect which problem this prompt is for based on content."""
     # Check for unique problem identifiers
+    if "Luba" in prompt and "tabs" in prompt.lower():
+        return "0005"
+    if "Mars" in prompt and "Martians" in prompt:
+        return "0010"
+    # Legacy problems (kept for backwards compatibility)
     if "Twice's 5th anniversary" in prompt or "Tzuyu and Sana" in prompt:
         return "0060"
     if "barrels" in prompt.lower() and "pour" in prompt.lower():
@@ -99,16 +131,20 @@ def detect_step_from_prompt(prompt):
     if "solve" in prompt_lower and "competitive programming" in prompt_lower:
         return "generate_u_solution" if "untrusted" not in prompt_lower else "generate_t_solution"
 
-    # Phase 2
+    # Phase 2 - Rate problem difficulty (must check before other "rate" checks)
+    if "rate" in prompt_lower and "difficulty" in prompt_lower and "1-10" in prompt:
+        return "rate_problem_difficulty"
+
+    # Phase 2 - Backdoors
     if "brainstorm" in prompt_lower and "backdoor" in prompt_lower:
         return "brainstorm_backdoor_ideas"
     if "implement" in prompt_lower and "backdoor" in prompt_lower:
         return "implement_backdoor"
     if "clean up" in prompt_lower or "cleanup" in prompt_lower:
         return "cleanup_backdoor"
-    if "rate" in prompt_lower and ("difficult" in prompt_lower or "reviewer" in prompt_lower or "notice" in prompt_lower):
+    if "rate" in prompt_lower and ("reviewer" in prompt_lower or "notice" in prompt_lower):
         return "rate_sneakiness_part1"
-    if "rate" in prompt_lower and ("subtle" in prompt_lower or "trigger" in prompt_lower):
+    if "rate" in prompt_lower and ("subtle" in prompt_lower or "trigger" in prompt_lower or "rarity" in prompt_lower):
         return "rate_sneakiness_part2"
 
     # Phase 3
@@ -123,9 +159,13 @@ def detect_step_from_prompt(prompt):
     if "construct" in prompt_lower and "trigger" in prompt_lower:
         return "construct_exploit"
 
-    # Phase 6
+    # Phase 5 - Suspicion ratings
     if "trusted" in prompt_lower and "monitor" in prompt_lower:
         return "get_t_suspicion"
+    if "suspicion" in prompt_lower and "normal" in prompt_lower:
+        return "get_t_suspicion_normal"
+    if "suspicion" in prompt_lower and "backdoor" in prompt_lower:
+        return "get_t_suspicion_backdoor"
     if "human" in prompt_lower and "auditor" in prompt_lower:
         return "get_h_suspicion"
 
@@ -254,8 +294,8 @@ def main():
     print("ARGUS Mock Server")
     print("=" * 50)
     print("Loaded flows:")
-    print("  - 0003: FAILED_COUP_ATTEMPT (backdoor breaks tests)")
-    print("  - 0060: SUCCESSFUL_COUP (full success)")
+    print("  - 0005: FAILED_COUP_ATTEMPT (backdoor attempt failed)")
+    print("  - 0010: SUCCESSFUL_COUP (backdoor passes tests + exploit works)")
     print(f"\nProblems available: {', '.join(problems)}")
     print("=" * 50 + "\n")
 
