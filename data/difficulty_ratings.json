@@ -1,0 +1,402 @@
+[
+  {
+    "problem_id": "3",
+    "difficulty": 7
+  },
+  {
+    "problem_id": "5",
+    "difficulty": 3
+  },
+  {
+    "problem_id": "6",
+    "difficulty": 8
+  },
+  {
+    "problem_id": "8",
+    "difficulty": 3
+  },
+  {
+    "problem_id": "10",
+    "difficulty": 3
+  },
+  {
+    "problem_id": "12",
+    "difficulty": 6
+  },
+  {
+    "problem_id": "17",
+    "difficulty": 3
+  },
+  {
+    "problem_id": "19",
+    "difficulty": 5
+  },
+  {
+    "problem_id": "21",
+    "difficulty": 3
+  },
+  {
+    "problem_id": "25",
+    "difficulty": 7
+  },
+  {
+    "problem_id": "26",
+    "difficulty": 7
+  },
+  {
+    "problem_id": "29",
+    "difficulty": 5
+  },
+  {
+    "problem_id": "32",
+    "difficulty": 5
+  },
+  {
+    "problem_id": "34",
+    "difficulty": 6
+  },
+  {
+    "problem_id": "36",
+    "difficulty": 8
+  },
+  {
+    "problem_id": "38",
+    "difficulty": 5
+  },
+  {
+    "problem_id": "39",
+    "difficulty": 4
+  },
+  {
+    "problem_id": "41",
+    "difficulty": 3
+  },
+  {
+    "problem_id": "45",
+    "difficulty": 9
+  },
+  {
+    "problem_id": "46",
+    "difficulty": 3
+  },
+  {
+    "problem_id": "47",
+    "difficulty": 8
+  },
+  {
+    "problem_id": "48",
+    "difficulty": 8
+  },
+  {
+    "problem_id": "50",
+    "difficulty": 3
+  },
+  {
+    "problem_id": "53",
+    "difficulty": 7
+  },
+  {
+    "problem_id": "54",
+    "difficulty": 7
+  },
+  {
+    "problem_id": "55",
+    "difficulty": 8
+  },
+  {
+    "problem_id": "56",
+    "difficulty": 6
+  },
+  {
+    "problem_id": "58",
+    "difficulty": 5
+  },
+  {
+    "problem_id": "60",
+    "difficulty": 5
+  },
+  {
+    "problem_id": "61",
+    "difficulty": 5
+  },
+  {
+    "problem_id": "63",
+    "difficulty": 7
+  },
+  {
+    "problem_id": "65",
+    "difficulty": 3
+  },
+  {
+    "problem_id": "67",
+    "difficulty": 3
+  },
+  {
+    "problem_id": "69",
+    "difficulty": 8
+  },
+  {
+    "problem_id": "72",
+    "difficulty": 8
+  },
+  {
+    "problem_id": "73",
+    "difficulty": 4
+  },
+  {
+    "problem_id": "76",
+    "difficulty": 7
+  },
+  {
+    "problem_id": "77",
+    "difficulty": 6
+  },
+  {
+    "problem_id": "78",
+    "difficulty": 5
+  },
+  {
+    "problem_id": "79",
+    "difficulty": 5
+  },
+  {
+    "problem_id": "82",
+    "difficulty": 5
+  },
+  {
+    "problem_id": "83",
+    "difficulty": 5
+  },
+  {
+    "problem_id": "87",
+    "difficulty": 5
+  },
+  {
+    "problem_id": "88",
+    "difficulty": 5
+  },
+  {
+    "problem_id": "89",
+    "difficulty": 7
+  },
+  {
+    "problem_id": "91",
+    "difficulty": 7
+  },
+  {
+    "problem_id": "92",
+    "difficulty": 6
+  },
+  {
+    "problem_id": "93",
+    "difficulty": 3
+  },
+  {
+    "problem_id": "94",
+    "difficulty": 5
+  },
+  {
+    "problem_id": "97",
+    "difficulty": 7
+  },
+  {
+    "problem_id": "98",
+    "difficulty": 5
+  },
+  {
+    "problem_id": "99",
+    "difficulty": 7
+  },
+  {
+    "problem_id": "102",
+    "difficulty": 5
+  },
+  {
+    "problem_id": "103",
+    "difficulty": 5
+  },
+  {
+    "problem_id": "104",
+    "difficulty": 3
+  },
+  {
+    "problem_id": "107",
+    "difficulty": 3
+  },
+  {
+    "problem_id": "108",
+    "difficulty": 7
+  },
+  {
+    "problem_id": "109",
+    "difficulty": 5
+  },
+  {
+    "problem_id": "113",
+    "difficulty": 7
+  },
+  {
+    "problem_id": "114",
+    "difficulty": 6
+  },
+  {
+    "problem_id": "115",
+    "difficulty": 7
+  },
+  {
+    "problem_id": "116",
+    "difficulty": 3
+  },
+  {
+    "problem_id": "118",
+    "difficulty": 5
+  },
+  {
+    "problem_id": "120",
+    "difficulty": 6
+  },
+  {
+    "problem_id": "122",
+    "difficulty": 7
+  },
+  {
+    "problem_id": "123",
+    "difficulty": 5
+  },
+  {
+    "problem_id": "125",
+    "difficulty": 4
+  },
+  {
+    "problem_id": "126",
+    "difficulty": 7
+  },
+  {
+    "problem_id": "127",
+    "difficulty": 6
+  },
+  {
+    "problem_id": "128",
+    "difficulty": 8
+  },
+  {
+    "problem_id": "129",
+    "difficulty": 8
+  },
+  {
+    "problem_id": "130",
+    "difficulty": 6
+  },
+  {
+    "problem_id": "132",
+    "difficulty": 4
+  },
+  {
+    "problem_id": "133",
+    "difficulty": 5
+  },
+  {
+    "problem_id": "136",
+    "difficulty": 3
+  },
+  {
+    "problem_id": "138",
+    "difficulty": 3
+  },
+  {
+    "problem_id": "142",
+    "difficulty": 7
+  },
+  {
+    "problem_id": "143",
+    "difficulty": 5
+  },
+  {
+    "problem_id": "144",
+    "difficulty": 5
+  },
+  {
+    "problem_id": "145",
+    "difficulty": 2
+  },
+  {
+    "problem_id": "147",
+    "difficulty": 8
+  },
+  {
+    "problem_id": "149",
+    "difficulty": 7
+  },
+  {
+    "problem_id": "150",
+    "difficulty": 7
+  },
+  {
+    "problem_id": "151",
+    "difficulty": 6
+  },
+  {
+    "problem_id": "152",
+    "difficulty": 8
+  },
+  {
+    "problem_id": "153",
+    "difficulty": 7
+  },
+  {
+    "problem_id": "154",
+    "difficulty": 5
+  },
+  {
+    "problem_id": "155",
+    "difficulty": 8
+  },
+  {
+    "problem_id": "157",
+    "difficulty": 3
+  },
+  {
+    "problem_id": "158",
+    "difficulty": 3
+  },
+  {
+    "problem_id": "162",
+    "difficulty": 2
+  },
+  {
+    "problem_id": "165",
+    "difficulty": 7
+  },
+  {
+    "problem_id": "168",
+    "difficulty": 3
+  },
+  {
+    "problem_id": "169",
+    "difficulty": 5
+  },
+  {
+    "problem_id": "171",
+    "difficulty": 3
+  },
+  {
+    "problem_id": "173",
+    "difficulty": 3
+  },
+  {
+    "problem_id": "174",
+    "difficulty": 7
+  },
+  {
+    "problem_id": "175",
+    "difficulty": 5
+  },
+  {
+    "problem_id": "176",
+    "difficulty": 3
+  },
+  {
+    "problem_id": "177",
+    "difficulty": 3
+  }
+]
