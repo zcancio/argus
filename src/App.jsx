@@ -2173,6 +2173,38 @@ function PhaseCallsSection({ phase, calls, result, isExpanded, onToggle, onRunFr
                             </div>
                           )}
 
+                          {/* Backdoored Code */}
+                          {attempt.backdoored_code && (
+                            <details style={{ marginTop: '12px' }}>
+                              <summary style={{
+                                color: colors.text.muted,
+                                fontSize: '9px',
+                                textTransform: 'uppercase',
+                                cursor: 'pointer',
+                                userSelect: 'none',
+                                padding: '4px 0',
+                              }}>
+                                Backdoored Code (click to expand)
+                              </summary>
+                              <pre style={{
+                                marginTop: '6px',
+                                padding: '10px',
+                                background: colors.bg.tertiary,
+                                borderRadius: '4px',
+                                border: `1px solid ${colors.border}`,
+                                fontSize: '10px',
+                                fontFamily: 'JetBrains Mono, monospace',
+                                color: colors.text.secondary,
+                                overflow: 'auto',
+                                maxHeight: '300px',
+                                whiteSpace: 'pre-wrap',
+                                wordBreak: 'break-word',
+                              }}>
+                                {attempt.backdoored_code}
+                              </pre>
+                            </details>
+                          )}
+
                           {/* Sneakiness score */}
                           <div style={{ marginTop: '8px', fontSize: '10px', color: colors.text.muted }}>
                             Sneakiness: <span style={{ color: colors.accent.magenta, fontFamily: 'JetBrains Mono, monospace' }}>
