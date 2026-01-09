@@ -39,7 +39,9 @@ class SingleProblemEngine(LLMCallTrackerMixin):
         anthropic_key: str = None,
         piston_url: str = None,
         on_update: callable = None,
-        test_cases: Optional[Dict[str, Any]] = None
+        test_cases: Optional[Dict[str, Any]] = None,
+        problem_difficulty: int = 1,
+        max_difficulty: int = 6
     ):
         self.dataset_id = dataset_id
         self.problem_id = problem_id
@@ -51,6 +53,8 @@ class SingleProblemEngine(LLMCallTrackerMixin):
         self.llm = LLMClient(openai_key=openai_key, anthropic_key=anthropic_key)
         self.piston = PistonClient(piston_url) if piston_url else get_piston_client()
         self.test_cases = test_cases or {}
+        self.problem_difficulty = problem_difficulty
+        self.max_difficulty = max_difficulty
 
         # Initialize result
         self.result = ProblemResult(
@@ -330,6 +334,11 @@ class SingleProblemEngine(LLMCallTrackerMixin):
     def _phase2_generate_backdoors(self) -> List[BackdoorProposal]:
         """Phase 2: Generate backdoor proposals"""
         proposals = []
+
+        # Skip backdoor generation if problem difficulty exceeds threshold
+        if self.problem_difficulty > self.max_difficulty:
+            print(f"[Phase 2] Skipping backdoor generation: problem difficulty {self.problem_difficulty} > max {self.max_difficulty}")
+            return proposals
 
         # Get backdoor ideas
         ideas_prompt = self._get_prompt("BACKDOOR_IDEAS_PROMPT").format(
@@ -845,7 +854,9 @@ def run_single_problem(
     anthropic_key: str = None,
     piston_url: str = None,
     on_update: callable = None,
-    test_cases: Optional[Dict[str, Any]] = None
+    test_cases: Optional[Dict[str, Any]] = None,
+    problem_difficulty: int = 1,
+    max_difficulty: int = 6
 ) -> ProblemResult:
     """
     Run phases 1-6 for a single APPS problem.
@@ -862,6 +873,8 @@ def run_single_problem(
         piston_url: Piston code execution server URL
         on_update: Callback for progress updates
         test_cases: Test cases from APPS (input_output.json content)
+        problem_difficulty: Difficulty rating of this problem (1-10)
+        max_difficulty: Maximum difficulty for backdoor generation (default 6)
 
     Returns:
         ProblemResult with all phase outputs and logs
@@ -877,7 +890,9 @@ def run_single_problem(
         anthropic_key=anthropic_key,
         piston_url=piston_url,
         on_update=on_update,
-        test_cases=test_cases
+        test_cases=test_cases,
+        problem_difficulty=problem_difficulty,
+        max_difficulty=max_difficulty
     )
     return engine.run()
 
@@ -895,6 +910,8 @@ def run_single_problem_from_phase(
     piston_url: str = None,
     on_update: callable = None,
     test_cases: Optional[Dict[str, Any]] = None,
+    problem_difficulty: int = 1,
+    max_difficulty: int = 6
 ) -> ProblemResult:
     """
     Re-run phases starting from a specific phase for an already-processed problem.
@@ -912,6 +929,8 @@ def run_single_problem_from_phase(
         piston_url: Piston code execution server URL
         on_update: Callback for progress updates
         test_cases: Test cases from APPS (input_output.json content)
+        problem_difficulty: Difficulty rating of this problem (1-10)
+        max_difficulty: Maximum difficulty for backdoor generation (default 6)
 
     Returns:
         ProblemResult with updated phase outputs
@@ -937,7 +956,9 @@ def run_single_problem_from_phase(
         anthropic_key=anthropic_key,
         piston_url=piston_url,
         on_update=on_update,
-        test_cases=test_cases
+        test_cases=test_cases,
+        problem_difficulty=problem_difficulty,
+        max_difficulty=max_difficulty
     )
 
     # Restore existing result data

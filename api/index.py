@@ -1241,7 +1241,9 @@ def run_dataset_problem(
                     openai_key=x_openai_key,
                     anthropic_key=x_anthropic_key,
                     piston_url=os.environ.get("PISTON_URL"),
-                    test_cases=apps_problem.test_cases
+                    test_cases=apps_problem.test_cases,
+                    problem_difficulty=apps_problem.difficulty,
+                    max_difficulty=dataset.settings.max_difficulty
                 )
             except Exception as e:
                 logger.error(f"[RUN_PROBLEM] Failed: {e}")
@@ -1324,7 +1326,9 @@ def run_problem_from_phase(
                     openai_key=x_openai_key,
                     anthropic_key=x_anthropic_key,
                     piston_url=os.environ.get("PISTON_URL"),
-                    test_cases=apps_problem.test_cases
+                    test_cases=apps_problem.test_cases,
+                    problem_difficulty=apps_problem.difficulty,
+                    max_difficulty=dataset.settings.max_difficulty
                 )
             except Exception as e:
                 logger.error(f"[RUN_FROM_PHASE] Failed: {e}")
