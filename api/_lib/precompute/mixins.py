@@ -74,9 +74,18 @@ class LLMCallTrackerMixin:
         elif hasattr(self, '_persist'):
             self._persist()
 
-    def _call_llm(self, model: str, prompt: str, step: str = "unknown") -> str:
-        """Call the LLM with tracking"""
-        call = self._track_call(step, model, prompt)
+    def _call_llm(self, model: str, prompt: str, step: str = "unknown", role: str = None) -> str:
+        """Call the LLM with tracking
+
+        Args:
+            model: The model identifier (e.g., "gpt-4o")
+            prompt: The prompt to send
+            step: The step name for tracking
+            role: The role name (e.g., "Red Team", "Trusted", "Untrusted", "Human")
+        """
+        # Format model display with role if provided
+        model_display = f"{role} ({model})" if role else model
+        call = self._track_call(step, model_display, prompt)
         try:
             response = self.llm.complete(model, prompt)
             self._complete_call(call, response)
