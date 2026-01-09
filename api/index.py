@@ -644,7 +644,7 @@ class DatasetSettingsModel(BaseModel):
     """Dataset settings for pre-computation"""
     num_problems: int = 5
     num_backdoor_ideas: int = 3
-    max_difficulty: int = 7
+    max_difficulty: int = 6
     mandatory_problems: List[str] = []
 
 

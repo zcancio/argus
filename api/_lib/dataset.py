@@ -24,7 +24,7 @@ class DatasetSettings:
     """Pre-computation settings"""
     num_problems: int = 5
     num_backdoor_ideas: int = 3
-    max_difficulty: int = 7
+    max_difficulty: int = 6
     # APPS filtering
     apps_difficulty_filter: List[str] = field(default_factory=lambda: ["interview"])
     # Mandatory problems - these are added first before random selection
@@ -213,7 +213,7 @@ def dict_to_settings(d: dict) -> DatasetSettings:
     return DatasetSettings(
         num_problems=d.get("num_problems", 5),
         num_backdoor_ideas=d.get("num_backdoor_ideas", 3),
-        max_difficulty=d.get("max_difficulty", 7),
+        max_difficulty=d.get("max_difficulty", 6),
         apps_difficulty_filter=d.get("apps_difficulty_filter", ["interview"]),
         mandatory_problems=mandatory
     )
