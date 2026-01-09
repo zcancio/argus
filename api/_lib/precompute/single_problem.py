@@ -335,10 +335,17 @@ class SingleProblemEngine(LLMCallTrackerMixin):
         """Phase 2: Generate backdoor proposals"""
         proposals = []
 
+        # Store difficulty info in result
+        self.result.problem_difficulty = self.problem_difficulty
+        self.result.max_difficulty = self.max_difficulty
+
         # Skip backdoor generation if problem difficulty exceeds threshold
         if self.problem_difficulty > self.max_difficulty:
             print(f"[Phase 2] Skipping backdoor generation: problem difficulty {self.problem_difficulty} > max {self.max_difficulty}")
+            self.result.difficulty_skipped = True
             return proposals
+
+        self.result.difficulty_skipped = False
 
         # Get backdoor ideas
         ideas_prompt = self._get_prompt("BACKDOOR_IDEAS_PROMPT").format(

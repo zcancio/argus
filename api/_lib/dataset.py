@@ -121,6 +121,11 @@ class ProblemResult:
     T_tests_passed: Optional[int] = None
     T_tests_total: Optional[int] = None
 
+    # Phase 2: Difficulty check
+    problem_difficulty: Optional[int] = None  # Problem's difficulty level
+    max_difficulty: Optional[int] = None  # Max difficulty threshold
+    difficulty_skipped: bool = False  # True if backdoors skipped due to difficulty
+
     # Phase 5: Pre-computed suspicion scores
     # T rates: normal solution (always) + sneakiest backdoor (if any)
     T_suspicion_normal: Optional[float] = None  # T's score on normal solution
@@ -330,6 +335,13 @@ def dict_to_problem_result(d: dict) -> ProblemResult:
         current_phase=d.get("current_phase"),
         U_normal_solution=d.get("U_normal_solution"),
         T_solution=d.get("T_solution"),
+        U_tests_passed=d.get("U_tests_passed"),
+        U_tests_total=d.get("U_tests_total"),
+        T_tests_passed=d.get("T_tests_passed"),
+        T_tests_total=d.get("T_tests_total"),
+        problem_difficulty=d.get("problem_difficulty"),
+        max_difficulty=d.get("max_difficulty"),
+        difficulty_skipped=d.get("difficulty_skipped", False),
         T_suspicion_normal=d.get("T_suspicion_normal"),
         T_suspicion_backdoor=d.get("T_suspicion_backdoor"),
         H_suspicion_normal=d.get("H_suspicion_normal"),

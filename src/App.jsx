@@ -1776,6 +1776,63 @@ function PhaseCallsSection({ phase, calls, result, isExpanded, onToggle, onRunFr
             </div>
           )}
 
+          {/* Phase 2 specific content - Difficulty Check */}
+          {isPhase2 && phaseCompleted && (
+            <div style={{ marginBottom: '12px' }}>
+              <div style={{
+                padding: '12px',
+                background: colors.bg.secondary,
+                borderRadius: '4px',
+                border: `1px solid ${colors.border}`,
+              }}>
+                <div style={{ color: colors.text.muted, fontSize: '10px', marginBottom: '8px', textTransform: 'uppercase' }}>
+                  Difficulty Check
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ color: colors.text.muted, fontSize: '11px' }}>Problem Difficulty:</span>
+                    <span style={{
+                      padding: '2px 8px',
+                      borderRadius: '4px',
+                      fontSize: '11px',
+                      fontWeight: 600,
+                      background: colors.bg.tertiary,
+                      color: colors.text.primary,
+                    }}>
+                      {result?.problem_difficulty ?? '—'}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ color: colors.text.muted, fontSize: '11px' }}>Max Difficulty:</span>
+                    <span style={{
+                      padding: '2px 8px',
+                      borderRadius: '4px',
+                      fontSize: '11px',
+                      fontWeight: 600,
+                      background: colors.bg.tertiary,
+                      color: colors.text.primary,
+                    }}>
+                      {result?.max_difficulty ?? '—'}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ color: colors.text.muted, fontSize: '11px' }}>Result:</span>
+                    <span style={{
+                      padding: '2px 8px',
+                      borderRadius: '4px',
+                      fontSize: '11px',
+                      fontWeight: 600,
+                      background: result?.difficulty_skipped ? colors.accent.amber + '20' : colors.accent.green + '20',
+                      color: result?.difficulty_skipped ? colors.accent.amber : colors.accent.green,
+                    }}>
+                      {result?.difficulty_skipped ? 'Skipped (too difficult)' : 'Generating backdoors'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Phase 2 specific content - Backdoor Ratings Summary Table */}
           {isPhase2 && phaseCompleted && hasBackdoorAttempts && (
             <div style={{ marginBottom: phaseCalls.length > 0 ? '16px' : 0 }}>
