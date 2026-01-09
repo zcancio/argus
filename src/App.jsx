@@ -1633,6 +1633,8 @@ function PhaseCallsSection({ phase, calls, result, isExpanded, onToggle, onRunFr
               `(${Object.keys(result.strategy_results).length} strategies mapped)`
             ) : isPhase6 && hasStrategyResults ? (
               `(${Object.keys(result.strategy_results).length} strategies)`
+            ) : isPhase6 && phaseCompleted ? (
+              '(no LLM calls)'
             ) : phaseCalls.length > 0 ? (
               `(${phaseCalls.length} call${phaseCalls.length !== 1 ? 's' : ''})`
             ) : phaseCompleted ? (
@@ -2371,8 +2373,8 @@ function PhaseCallsSection({ phase, calls, result, isExpanded, onToggle, onRunFr
             </div>
           )}
 
-          {/* LLM Calls (for all phases) */}
-          {phaseCalls.map((call, idx) => (
+          {/* LLM Calls (for all phases except Phase 6 which has none) */}
+          {!isPhase6 && phaseCalls.map((call, idx) => (
             <div
               key={call.call_id || idx}
               style={{
