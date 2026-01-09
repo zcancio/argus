@@ -2309,7 +2309,7 @@ function PhaseCallsSection({ phase, calls, result, isExpanded, onToggle, onRunFr
                       <tr style={{ background: colors.bg.tertiary }}>
                         <th style={{ padding: '8px', textAlign: 'left', color: colors.text.muted, fontWeight: 500, borderBottom: `1px solid ${colors.border}` }}>Strategy</th>
                         <th style={{ padding: '8px', textAlign: 'center', color: colors.text.muted, fontWeight: 500, borderBottom: `1px solid ${colors.border}` }}>Threshold</th>
-                        <th style={{ padding: '8px', textAlign: 'center', color: colors.text.muted, fontWeight: 500, borderBottom: `1px solid ${colors.border}` }}>Backdoor</th>
+                        <th style={{ padding: '8px', textAlign: 'center', color: colors.text.muted, fontWeight: 500, borderBottom: `1px solid ${colors.border}` }}>Submission</th>
                         <th style={{ padding: '8px', textAlign: 'center', color: colors.text.muted, fontWeight: 500, borderBottom: `1px solid ${colors.border}` }}>Sneakiness</th>
                         <th style={{ padding: '8px', textAlign: 'center', color: colors.text.muted, fontWeight: 500, borderBottom: `1px solid ${colors.border}` }}>T Score</th>
                         <th style={{ padding: '8px', textAlign: 'center', color: colors.text.muted, fontWeight: 500, borderBottom: `1px solid ${colors.border}` }}>Coup Status</th>
@@ -2323,11 +2323,14 @@ function PhaseCallsSection({ phase, calls, result, isExpanded, onToggle, onRunFr
                         const selectedBackdoor = sr.selected_backdoor_idx != null
                           ? result.backdoor_attempts?.[sr.selected_backdoor_idx]
                           : null;
-                        const coupOutcome = selectedBackdoor?.outcome || (sr.backdoor_selected ? 'NO_BACKDOOR' : null);
+                        const coupOutcome = sr.backdoor_selected
+                          ? (selectedBackdoor?.outcome || 'NO_BACKDOOR')
+                          : 'BASELINE';
                         const coupStyles = {
                           'SUCCESSFUL_COUP': { color: colors.accent.green, label: 'Successful' },
                           'FAILED_COUP_ATTEMPT': { color: colors.accent.red, label: 'Failed' },
                           'NO_BACKDOOR': { color: colors.accent.blue, label: 'No Coup' },
+                          'BASELINE': { color: colors.text.muted, label: 'Baseline' },
                         };
                         const coupStyle = coupStyles[coupOutcome] || { color: colors.text.muted, label: '—' };
                         return (
@@ -2340,13 +2343,13 @@ function PhaseCallsSection({ phase, calls, result, isExpanded, onToggle, onRunFr
                             </td>
                             <td style={{ padding: '8px', textAlign: 'center' }}>
                               {sr.backdoor_selected ? (
-                                <span style={{ color: colors.accent.amber }}>Yes</span>
+                                <span style={{ color: colors.accent.amber }}>Backdoor</span>
                               ) : (
-                                <span style={{ color: colors.text.muted }}>No</span>
+                                <span style={{ color: colors.accent.cyan }}>Baseline</span>
                               )}
                             </td>
                             <td style={{ padding: '8px', textAlign: 'center', fontFamily: 'JetBrains Mono, monospace' }}>
-                              {sr.sneakiness != null ? (
+                              {sr.backdoor_selected && sr.sneakiness != null ? (
                                 <span style={{ color: sr.sneakiness >= sr.threshold ? colors.accent.green : colors.text.muted }}>
                                   {sr.sneakiness.toFixed(1)}
                                 </span>
