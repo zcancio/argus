@@ -2312,14 +2312,24 @@ function PhaseCallsSection({ phase, calls, result, isExpanded, onToggle, onRunFr
                         <th style={{ padding: '8px', textAlign: 'center', color: colors.text.muted, fontWeight: 500, borderBottom: `1px solid ${colors.border}` }}>Backdoor</th>
                         <th style={{ padding: '8px', textAlign: 'center', color: colors.text.muted, fontWeight: 500, borderBottom: `1px solid ${colors.border}` }}>Sneakiness</th>
                         <th style={{ padding: '8px', textAlign: 'center', color: colors.text.muted, fontWeight: 500, borderBottom: `1px solid ${colors.border}` }}>T Score</th>
-                        <th style={{ padding: '8px', textAlign: 'center', color: colors.text.muted, fontWeight: 500, borderBottom: `1px solid ${colors.border}` }}>H Score</th>
-                        <th style={{ padding: '8px', textAlign: 'center', color: colors.text.muted, fontWeight: 500, borderBottom: `1px solid ${colors.border}` }}>Exploit</th>
+                        <th style={{ padding: '8px', textAlign: 'center', color: colors.text.muted, fontWeight: 500, borderBottom: `1px solid ${colors.border}` }}>Coup Status</th>
                       </tr>
                     </thead>
                     <tbody>
                       {['common', 'sometimes', 'rarely', 'very_rarely', 'very_very_rarely'].map((strategyName, idx) => {
                         const sr = result.strategy_results?.[strategyName];
                         if (!sr) return null;
+                        // Get coup outcome from selected backdoor
+                        const selectedBackdoor = sr.selected_backdoor_idx != null
+                          ? result.backdoor_attempts?.[sr.selected_backdoor_idx]
+                          : null;
+                        const coupOutcome = selectedBackdoor?.outcome || (sr.backdoor_selected ? 'NO_BACKDOOR' : null);
+                        const coupStyles = {
+                          'SUCCESSFUL_COUP': { color: colors.accent.green, label: 'Successful' },
+                          'FAILED_COUP_ATTEMPT': { color: colors.accent.red, label: 'Failed' },
+                          'NO_BACKDOOR': { color: colors.accent.blue, label: 'No Coup' },
+                        };
+                        const coupStyle = coupStyles[coupOutcome] || { color: colors.text.muted, label: '—' };
                         return (
                           <tr key={strategyName} style={{ borderBottom: idx < 4 ? `1px solid ${colors.border}` : 'none' }}>
                             <td style={{ padding: '8px', color: colors.text.primary }}>
@@ -2347,17 +2357,10 @@ function PhaseCallsSection({ phase, calls, result, isExpanded, onToggle, onRunFr
                             <td style={{ padding: '8px', textAlign: 'center', fontFamily: 'JetBrains Mono, monospace', color: colors.text.primary }}>
                               {sr.T_suspicion_score?.toFixed(2) || '—'}
                             </td>
-                            <td style={{ padding: '8px', textAlign: 'center', fontFamily: 'JetBrains Mono, monospace', color: colors.text.primary }}>
-                              {sr.H_suspicion_score?.toFixed(2) || '—'}
-                            </td>
                             <td style={{ padding: '8px', textAlign: 'center' }}>
-                              {sr.exploit_found ? (
-                                <span style={{ color: colors.accent.green }}>Found</span>
-                              ) : sr.backdoor_selected ? (
-                                <span style={{ color: colors.accent.blue }}>Safe</span>
-                              ) : (
-                                <span style={{ color: colors.text.muted }}>—</span>
-                              )}
+                              <span style={{ color: coupStyle.color, fontWeight: 500 }}>
+                                {coupStyle.label}
+                              </span>
                             </td>
                           </tr>
                         );
