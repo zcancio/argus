@@ -9,13 +9,28 @@ import os
 import time
 import httpx
 from datetime import datetime
+from pathlib import Path
+
+# Load .env file if it exists
+env_path = Path(__file__).parent.parent / ".env"
+if env_path.exists():
+    with open(env_path) as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                key, value = line.split("=", 1)
+                # Remove quotes if present
+                value = value.strip().strip('"').strip("'")
+                os.environ.setdefault(key.strip(), value)
+
+import sys
 
 API_URL = "http://localhost:3001"
 OPENAI_KEY = os.environ.get("OPENAI_API_KEY", "")
-PROBLEM_ID = "0003"
+PROBLEM_ID = sys.argv[1] if len(sys.argv) > 1 else "0003"
 
 if not OPENAI_KEY:
-    raise ValueError("OPENAI_API_KEY environment variable is required")
+    raise ValueError("OPENAI_API_KEY environment variable is required. Set it in .env or as an environment variable.")
 
 headers = {
     "Content-Type": "application/json",
