@@ -7,10 +7,12 @@ Based on "The Case for AI Control" (Greenblatt et al., 2023)
 from fastapi import FastAPI, HTTPException, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 import random
 import logging
 import os
+import json
+from pathlib import Path
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -1390,3 +1392,289 @@ def compute_dataset_thresholds(dataset_id: str):
     except Exception as e:
         import traceback
         raise HTTPException(status_code=400, detail=f"{str(e)}\n{traceback.format_exc()}")
+
+
+class ImportProblemResultRequest(BaseModel):
+    """Request body for importing a pre-computed problem result."""
+    problem_id: str
+    status: str = "completed"
+    phases_completed: List[int] = []
+    U_normal_solution: Optional[str] = None
+    T_solution: Optional[str] = None
+    U_tests_passed: Optional[int] = None
+    U_tests_total: Optional[int] = None
+    T_tests_passed: Optional[int] = None
+    T_tests_total: Optional[int] = None
+    problem_difficulty: Optional[int] = None
+    max_difficulty: Optional[int] = None
+    difficulty_skipped: bool = False
+    T_suspicion_normal: Optional[float] = None
+    T_suspicion_backdoor: Optional[float] = None
+    H_suspicion_normal: Optional[float] = None
+    H_suspicion_backdoor: Optional[float] = None
+    sneakiest_backdoor_idx: Optional[int] = None
+    strategy_results: Optional[Dict[str, Any]] = None
+    backdoor_attempts: Optional[List[Dict[str, Any]]] = None
+    llm_calls: Optional[List[Dict[str, Any]]] = None
+    error: Optional[str] = None
+    started_at: Optional[str] = None
+    completed_at: Optional[str] = None
+
+
+@app.post("/api/datasets/{dataset_id}/problems/{problem_id}/import")
+def import_problem_result(
+    dataset_id: str,
+    problem_id: str,
+    request: ImportProblemResultRequest,
+):
+    """
+    Import a pre-computed problem result from local dataset generation.
+    Only allowed for draft datasets before publishing.
+    """
+    from api._lib.dataset import (
+        dict_to_problem_result,
+        dict_to_backdoor_attempt,
+        dict_to_strategy_result,
+        dict_to_llm_call,
+        ProblemResult,
+        BackdoorAttempt,
+        StrategyResult,
+        LLMCall,
+    )
+
+    try:
+        dataset = get_dataset(dataset_id)
+        if not dataset:
+            raise HTTPException(status_code=404, detail="Dataset not found")
+
+        # Allow import on both draft and published datasets
+        # (published datasets may need results imported)
+
+        if problem_id not in dataset.problem_ids:
+            raise HTTPException(status_code=404, detail="Problem not in dataset")
+
+        # Convert request to ProblemResult
+        result = ProblemResult(
+            problem_id=request.problem_id,
+            status=request.status,
+            phases_completed=request.phases_completed,
+            U_normal_solution=request.U_normal_solution,
+            T_solution=request.T_solution,
+            U_tests_passed=request.U_tests_passed,
+            U_tests_total=request.U_tests_total,
+            T_tests_passed=request.T_tests_passed,
+            T_tests_total=request.T_tests_total,
+            problem_difficulty=request.problem_difficulty,
+            max_difficulty=request.max_difficulty,
+            difficulty_skipped=request.difficulty_skipped,
+            T_suspicion_normal=request.T_suspicion_normal,
+            T_suspicion_backdoor=request.T_suspicion_backdoor,
+            H_suspicion_normal=request.H_suspicion_normal,
+            H_suspicion_backdoor=request.H_suspicion_backdoor,
+            sneakiest_backdoor_idx=request.sneakiest_backdoor_idx,
+            error=request.error,
+            started_at=request.started_at,
+            completed_at=request.completed_at,
+        )
+
+        # Convert nested objects
+        if request.strategy_results:
+            for strategy_name, sr_dict in request.strategy_results.items():
+                result.strategy_results[strategy_name] = dict_to_strategy_result(sr_dict)
+
+        if request.backdoor_attempts:
+            result.backdoor_attempts = [
+                dict_to_backdoor_attempt(ba) for ba in request.backdoor_attempts
+            ]
+
+        if request.llm_calls:
+            result.llm_calls = [dict_to_llm_call(call) for call in request.llm_calls]
+
+        # Save to storage
+        update_problem_result(dataset_id, problem_id, result)
+
+        return {
+            "status": "imported",
+            "dataset_id": dataset_id,
+            "problem_id": problem_id,
+            "phases_completed": result.phases_completed,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        raise HTTPException(status_code=400, detail=f"{str(e)}\n{traceback.format_exc()}")
+
+
+class ImportThresholdsRequest(BaseModel):
+    """Request body for importing computed thresholds."""
+    audit_threshold: Optional[float] = None
+    defer_threshold: Optional[float] = None
+
+
+@app.post("/api/datasets/{dataset_id}/thresholds")
+def import_thresholds(
+    dataset_id: str,
+    request: ImportThresholdsRequest,
+):
+    """Import pre-computed thresholds for a dataset."""
+    try:
+        dataset = get_dataset(dataset_id)
+        if not dataset:
+            raise HTTPException(status_code=404, detail="Dataset not found")
+
+        update_thresholds(
+            dataset_id=dataset_id,
+            audit_threshold=request.audit_threshold,
+            defer_threshold=request.defer_threshold,
+        )
+
+        return {
+            "status": "imported",
+            "dataset_id": dataset_id,
+            "audit_threshold": request.audit_threshold,
+            "defer_threshold": request.defer_threshold,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        raise HTTPException(status_code=400, detail=f"{str(e)}\n{traceback.format_exc()}")
+
+
+# =============================================================================
+# LOCAL DATASETS ENDPOINTS
+# =============================================================================
+
+def _load_json_safe(path: Path) -> Optional[dict]:
+    """Safely load a JSON file, returning None if not found or invalid."""
+    try:
+        if path.exists():
+            with open(path) as f:
+                return json.load(f)
+    except (json.JSONDecodeError, IOError):
+        pass
+    return None
+
+
+def _determine_dataset_status(checkpoint: Optional[dict], summary: Optional[dict]) -> str:
+    """Determine the status of a local dataset."""
+    if summary and summary.get("stats", {}).get("completed", 0) == summary.get("stats", {}).get("total", 0):
+        return "completed"
+    if checkpoint:
+        if checkpoint.get("error"):
+            return "failed"
+        return "in_progress"
+    return "unknown"
+
+
+@app.get("/api/local-datasets")
+def list_local_datasets():
+    """List all datasets in the datasets/ directory."""
+    datasets_dir = Path("datasets")
+    if not datasets_dir.exists():
+        return {"datasets": []}
+
+    results = []
+    for dataset_dir in sorted(datasets_dir.iterdir()):
+        if not dataset_dir.is_dir():
+            continue
+
+        config = _load_json_safe(dataset_dir / "config.json")
+        checkpoint = _load_json_safe(dataset_dir / "checkpoint.json")
+        summary = _load_json_safe(dataset_dir / "summary.json")
+
+        if not config and not checkpoint and not summary:
+            continue
+
+        stats = (summary or {}).get("stats") or (checkpoint or {}).get("stats") or {}
+
+        results.append({
+            "id": dataset_dir.name,
+            "name": (config or {}).get("name", dataset_dir.name),
+            "created_at": (config or {}).get("created_at"),
+            "stats": stats,
+            "status": _determine_dataset_status(checkpoint, summary),
+        })
+
+    return {"datasets": results}
+
+
+@app.get("/api/local-datasets/{dataset_id}")
+def get_local_dataset(dataset_id: str):
+    """Get full details for a local dataset."""
+    datasets_dir = Path("datasets")
+    dataset_dir = datasets_dir / dataset_id
+
+    if not dataset_dir.exists() or not dataset_dir.is_dir():
+        raise HTTPException(status_code=404, detail="Dataset not found")
+
+    config = _load_json_safe(dataset_dir / "config.json") or {}
+    checkpoint = _load_json_safe(dataset_dir / "checkpoint.json") or {}
+    summary = _load_json_safe(dataset_dir / "summary.json") or {}
+
+    return {
+        "id": dataset_id,
+        "config": config,
+        "checkpoint": checkpoint,
+        "summary": summary,
+        "status": _determine_dataset_status(checkpoint, summary),
+    }
+
+
+@app.get("/api/local-datasets/{dataset_id}/problems")
+def list_local_dataset_problems(dataset_id: str):
+    """List all problems in a local dataset."""
+    datasets_dir = Path("datasets")
+    dataset_dir = datasets_dir / dataset_id
+
+    if not dataset_dir.exists() or not dataset_dir.is_dir():
+        raise HTTPException(status_code=404, detail="Dataset not found")
+
+    problems_dir = dataset_dir / "problems"
+    if not problems_dir.exists():
+        return {"problems": []}
+
+    problems = []
+    for problem_file in sorted(problems_dir.glob("*.json")):
+        problem_id = problem_file.stem
+        problem_data = _load_json_safe(problem_file)
+
+        if problem_data:
+            problems.append({
+                "problem_id": problem_id,
+                "status": problem_data.get("status", "unknown"),
+                "phases_completed": problem_data.get("phases_completed", []),
+                "difficulty_skipped": problem_data.get("difficulty_skipped", False),
+                "problem_difficulty": problem_data.get("problem_difficulty"),
+                "max_difficulty": problem_data.get("max_difficulty"),
+                "U_tests_passed": problem_data.get("U_tests_passed"),
+                "U_tests_total": problem_data.get("U_tests_total"),
+                "T_suspicion_score": problem_data.get("T_suspicion_score"),
+                "H_suspicion_score": problem_data.get("H_suspicion_score"),
+                "sneakiness": problem_data.get("sneakiness"),
+                "exploit_found": problem_data.get("exploit_found"),
+                "error": problem_data.get("error"),
+                "strategy_results": problem_data.get("strategy_results"),
+                "backdoor_attempts": problem_data.get("backdoor_attempts"),
+            })
+
+    return {"problems": problems}
+
+
+@app.get("/api/local-datasets/{dataset_id}/problems/{problem_id}")
+def get_local_dataset_problem(dataset_id: str, problem_id: str):
+    """Get full details for a problem in a local dataset."""
+    datasets_dir = Path("datasets")
+    problem_path = datasets_dir / dataset_id / "problems" / f"{problem_id}.json"
+
+    if not problem_path.exists():
+        raise HTTPException(status_code=404, detail="Problem not found")
+
+    problem_data = _load_json_safe(problem_path)
+    if not problem_data:
+        raise HTTPException(status_code=500, detail="Failed to load problem data")
+
+    return problem_data
