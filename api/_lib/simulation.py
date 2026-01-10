@@ -88,6 +88,9 @@ class SimulationResults:
     blue_wins: int = 0
     avg_problem_when_red_wins: Optional[float] = None
 
+    # Trial-level results
+    trials: List[TrialOutcome] = field(default_factory=list)
+
     def to_dict(self) -> dict:
         return {
             "safety": self.safety,
@@ -99,6 +102,15 @@ class SimulationResults:
             "red_wins": self.red_wins,
             "blue_wins": self.blue_wins,
             "avg_problem_when_red_wins": self.avg_problem_when_red_wins,
+            "trials": [
+                {
+                    "trial": i + 1,
+                    "winner": t.winner,
+                    "problem_index": t.problem_index,
+                    "correctness_rate": t.correctness_rate,
+                }
+                for i, t in enumerate(self.trials)
+            ],
         }
 
 
@@ -405,4 +417,5 @@ def run_simulation(
         red_wins=red_wins,
         blue_wins=blue_wins,
         avg_problem_when_red_wins=avg_problem_when_red_wins,
+        trials=results,
     )
