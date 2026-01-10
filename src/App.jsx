@@ -5080,6 +5080,12 @@ function AppContent() {
   };
 
   const runExperiment = async () => {
+    // Require dataset selection
+    if (!selectedDatasetId) {
+      setError('Please select a dataset first');
+      return;
+    }
+
     setIsRunning(true);
     setError(null);
 
@@ -5088,46 +5094,63 @@ function AppContent() {
         'Content-Type': 'application/json',
       };
 
-      // Always send keys if they exist
-      if (apiKeys.anthropic) {
-        headers['X-Anthropic-Key'] = apiKeys.anthropic;
-      }
-      if (apiKeys.openai) {
-        headers['X-OpenAI-Key'] = apiKeys.openai;
-      }
+      // Build simulation request matching the spec
+      const simulationRequest = {
+        dataset_id: selectedDatasetId,
+        attack_strategy: config.attack_strategy,
+        audit_budget_rate: config.audit_budget_rate,
+        free_start: config.free_start,
+        defer_enabled: config.defer_enabled,
+        defer_rate: config.defer_rate,
+        num_trials: config.num_trials,
+        num_problems: config.num_problems,
+      };
 
-      const response = await fetch(`${API_BASE}/api/experiments/run`, {
+      const response = await fetch(`${API_BASE}/api/simulate`, {
         method: 'POST',
         headers,
-        body: JSON.stringify(config),
+        body: JSON.stringify(simulationRequest),
       });
 
-      if (!response.ok) throw new Error('Experiment failed');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || 'Simulation failed');
+      }
 
       const result = await response.json();
-      setCurrentResult(result);
-      
-      // Refresh experiments list from server (now persisted)
-      const [expRes, paretoRes] = await Promise.all([
-        fetch(`${API_BASE}/api/experiments`),
-        fetch(`${API_BASE}/api/pareto`),
-      ]);
-      
-      if (expRes.ok) {
-        const data = await expRes.json();
-        setExperiments(data.experiments || []);
-      }
-      if (paretoRes.ok) {
-        const data = await paretoRes.json();
-        setParetoData(data.points || []);
-      }
-      
+
+      // Convert simulation result to display format
+      const displayResult = {
+        experiment_id: `sim_${Date.now()}`,
+        status: 'completed',
+        dataset_id: selectedDatasetId,
+        config: result.config,
+        safety_rate: result.results.safety,
+        safety_se: result.results.safety_se,
+        usefulness_rate: result.results.usefulness,
+        usefulness_se: result.results.usefulness_se,
+        num_trials: result.results.num_trials,
+        num_problems: result.results.num_problems,
+        red_wins: result.results.red_wins,
+        blue_wins: result.results.blue_wins,
+        avg_problem_when_red_wins: result.results.avg_problem_when_red_wins,
+      };
+
+      setCurrentResult(displayResult);
+      setExperiments(prev => [displayResult, ...prev]);
+
+      // Update pareto data
+      setParetoData(prev => {
+        const newPoint = {
+          usefulness_rate: displayResult.usefulness_rate,
+          safety_rate: displayResult.safety_rate,
+          protocol: `${config.attack_strategy}${config.defer_enabled ? '+defer' : ''}`,
+        };
+        return [...prev, newPoint];
+      });
+
     } catch (err) {
       setError(err.message);
-      // Fall back to demo mode
-      const result = generateDemoResult();
-      setCurrentResult(result);
-      setExperiments(prev => [result, ...prev]);
     } finally {
       setIsRunning(false);
     }

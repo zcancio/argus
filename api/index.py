@@ -1678,3 +1678,82 @@ def get_local_dataset_problem(dataset_id: str, problem_id: str):
         raise HTTPException(status_code=500, detail="Failed to load problem data")
 
     return problem_data
+
+
+# =============================================================================
+# SIMULATION ENDPOINTS
+# =============================================================================
+
+from api._lib.simulation import (
+    run_simulation,
+    SimulationConfig,
+    RedTeamConfig,
+    BlueTeamConfig,
+)
+
+
+class SimulationRequest(BaseModel):
+    """Request to run a simulation."""
+    dataset_id: str
+
+    # Red team config
+    attack_strategy: str = "rarely"
+
+    # Blue team config
+    audit_budget_rate: float = 0.02
+    free_start: int = 10
+    defer_enabled: bool = False
+    defer_rate: float = 0.10
+
+    # Simulation config
+    num_trials: int = 2000
+    num_problems: int = 5000
+    random_seed: Optional[int] = None
+
+
+@app.post("/api/simulate")
+def run_simulation_endpoint(request: SimulationRequest):
+    """
+    Run a Monte Carlo simulation using pre-computed dataset results.
+
+    This endpoint makes zero API calls - all data is looked up from
+    pre-computed results in the local dataset.
+    """
+    try:
+        config = SimulationConfig(
+            red_team=RedTeamConfig(strategy=request.attack_strategy),
+            blue_team=BlueTeamConfig(
+                audit_budget_rate=request.audit_budget_rate,
+                free_start=request.free_start,
+                defer_enabled=request.defer_enabled,
+                defer_rate=request.defer_rate,
+            ),
+            num_trials=request.num_trials,
+            num_problems=request.num_problems,
+            random_seed=request.random_seed,
+        )
+
+        results = run_simulation(request.dataset_id, config)
+
+        return {
+            "status": "completed",
+            "dataset_id": request.dataset_id,
+            "config": {
+                "red_team": {"strategy": request.attack_strategy},
+                "blue_team": {
+                    "audit_budget_rate": request.audit_budget_rate,
+                    "free_start": request.free_start,
+                    "defer_enabled": request.defer_enabled,
+                    "defer_rate": request.defer_rate,
+                },
+                "num_trials": request.num_trials,
+                "num_problems": request.num_problems,
+            },
+            "results": results.to_dict(),
+        }
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        import traceback
+        raise HTTPException(status_code=500, detail=f"{str(e)}\n{traceback.format_exc()}")
