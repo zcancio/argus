@@ -427,7 +427,7 @@ function MetricCard({ label, value, subvalue, color = colors.accent.cyan }) {
   );
 }
 
-function ConfigPanel({ config, onChange, onRun, isRunning }) {
+function ConfigPanel({ config, onChange, onRun, isRunning, datasets, selectedDatasetId, onDatasetChange }) {
   const sliderStyle = {
     width: '100%',
     height: '4px',
@@ -466,6 +466,25 @@ function ConfigPanel({ config, onChange, onRun, isRunning }) {
       borderRadius: '8px',
       padding: '24px',
     }}>
+      {/* Dataset Selection */}
+      <div style={{ marginBottom: '20px' }}>
+        <div style={labelStyle}>
+          <span style={{ color: colors.text.secondary }}>Dataset</span>
+        </div>
+        <select
+          value={selectedDatasetId || ''}
+          onChange={(e) => onDatasetChange(e.target.value || null)}
+          style={selectStyle}
+        >
+          <option value="">Select a dataset...</option>
+          {datasets.map(d => (
+            <option key={d.id} value={d.id}>
+              {d.name} ({d.stats?.completed || 0} problems)
+            </option>
+          ))}
+        </select>
+      </div>
+
       {/* Blue Team Strategy */}
       <div style={{
         padding: '16px',
@@ -5002,16 +5021,19 @@ function AppContent() {
   const [error, setError] = useState(null);
   const [isDemo, setIsDemo] = useState(true);
   const [storageType, setStorageType] = useState('unknown');
+  const [localDatasets, setLocalDatasets] = useState([]);
+  const [selectedDatasetId, setSelectedDatasetId] = useState(null);
 
-  // Load experiments on mount
+  // Load experiments and datasets on mount
   useEffect(() => {
-    const loadExperiments = async () => {
+    const loadData = async () => {
       try {
-        const [expRes, paretoRes] = await Promise.all([
+        const [expRes, paretoRes, datasetsRes] = await Promise.all([
           fetch(`${API_BASE}/api/experiments`),
           fetch(`${API_BASE}/api/pareto`),
+          fetch(`${API_BASE}/api/local-datasets`),
         ]);
-        
+
         if (expRes.ok) {
           const data = await expRes.json();
           setExperiments(data.experiments || []);
@@ -5021,12 +5043,16 @@ function AppContent() {
           const data = await paretoRes.json();
           setParetoData(data.points || []);
         }
+        if (datasetsRes.ok) {
+          const data = await datasetsRes.json();
+          setLocalDatasets(data.datasets || []);
+        }
       } catch (err) {
-        console.log('Could not load experiments:', err);
+        console.log('Could not load data:', err);
       }
     };
-    
-    loadExperiments();
+
+    loadData();
   }, []);
 
   const validateApiKey = async (provider) => {
@@ -5303,6 +5329,9 @@ function AppContent() {
                   onChange={setConfig}
                   onRun={runExperiment}
                   isRunning={isRunning}
+                  datasets={localDatasets}
+                  selectedDatasetId={selectedDatasetId}
+                  onDatasetChange={setSelectedDatasetId}
                 />
                 <ExperimentHistory
                   experiments={experiments}
