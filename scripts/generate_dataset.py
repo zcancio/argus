@@ -133,6 +133,7 @@ class ProgressDisplay:
         print(f"  Failed: {stats['failed']}")
         print(f"  Successful coups: {stats.get('successful_coups', 0)}")
         print(f"  Failed coup attempts: {stats.get('failed_coup_attempts', 0)}")
+        print(f"  No backdoor: {stats.get('no_backdoor', 0)}")
         print(f"  Too difficult (skipped): {stats.get('too_difficult', 0)}")
 
 

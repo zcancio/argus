@@ -2110,40 +2110,75 @@ function PhaseCallsSection({ phase, calls, result, isExpanded, onToggle, onRunFr
                             {/* Exploit Result */}
                             <div style={{ flex: 1 }}>
                               <div style={{ color: colors.text.muted, marginBottom: '4px', textTransform: 'uppercase', fontSize: '9px' }}>
-                                Exploit
+                                Exploit Verification
                               </div>
                               <div style={{
-                                padding: '6px 8px',
+                                padding: '8px',
                                 background: colors.bg.tertiary,
                                 borderRadius: '4px',
                               }}>
                                 {attempt.exploit_input ? (
-                                  <div>
-                                    <div style={{ color: colors.text.muted, marginBottom: '2px' }}>
-                                      Input: <span style={{ color: colors.text.primary, fontFamily: 'JetBrains Mono, monospace' }}>
-                                        {attempt.exploit_input?.substring(0, 30)}{attempt.exploit_input?.length > 30 ? '...' : ''}
+                                  <div style={{ fontSize: '11px' }}>
+                                    {/* Exploit Input */}
+                                    <div style={{ marginBottom: '8px' }}>
+                                      <span style={{ color: colors.text.muted }}>Input: </span>
+                                      <span style={{ color: colors.text.primary, fontFamily: 'JetBrains Mono, monospace' }}>
+                                        {attempt.exploit_input?.substring(0, 50)}{attempt.exploit_input?.length > 50 ? '...' : ''}
                                       </span>
                                     </div>
-                                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                                      <span style={{ color: colors.text.muted }}>Got:</span>
-                                      <span style={{
-                                        color: attempt.exploit_verified ? colors.accent.red : colors.text.primary,
-                                        fontFamily: 'JetBrains Mono, monospace',
-                                      }}>
-                                        {attempt.exploit_output?.substring(0, 20)}{attempt.exploit_output?.length > 20 ? '...' : ''}
-                                      </span>
-                                      {attempt.exploit_verified && (
-                                        <>
-                                          <span style={{ color: colors.text.muted }}>Expected:</span>
-                                          <span style={{ color: colors.accent.green, fontFamily: 'JetBrains Mono, monospace' }}>
-                                            {attempt.exploit_expected?.substring(0, 20)}{attempt.exploit_expected?.length > 20 ? '...' : ''}
-                                          </span>
-                                        </>
-                                      )}
+                                    {/* Expected vs Actual comparison */}
+                                    <div style={{
+                                      display: 'grid',
+                                      gridTemplateColumns: '1fr 1fr',
+                                      gap: '8px',
+                                      padding: '8px',
+                                      background: colors.bg.primary,
+                                      borderRadius: '4px',
+                                      border: `1px solid ${colors.border}`,
+                                    }}>
+                                      <div>
+                                        <div style={{ color: colors.text.muted, fontSize: '9px', marginBottom: '4px', textTransform: 'uppercase' }}>
+                                          Expected (Normal)
+                                        </div>
+                                        <div style={{
+                                          color: colors.accent.green,
+                                          fontFamily: 'JetBrains Mono, monospace',
+                                          fontSize: '11px',
+                                          wordBreak: 'break-all',
+                                        }}>
+                                          {attempt.exploit_expected || '(empty)'}
+                                        </div>
+                                      </div>
+                                      <div>
+                                        <div style={{ color: colors.text.muted, fontSize: '9px', marginBottom: '4px', textTransform: 'uppercase' }}>
+                                          Actual (Backdoor)
+                                        </div>
+                                        <div style={{
+                                          color: attempt.exploit_verified ? colors.accent.red : colors.accent.green,
+                                          fontFamily: 'JetBrains Mono, monospace',
+                                          fontSize: '11px',
+                                          wordBreak: 'break-all',
+                                        }}>
+                                          {attempt.exploit_output || '(empty)'}
+                                        </div>
+                                      </div>
+                                    </div>
+                                    {/* Verification status */}
+                                    <div style={{
+                                      marginTop: '8px',
+                                      padding: '4px 8px',
+                                      borderRadius: '4px',
+                                      background: attempt.exploit_verified ? colors.accent.red + '20' : colors.accent.green + '20',
+                                      color: attempt.exploit_verified ? colors.accent.red : colors.accent.green,
+                                      fontSize: '10px',
+                                      fontWeight: 600,
+                                      textAlign: 'center',
+                                    }}>
+                                      {attempt.exploit_verified ? 'Outputs differ - exploit triggered' : 'Outputs match - no exploit'}
                                     </div>
                                   </div>
                                 ) : (
-                                  <span style={{ color: colors.text.muted }}>No exploit attempted</span>
+                                  <span style={{ color: colors.text.muted, fontSize: '11px' }}>No exploit input generated</span>
                                 )}
                               </div>
                             </div>
@@ -2919,20 +2954,13 @@ function PublishedDatasetView({ dataset, onDuplicate, onDelete }) {
                             for (const strat of strategies) {
                               const sr = result.strategy_results[strat];
                               if (sr?.backdoor_selected) {
-                                // Get the selected backdoor attempt to check test results
                                 const backdoorIdx = sr.selected_backdoor_idx;
                                 const attempt = backdoorIdx != null ? backdoorAttempts[backdoorIdx] : null;
 
-                                // Check if backdoor passes normal tests
-                                const passesTests = attempt ?
-                                  (attempt.test_cases_passed === attempt.test_cases_total && attempt.test_cases_total > 0) :
-                                  true; // Assume passes if no test data
-
-                                if (sr.exploit_found && passesTests) {
-                                  // Coup success: backdoor passes tests AND exploit works
+                                // Use the actual outcome from the backdoor attempt
+                                if (attempt?.outcome === 'SUCCESSFUL_COUP') {
                                   highestSuccess = strat;
-                                } else {
-                                  // Coup failed: backdoor fails tests OR exploit doesn't work
+                                } else if (attempt?.outcome === 'FAILED_COUP_ATTEMPT') {
                                   highestFailure = strat;
                                 }
                               }
@@ -2949,6 +2977,12 @@ function PublishedDatasetView({ dataset, onDuplicate, onDelete }) {
                               const anySneakyEnough = backdoorAttempts.some(a => a.sneakiness >= sneakinessThreshold);
                               if (hasBackdoorAttempts && !anySneakyEnough) {
                                 return <span style={{ color: colors.accent.cyan }}>Baseline <span style={{ color: colors.text.muted, fontSize: '10px' }}>(Not Sneaky)</span></span>;
+                              }
+                              // Check if sneaky backdoors exist but no exploit was found
+                              const sneakyBackdoors = backdoorAttempts.filter(a => a.sneakiness >= sneakinessThreshold);
+                              const allNoExploit = sneakyBackdoors.length > 0 && sneakyBackdoors.every(a => a.outcome === 'NO_BACKDOOR');
+                              if (allNoExploit) {
+                                return <span style={{ color: colors.accent.cyan }}>Baseline <span style={{ color: colors.text.muted, fontSize: '10px' }}>(No Exploit Found)</span></span>;
                               }
                               return <span style={{ color: colors.accent.cyan }}>Baseline</span>;
                             }
@@ -4848,13 +4882,11 @@ function LocalDatasetView({ datasetId }) {
       if (sr?.backdoor_selected) {
         const backdoorIdx = sr.selected_backdoor_idx;
         const attempt = backdoorIdx != null ? backdoorAttempts[backdoorIdx] : null;
-        const passesTests = attempt ?
-          (attempt.test_cases_passed === attempt.test_cases_total && attempt.test_cases_total > 0) :
-          true;
 
-        if (sr.exploit_found && passesTests) {
+        // Use the actual outcome from the backdoor attempt
+        if (attempt?.outcome === 'SUCCESSFUL_COUP') {
           highestSuccess = strat;
-        } else {
+        } else if (attempt?.outcome === 'FAILED_COUP_ATTEMPT') {
           highestFailure = strat;
         }
       }
@@ -4869,6 +4901,12 @@ function LocalDatasetView({ datasetId }) {
       const anySneakyEnough = backdoorAttempts.some(a => a.sneakiness >= sneakinessThreshold);
       if (hasBackdoorAttempts && !anySneakyEnough) {
         return <span style={{ color: colors.accent.cyan }}>Baseline <span style={{ color: colors.text.muted, fontSize: '10px' }}>(Not Sneaky)</span></span>;
+      }
+      // Check if sneaky backdoors exist but no exploit was found (outcome is NO_BACKDOOR)
+      const sneakyBackdoors = backdoorAttempts.filter(a => a.sneakiness >= sneakinessThreshold);
+      const allNoExploit = sneakyBackdoors.length > 0 && sneakyBackdoors.every(a => a.outcome === 'NO_BACKDOOR');
+      if (allNoExploit) {
+        return <span style={{ color: colors.accent.cyan }}>Baseline <span style={{ color: colors.text.muted, fontSize: '10px' }}>(No Exploit Found)</span></span>;
       }
       return <span style={{ color: colors.accent.cyan }}>Baseline</span>;
     }
