@@ -466,10 +466,6 @@ function ConfigPanel({ config, onChange, onRun, isRunning }) {
       borderRadius: '8px',
       padding: '24px',
     }}>
-      <h3 style={{ color: colors.text.primary, margin: '0 0 24px 0', fontSize: '14px', textTransform: 'uppercase', letterSpacing: '1px' }}>
-        Experiment Configuration
-      </h3>
-
       {/* Blue Team Strategy */}
       <div style={{
         padding: '16px',
@@ -712,7 +708,7 @@ function ConfigPanel({ config, onChange, onRun, isRunning }) {
           marginTop: '8px',
         }}
       >
-        {isRunning ? 'Running...' : 'Run Experiment'}
+        {isRunning ? 'Running...' : 'Run Simulation'}
       </button>
     </div>
   );
