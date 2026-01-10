@@ -5134,6 +5134,13 @@ function AppContent() {
         red_wins: result.results.red_wins,
         blue_wins: result.results.blue_wins,
         avg_problem_when_red_wins: result.results.avg_problem_when_red_wins,
+        // Add metrics object for UI compatibility
+        metrics: {
+          safety_rate: result.results.safety,
+          usefulness_rate: result.results.usefulness,
+          attack_catch_rate: result.results.blue_wins / (result.results.num_trials || 1),
+          false_positive_rate: 0, // Not tracked in simulation
+        },
       };
 
       setCurrentResult(displayResult);
