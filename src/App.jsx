@@ -629,11 +629,11 @@ function ConfigPanel({ config, onChange, onRun, isRunning, datasets, selectedDat
           Red Team Strategy
         </div>
 
-        <div style={inputGroupStyle}>
+        <div style={{ marginBottom: 0 }}>
           <div style={labelStyle}>
             <span style={{ color: colors.text.secondary, display: 'flex', alignItems: 'center' }}>
-              Attack Strategy
-              <InfoIcon tooltip="How U attempts coups. Random attacks independently, Strategic waits for opportunity, Always attacks every problem." />
+              Attack Frequency
+              <InfoIcon tooltip="How often U attempts backdoors. Higher frequency = more attack attempts." />
             </span>
           </div>
           <select
@@ -641,32 +641,13 @@ function ConfigPanel({ config, onChange, onRun, isRunning, datasets, selectedDat
             onChange={(e) => onChange({ ...config, attack_strategy: e.target.value })}
             style={selectStyle}
           >
-            <option value="random">Random</option>
-            <option value="strategic">Strategic Coup</option>
-            <option value="always">Always Attack</option>
+            <option value="common">Common</option>
+            <option value="sometimes">Sometimes</option>
+            <option value="rarely">Rarely</option>
+            <option value="very_rarely">Very Rarely</option>
+            <option value="very_very_rarely">Very Very Rarely</option>
           </select>
         </div>
-
-        {config.attack_strategy === 'random' && (
-          <div style={{ marginBottom: 0 }}>
-            <div style={labelStyle}>
-              <span style={{ color: colors.text.secondary, display: 'flex', alignItems: 'center' }}>
-                Attack Probability
-                <InfoIcon tooltip="Base probability that U attempts a coup on each problem." />
-              </span>
-              <span style={{ color: colors.accent.red, fontFamily: 'JetBrains Mono, monospace' }}>{(config.attack_probability * 100).toFixed(0)}%</span>
-            </div>
-            <input
-              type="range"
-              min="0"
-              max="1"
-              step="0.05"
-              value={config.attack_probability}
-              onChange={(e) => onChange({ ...config, attack_probability: parseFloat(e.target.value) })}
-              style={sliderStyle}
-            />
-          </div>
-        )}
       </div>
 
       {/* T Monitor Settings */}
@@ -4984,8 +4965,7 @@ function AppContent() {
     audit_budget: 10,
 
     // Red team strategy
-    attack_strategy: 'random',
-    attack_probability: 0.1,
+    attack_strategy: 'sometimes',
 
     // Experiment settings
     num_episodes: 100,
