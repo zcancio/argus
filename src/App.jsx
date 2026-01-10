@@ -4950,7 +4950,7 @@ function AppContent() {
   const navigate = useNavigate();
   const location = useLocation();
   const activeTab = location.pathname.startsWith('/dataset') ? 'datasets'
-    : 'experiments';
+    : 'simulator';
 
   const [config, setConfig] = useState({
     // Blue team strategy
@@ -5216,17 +5216,17 @@ function AppContent() {
             onClick={() => navigate('/')}
             style={{
               padding: '8px 20px',
-              background: activeTab === 'experiments' ? colors.bg.tertiary : 'transparent',
+              background: activeTab === 'simulator' ? colors.bg.tertiary : 'transparent',
               border: 'none',
               borderRadius: '6px',
-              color: activeTab === 'experiments' ? colors.text.primary : colors.text.secondary,
+              color: activeTab === 'simulator' ? colors.text.primary : colors.text.secondary,
               fontSize: '13px',
-              fontWeight: activeTab === 'experiments' ? '600' : '400',
+              fontWeight: activeTab === 'simulator' ? '600' : '400',
               cursor: 'pointer',
               transition: 'all 0.2s',
             }}
           >
-            Experiments
+            Simulator
           </button>
           <button
             onClick={() => navigate('/datasets')}
@@ -5279,7 +5279,7 @@ function AppContent() {
 
       {/* Main Content */}
       <main style={{ padding: '32px 40px' }}>
-        {activeTab === 'experiments' && (
+        {activeTab === 'simulator' && (
           <>
             {error && (
               <div style={{
@@ -5383,10 +5383,10 @@ function AppContent() {
                       🔬
                     </div>
                     <h2 style={{ margin: '0 0 12px', color: colors.text.primary, fontSize: '18px' }}>
-                      Ready to Run Experiments
+                      Ready to Run Simulations
                     </h2>
                     <p style={{ margin: 0, color: colors.text.secondary, maxWidth: '400px', marginInline: 'auto' }}>
-                      Configure your control protocol parameters on the left and click "Run Experiment" to evaluate safety vs usefulness tradeoffs.
+                      Configure your control protocol parameters on the left and click "Run Simulation" to evaluate safety vs usefulness tradeoffs.
                     </p>
                   </div>
                 )}
