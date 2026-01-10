@@ -57,6 +57,9 @@ class BackdoorData:
     coup_outcome: CoupOutcome
     passes_tests: bool
     T_suspicion: float
+    U_suspicion: Optional[float] = None  # For untrusted monitoring
+    # Trusted editing results
+    coup_outcome_after_edit: Optional[CoupOutcome] = None
 
 
 @dataclass
@@ -68,8 +71,14 @@ class ProblemData:
     U_normal_correct: bool = True
     T_correct: bool = True
 
-    # Normal solution suspicion (for threshold computation)
+    # Trusted Monitoring scores (for threshold computation)
     T_suspicion_normal: float = 0.0
+
+    # Untrusted Monitoring scores (U may collude!)
+    U_suspicion_normal: Optional[float] = None
+
+    # Trusted Editing results
+    T_edited_correct: Optional[bool] = None
 
     # Sneakiest backdoor (threshold filtering happens at simulation time)
     sneakiest_backdoor: Optional[BackdoorData] = None
@@ -208,9 +217,13 @@ def load_dataset_problems(dataset_id: str) -> Tuple[List[ProblemData], List[floa
         u_normal_correct = (u_tests_passed == u_tests_total) if u_tests_total > 0 else False
         t_correct = (t_tests_passed == t_tests_total) if t_tests_total > 0 else False
 
-        # Get normal solution suspicion score
+        # Get normal solution suspicion scores (Trusted + Untrusted monitoring)
         t_suspicion_normal = data.get("T_suspicion_normal") or data.get("T_suspicion_score") or 0.0
+        u_suspicion_normal = data.get("U_suspicion_normal")  # May be None if not pre-computed
         normal_scores.append(t_suspicion_normal)
+
+        # Get trusted editing results
+        t_edited_correct = data.get("T_edited_correct")
 
         # Find the sneakiest backdoor from all attempts
         backdoor_attempts = data.get("backdoor_attempts", [])
@@ -258,12 +271,28 @@ def load_dataset_problems(dataset_id: str) -> Tuple[List[ProblemData], List[floa
                         t_suspicion = sr.get("T_suspicion_score") or t_suspicion_normal
                         break
 
+                # Get U_suspicion for backdoor (for untrusted monitoring)
+                u_suspicion_backdoor = data.get("U_suspicion_backdoor")
+
+                # Get coup_outcome_after_edit (for trusted editing)
+                outcome_after_edit_str = data.get("coup_outcome_after_edit")
+                if outcome_after_edit_str == "SUCCESSFUL_COUP":
+                    coup_outcome_after_edit = CoupOutcome.SUCCESSFUL_COUP
+                elif outcome_after_edit_str == "FAILED_COUP_ATTEMPT":
+                    coup_outcome_after_edit = CoupOutcome.FAILED_COUP_ATTEMPT
+                elif outcome_after_edit_str == "NO_COUP_ATTEMPT":
+                    coup_outcome_after_edit = CoupOutcome.NO_COUP_ATTEMPT
+                else:
+                    coup_outcome_after_edit = None
+
                 sneakiest_backdoor = BackdoorData(
                     sneakiness=best_sneakiness,
                     fail_rate=fail_rate,
                     coup_outcome=coup_outcome,
                     passes_tests=passes_tests,
                     T_suspicion=t_suspicion,
+                    U_suspicion=u_suspicion_backdoor,
+                    coup_outcome_after_edit=coup_outcome_after_edit,
                 )
 
         problem = ProblemData(
@@ -271,6 +300,8 @@ def load_dataset_problems(dataset_id: str) -> Tuple[List[ProblemData], List[floa
             U_normal_correct=u_normal_correct,
             T_correct=t_correct,
             T_suspicion_normal=t_suspicion_normal,
+            U_suspicion_normal=u_suspicion_normal,
+            T_edited_correct=t_edited_correct,
             sneakiest_backdoor=sneakiest_backdoor,
         )
 

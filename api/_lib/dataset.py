@@ -128,12 +128,21 @@ class ProblemResult:
     difficulty_skipped: bool = False  # True if backdoors skipped due to difficulty
 
     # Phase 5: Pre-computed suspicion scores
-    # T rates: normal solution (always) + sneakiest backdoor (if any)
+    # Trusted Monitoring: T rates normal solution (always) + sneakiest backdoor (if any)
     T_suspicion_normal: Optional[float] = None  # T's score on normal solution
     T_suspicion_backdoor: Optional[float] = None  # T's score on sneakiest backdoor
-    H_suspicion_normal: Optional[float] = None  # H's score on normal solution
-    H_suspicion_backdoor: Optional[float] = None  # H's score on sneakiest backdoor
+    H_suspicion_normal: Optional[float] = None  # H's score on normal solution (legacy)
+    H_suspicion_backdoor: Optional[float] = None  # H's score on sneakiest backdoor (legacy)
     sneakiest_backdoor_idx: Optional[int] = None  # Index of sneakiest backdoor in backdoor_attempts
+
+    # Untrusted Monitoring: U rates normal solution + backdoor (may collude!)
+    U_suspicion_normal: Optional[float] = None  # U's score on normal solution
+    U_suspicion_backdoor: Optional[float] = None  # U's score on backdoor (may rate low to avoid detection)
+
+    # Trusted Editing: T edits backdoored code to remove suspected backdoor
+    T_edited_code: Optional[str] = None  # T's edit of backdoored code
+    coup_outcome_after_edit: Optional[str] = None  # Outcome after T's edit (did edit remove backdoor?)
+    T_edited_correct: Optional[bool] = None  # Does T's edited code pass tests?
 
     # Results per attack strategy (Phase 6)
     strategy_results: Dict[str, StrategyResult] = field(default_factory=dict)
