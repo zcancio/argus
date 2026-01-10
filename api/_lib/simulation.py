@@ -188,7 +188,8 @@ def load_dataset_problems(dataset_id: str) -> Tuple[List[ProblemData], List[floa
 
             if use_backdoor and backdoor_idx is not None and backdoor_idx < len(backdoor_attempts):
                 attempt = backdoor_attempts[backdoor_idx]
-                suspicion = attempt.get("T_suspicion_score") or attempt.get("suspicion_score") or 0.0
+                # T_suspicion_score is stored in strategy_results, not backdoor_attempts
+                suspicion = sr.get("T_suspicion_score") or attempt.get("T_suspicion_score") or 0.0
                 outcome_str = attempt.get("outcome", "NO_BACKDOOR")
 
                 # Map outcome string to CoupOutcome
