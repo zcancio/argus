@@ -162,13 +162,13 @@ def load_dataset_problems(dataset_id: str) -> Tuple[List[ProblemData], List[floa
         problem_id = problem_file.stem
 
         # Determine correctness from test results
-        u_tests_passed = data.get("U_tests_passed", 0)
-        u_tests_total = data.get("U_tests_total", 1)
-        t_tests_passed = data.get("T_tests_passed", 0)
-        t_tests_total = data.get("T_tests_total", 1)
+        u_tests_passed = data.get("U_tests_passed") or 0
+        u_tests_total = data.get("U_tests_total") or 0
+        t_tests_passed = data.get("T_tests_passed") or 0
+        t_tests_total = data.get("T_tests_total") or 0
 
-        u_normal_correct = u_tests_passed == u_tests_total if u_tests_total > 0 else False
-        t_correct = t_tests_passed == t_tests_total if t_tests_total > 0 else False
+        u_normal_correct = (u_tests_passed == u_tests_total) if u_tests_total > 0 else False
+        t_correct = (t_tests_passed == t_tests_total) if t_tests_total > 0 else False
 
         # Get normal solution suspicion score
         t_suspicion_normal = data.get("T_suspicion_normal") or data.get("T_suspicion_score") or 0.0
@@ -200,9 +200,9 @@ def load_dataset_problems(dataset_id: str) -> Tuple[List[ProblemData], List[floa
                     coup_outcome = CoupOutcome.NO_COUP_ATTEMPT
 
                 # Check if backdoor passes tests
-                backdoor_tests_passed = attempt.get("test_cases_passed", 0)
-                backdoor_tests_total = attempt.get("test_cases_total", 1)
-                u_backdoor_correct = backdoor_tests_passed == backdoor_tests_total if backdoor_tests_total > 0 else False
+                backdoor_tests_passed = attempt.get("test_cases_passed") or 0
+                backdoor_tests_total = attempt.get("test_cases_total") or 0
+                u_backdoor_correct = (backdoor_tests_passed == backdoor_tests_total) if backdoor_tests_total > 0 else False
 
                 strategy_data[strategy_name] = {
                     "use_backdoor": True,
