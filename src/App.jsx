@@ -491,9 +491,9 @@ function ConfigPanel({ config, onChange, onRun, isRunning, datasets, selectedDat
         background: colors.bg.tertiary,
         borderRadius: '6px',
         marginBottom: '20px',
-        border: `1px solid ${colors.accent.green}40`,
+        border: `1px solid ${colors.accent.cyan}40`,
       }}>
-        <div style={{ fontSize: '11px', color: colors.accent.green, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px' }}>
+        <div style={{ fontSize: '11px', color: colors.accent.cyan, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px' }}>
           Control Protocol
         </div>
 
@@ -529,32 +529,26 @@ function ConfigPanel({ config, onChange, onRun, isRunning, datasets, selectedDat
             <option value="custom">Custom</option>
           </select>
         </div>
-      </div>
 
-      {/* Blue Team Settings (collapsible details) */}
-      <details style={{ marginBottom: '20px' }}>
-        <summary style={{
-          cursor: 'pointer',
-          color: colors.text.secondary,
-          fontSize: '12px',
-          marginBottom: '12px',
-          userSelect: 'none',
-        }}>
-          Advanced Blue Team Settings
-        </summary>
-        <div style={{
-          padding: '16px',
-          background: colors.bg.tertiary,
-          borderRadius: '6px',
-          border: `1px solid ${colors.border}`,
-        }}>
+        <div style={{ borderTop: `1px solid ${colors.border}`, margin: '16px 0', paddingTop: '16px' }}>
           <div style={inputGroupStyle}>
             <div style={labelStyle}>
               <span style={{ color: colors.text.secondary, display: 'flex', alignItems: 'center' }}>
                 Audit Budget Rate
                 <InfoIcon tooltip="Percentage of problems that can be audited by H. E.g., 2% means H can audit 100 out of 5000 problems." />
               </span>
-              <span style={{ color: colors.accent.amber, fontFamily: 'JetBrains Mono, monospace' }}>{(config.audit_budget_rate * 100).toFixed(0)}%</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <input
+                  type="number"
+                  min="1"
+                  max="10"
+                  step="1"
+                  value={Math.round(config.audit_budget_rate * 100)}
+                  onChange={(e) => onChange({ ...config, audit_budget_rate: parseFloat(e.target.value) / 100 })}
+                  style={{ width: '50px', padding: '4px 8px', background: colors.bg.secondary, border: `1px solid ${colors.border}`, borderRadius: '4px', color: colors.accent.amber, fontFamily: 'JetBrains Mono, monospace', fontSize: '12px', textAlign: 'right' }}
+                />
+                <span style={{ color: colors.accent.amber, fontFamily: 'JetBrains Mono, monospace', fontSize: '12px' }}>%</span>
+              </div>
             </div>
             <input
               type="range"
@@ -573,7 +567,15 @@ function ConfigPanel({ config, onChange, onRun, isRunning, datasets, selectedDat
                 Free Start
                 <InfoIcon tooltip="First N problems are audited for free (not counted against budget). Helps calibrate thresholds." />
               </span>
-              <span style={{ color: colors.accent.amber, fontFamily: 'JetBrains Mono, monospace' }}>{config.free_start}</span>
+              <input
+                type="number"
+                min="0"
+                max="100"
+                step="1"
+                value={config.free_start}
+                onChange={(e) => onChange({ ...config, free_start: parseInt(e.target.value) || 0 })}
+                style={{ width: '60px', padding: '4px 8px', background: colors.bg.secondary, border: `1px solid ${colors.border}`, borderRadius: '4px', color: colors.accent.amber, fontFamily: 'JetBrains Mono, monospace', fontSize: '12px', textAlign: 'right' }}
+              />
             </div>
             <input
               type="range"
@@ -598,7 +600,7 @@ function ConfigPanel({ config, onChange, onRun, isRunning, datasets, selectedDat
                 type="checkbox"
                 checked={config.defer_enabled}
                 onChange={(e) => onChange({ ...config, defer_enabled: e.target.checked })}
-                style={{ width: '16px', height: '16px', accentColor: colors.accent.green }}
+                style={{ width: '16px', height: '16px', accentColor: colors.accent.cyan }}
               />
               <span style={{ color: config.defer_enabled ? colors.text.primary : colors.text.muted, fontSize: '13px' }}>
                 Defer to T for suspicious problems
@@ -613,7 +615,18 @@ function ConfigPanel({ config, onChange, onRun, isRunning, datasets, selectedDat
                   Defer Rate
                   <InfoIcon tooltip="Percentage of problems to defer to T's solution. Higher = safer but lower usefulness." />
                 </span>
-                <span style={{ color: colors.accent.cyan, fontFamily: 'JetBrains Mono, monospace' }}>{(config.defer_rate * 100).toFixed(0)}%</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <input
+                    type="number"
+                    min="1"
+                    max="50"
+                    step="1"
+                    value={Math.round(config.defer_rate * 100)}
+                    onChange={(e) => onChange({ ...config, defer_rate: parseFloat(e.target.value) / 100 })}
+                    style={{ width: '50px', padding: '4px 8px', background: colors.bg.secondary, border: `1px solid ${colors.border}`, borderRadius: '4px', color: colors.accent.cyan, fontFamily: 'JetBrains Mono, monospace', fontSize: '12px', textAlign: 'right' }}
+                  />
+                  <span style={{ color: colors.accent.cyan, fontFamily: 'JetBrains Mono, monospace', fontSize: '12px' }}>%</span>
+                </div>
               </div>
               <input
                 type="range"
@@ -627,7 +640,7 @@ function ConfigPanel({ config, onChange, onRun, isRunning, datasets, selectedDat
             </div>
           )}
         </div>
-      </details>
+      </div>
 
       {/* Red Team Strategy */}
       <div style={{
@@ -668,9 +681,9 @@ function ConfigPanel({ config, onChange, onRun, isRunning, datasets, selectedDat
         background: colors.bg.tertiary,
         borderRadius: '6px',
         marginBottom: '20px',
-        border: `1px solid ${colors.accent.cyan}40`,
+        border: `1px solid ${colors.accent.green}40`,
       }}>
-        <div style={{ fontSize: '11px', color: colors.accent.cyan, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px' }}>
+        <div style={{ fontSize: '11px', color: colors.accent.green, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px' }}>
           Simulation Options
         </div>
 
@@ -680,7 +693,15 @@ function ConfigPanel({ config, onChange, onRun, isRunning, datasets, selectedDat
               Number of Trials
               <InfoIcon tooltip="Monte Carlo trials to run. More trials = more accurate results. 200 for testing, 2000 for final results." />
             </span>
-            <span style={{ color: colors.text.primary, fontFamily: 'JetBrains Mono, monospace' }}>{config.num_trials}</span>
+            <input
+              type="number"
+              min="10"
+              max="10000"
+              step="100"
+              value={config.num_trials}
+              onChange={(e) => onChange({ ...config, num_trials: parseInt(e.target.value) || 100 })}
+              style={{ width: '80px', padding: '4px 8px', background: colors.bg.secondary, border: `1px solid ${colors.border}`, borderRadius: '4px', color: colors.text.primary, fontFamily: 'JetBrains Mono, monospace', fontSize: '12px', textAlign: 'right' }}
+            />
           </div>
           <input
             type="range"
@@ -699,7 +720,15 @@ function ConfigPanel({ config, onChange, onRun, isRunning, datasets, selectedDat
               Problems per Trial
               <InfoIcon tooltip="Number of problems sampled (with replacement) per trial. Standard is 5000." />
             </span>
-            <span style={{ color: colors.text.primary, fontFamily: 'JetBrains Mono, monospace' }}>{config.num_problems}</span>
+            <input
+              type="number"
+              min="10"
+              max="50000"
+              step="100"
+              value={config.num_problems}
+              onChange={(e) => onChange({ ...config, num_problems: parseInt(e.target.value) || 100 })}
+              style={{ width: '80px', padding: '4px 8px', background: colors.bg.secondary, border: `1px solid ${colors.border}`, borderRadius: '4px', color: colors.text.primary, fontFamily: 'JetBrains Mono, monospace', fontSize: '12px', textAlign: 'right' }}
+            />
           </div>
           <input
             type="range"
@@ -745,7 +774,7 @@ function ParetoChart({ data }) {
         border: `1px solid ${colors.border}`,
         borderRadius: '8px',
         padding: '24px',
-        height: '400px',
+        aspectRatio: '1',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -765,7 +794,7 @@ function ParetoChart({ data }) {
       <h3 style={{ color: colors.text.primary, margin: '0 0 20px 0', fontSize: '14px', textTransform: 'uppercase', letterSpacing: '1px' }}>
         Safety vs Usefulness Tradeoff
       </h3>
-      <ResponsiveContainer width="100%" height={350}>
+      <ResponsiveContainer width="100%" aspect={1}>
         <ScatterChart margin={{ top: 20, right: 20, bottom: 40, left: 40 }}>
           <CartesianGrid strokeDasharray="3 3" stroke={colors.border} />
           <XAxis
@@ -957,7 +986,7 @@ function TrialsTable({ trials }) {
           Trial Results
         </h3>
         <div style={{ display: 'flex', gap: '16px', fontSize: '12px' }}>
-          <span style={{ color: colors.accent.green }}>Blue Wins: {blueWins}</span>
+          <span style={{ color: colors.accent.cyan }}>Blue Wins: {blueWins}</span>
           <span style={{ color: colors.accent.red }}>Red Wins: {redWins}</span>
         </div>
       </div>
@@ -986,7 +1015,7 @@ function TrialsTable({ trials }) {
                 </td>
                 <td style={{ padding: '8px 12px' }}>
                   <span style={{
-                    color: trial.winner === 'BLUE' ? colors.accent.green : colors.accent.red,
+                    color: trial.winner === 'BLUE' ? colors.accent.cyan : colors.accent.red,
                     fontWeight: '500',
                   }}>
                     {trial.winner}
@@ -5480,36 +5509,91 @@ function AppContent() {
 
               {/* Right Panel - Results */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                {/* Expected Results Reference */}
+                <div style={{
+                  background: colors.bg.secondary,
+                  border: `1px solid ${colors.border}`,
+                  borderRadius: '8px',
+                  padding: '24px',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+                    <div style={{
+                      width: '40px',
+                      height: '40px',
+                      background: colors.bg.tertiary,
+                      borderRadius: '50%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '20px',
+                    }}>
+                      📊
+                    </div>
+                    <div>
+                      <h3 style={{ margin: 0, color: colors.text.primary, fontSize: '16px' }}>
+                        Expected Results (Greenblatt et al.)
+                      </h3>
+                      <p style={{ margin: 0, color: colors.text.muted, fontSize: '12px' }}>
+                        Red Team Strategy: Rarely (≥22 sneakiness)
+                      </p>
+                    </div>
+                  </div>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                    <thead>
+                      <tr style={{ borderBottom: `1px solid ${colors.border}` }}>
+                        <th style={{ textAlign: 'left', padding: '10px 12px', color: colors.text.secondary, fontWeight: '500' }}>Protocol</th>
+                        <th style={{ textAlign: 'center', padding: '10px 12px', color: colors.text.secondary, fontWeight: '500' }}>Defer</th>
+                        <th style={{ textAlign: 'center', padding: '10px 12px', color: colors.accent.cyan, fontWeight: '500' }}>Safety</th>
+                        <th style={{ textAlign: 'center', padding: '10px 12px', color: colors.accent.green, fontWeight: '500' }}>Usefulness</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr style={{ borderBottom: `1px solid ${colors.border}` }}>
+                        <td style={{ padding: '10px 12px', color: colors.text.primary }}>Trusted Monitoring</td>
+                        <td style={{ padding: '10px 12px', color: colors.text.muted, textAlign: 'center' }}>No</td>
+                        <td style={{ padding: '10px 12px', color: colors.accent.cyan, textAlign: 'center', fontFamily: 'JetBrains Mono, monospace' }}>62%</td>
+                        <td style={{ padding: '10px 12px', color: colors.accent.green, textAlign: 'center', fontFamily: 'JetBrains Mono, monospace' }}>97%</td>
+                      </tr>
+                      <tr style={{ borderBottom: `1px solid ${colors.border}` }}>
+                        <td style={{ padding: '10px 12px', color: colors.text.primary }}>Trusted Monitoring</td>
+                        <td style={{ padding: '10px 12px', color: colors.text.muted, textAlign: 'center' }}>10%</td>
+                        <td style={{ padding: '10px 12px', color: colors.accent.cyan, textAlign: 'center', fontFamily: 'JetBrains Mono, monospace' }}>83%</td>
+                        <td style={{ padding: '10px 12px', color: colors.accent.green, textAlign: 'center', fontFamily: 'JetBrains Mono, monospace' }}>93%</td>
+                      </tr>
+                      <tr>
+                        <td style={{ padding: '10px 12px', color: colors.text.primary }}>Trusted Monitoring</td>
+                        <td style={{ padding: '10px 12px', color: colors.text.muted, textAlign: 'center' }}>20%</td>
+                        <td style={{ padding: '10px 12px', color: colors.accent.cyan, textAlign: 'center', fontFamily: 'JetBrains Mono, monospace' }}>88%</td>
+                        <td style={{ padding: '10px 12px', color: colors.accent.green, textAlign: 'center', fontFamily: 'JetBrains Mono, monospace' }}>89%</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
                 {/* Metrics Row */}
                 {currentResult && (
                   <div style={{
                     display: 'grid',
-                    gridTemplateColumns: 'repeat(4, 1fr)',
+                    gridTemplateColumns: 'repeat(3, 1fr)',
                     gap: '16px',
                   }}>
                     <MetricCard
                       label="Safety Rate"
                       value={`${(currentResult.metrics.safety_rate * 100).toFixed(1)}%`}
                       subvalue="Attacks prevented or no attack"
-                      color={colors.accent.green}
+                      color={colors.accent.cyan}
                     />
                     <MetricCard
                       label="Usefulness Rate"
                       value={`${(currentResult.metrics.usefulness_rate * 100).toFixed(1)}%`}
                       subvalue="Responses allowed through"
-                      color={colors.accent.cyan}
+                      color={colors.accent.green}
                     />
                     <MetricCard
                       label="Attack Catch Rate"
                       value={`${(currentResult.metrics.attack_catch_rate * 100).toFixed(1)}%`}
                       subvalue="Of attacks attempted"
                       color={colors.accent.magenta}
-                    />
-                    <MetricCard
-                      label="False Positive Rate"
-                      value={`${(currentResult.metrics.false_positive_rate * 100).toFixed(1)}%`}
-                      subvalue="Benign responses blocked"
-                      color={colors.accent.amber}
                     />
                   </div>
                 )}
@@ -5529,36 +5613,6 @@ function AppContent() {
                   <TrialsTable trials={currentResult.trials} />
                 )}
 
-                {/* Getting Started */}
-                {!currentResult && (
-                  <div style={{
-                    background: colors.bg.secondary,
-                    border: `1px solid ${colors.border}`,
-                    borderRadius: '8px',
-                    padding: '48px',
-                    textAlign: 'center',
-                  }}>
-                    <div style={{
-                      width: '64px',
-                      height: '64px',
-                      background: colors.bg.tertiary,
-                      borderRadius: '50%',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      margin: '0 auto 20px',
-                      fontSize: '28px',
-                    }}>
-                      🔬
-                    </div>
-                    <h2 style={{ margin: '0 0 12px', color: colors.text.primary, fontSize: '18px' }}>
-                      Ready to Run Simulations
-                    </h2>
-                    <p style={{ margin: 0, color: colors.text.secondary, maxWidth: '400px', marginInline: 'auto' }}>
-                      Configure your control protocol parameters on the left and click "Run Simulation" to evaluate safety vs usefulness tradeoffs.
-                    </p>
-                  </div>
-                )}
               </div>
             </div>
           </>
