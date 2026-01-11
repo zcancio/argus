@@ -3,9 +3,13 @@
 from fastapi import APIRouter, HTTPException
 from typing import Optional
 import json
+import os
 from pathlib import Path
 
 router = APIRouter(prefix="/api/local-datasets", tags=["local-datasets"])
+
+# Environment variable to show hidden datasets (for development)
+SHOW_HIDDEN_DATASETS = os.environ.get("SHOW_HIDDEN_DATASETS", "").lower() == "true"
 
 
 def _load_json_safe(path: Path) -> Optional[dict]:
@@ -47,6 +51,11 @@ def list_local_datasets():
         summary = _load_json_safe(dataset_dir / "summary.json")
 
         if not config and not checkpoint and not summary:
+            continue
+
+        # Check if dataset is hidden (unless SHOW_HIDDEN_DATASETS is set)
+        is_hidden = (summary or {}).get("hidden", False) or (config or {}).get("hidden", False)
+        if is_hidden and not SHOW_HIDDEN_DATASETS:
             continue
 
         stats = (summary or {}).get("stats") or (checkpoint or {}).get("stats") or {}
