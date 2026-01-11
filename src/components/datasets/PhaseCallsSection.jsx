@@ -2,6 +2,138 @@ import { useState } from 'react';
 import { colors } from '../../constants';
 import { LLMCallCard } from '../common/LLMCallCard';
 
+// Component to group Phase 2 LLM calls by backdoor idea
+function Phase2CallsGrouped({ calls }) {
+  const [expandedGroups, setExpandedGroups] = useState({});
+
+  // Extract backdoor index from step name (e.g., "implement_backdoor_0" -> 0)
+  const extractBackdoorIndex = (step) => {
+    if (!step) return null;
+    const match = step.match(/_(\d+)$/);
+    return match ? parseInt(match[1], 10) : null;
+  };
+
+  // Group calls: general calls (no index) and backdoor-specific calls
+  const generalCalls = [];
+  const backdoorGroups = {};
+
+  calls.forEach(call => {
+    const idx = extractBackdoorIndex(call.step);
+    if (idx === null) {
+      generalCalls.push(call);
+    } else {
+      if (!backdoorGroups[idx]) {
+        backdoorGroups[idx] = [];
+      }
+      backdoorGroups[idx].push(call);
+    }
+  });
+
+  const backdoorIndices = Object.keys(backdoorGroups).map(Number).sort((a, b) => a - b);
+
+  const toggleGroup = (groupKey) => {
+    setExpandedGroups(prev => ({ ...prev, [groupKey]: !prev[groupKey] }));
+  };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+      {/* General calls (rate_difficulty, generate_ideas, etc.) */}
+      {generalCalls.length > 0 && (
+        <div style={{
+          background: colors.bg.secondary,
+          borderRadius: '4px',
+          border: `1px solid ${colors.border}`,
+          overflow: 'hidden',
+        }}>
+          <div
+            onClick={() => toggleGroup('general')}
+            style={{
+              padding: '8px 12px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              background: colors.bg.tertiary,
+            }}
+          >
+            <span style={{ fontSize: '11px', color: colors.text.secondary, fontWeight: 500 }}>
+              Setup ({generalCalls.length} call{generalCalls.length !== 1 ? 's' : ''})
+            </span>
+            <span style={{ color: colors.text.muted, fontSize: '10px' }}>
+              {expandedGroups['general'] ? '▼' : '▶'}
+            </span>
+          </div>
+          {expandedGroups['general'] && (
+            <div style={{ padding: '8px' }}>
+              {generalCalls.map((call, idx) => (
+                <LLMCallCard key={call.call_id || `general-${idx}`} call={call} />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Backdoor-specific calls grouped by index */}
+      {backdoorIndices.map(bdIdx => {
+        const groupCalls = backdoorGroups[bdIdx];
+        const groupKey = `backdoor-${bdIdx}`;
+        return (
+          <div
+            key={groupKey}
+            style={{
+              background: colors.bg.secondary,
+              borderRadius: '4px',
+              border: `1px solid ${colors.border}`,
+              overflow: 'hidden',
+            }}
+          >
+            <div
+              onClick={() => toggleGroup(groupKey)}
+              style={{
+                padding: '8px 12px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                background: colors.bg.tertiary,
+              }}
+            >
+              <span style={{ fontSize: '11px', color: colors.text.secondary, fontWeight: 500 }}>
+                <span style={{
+                  display: 'inline-block',
+                  width: '18px',
+                  height: '18px',
+                  borderRadius: '4px',
+                  background: colors.accent.cyan + '20',
+                  color: colors.accent.cyan,
+                  fontSize: '10px',
+                  fontWeight: 600,
+                  textAlign: 'center',
+                  lineHeight: '18px',
+                  marginRight: '8px',
+                }}>
+                  {bdIdx + 1}
+                </span>
+                Backdoor Idea #{bdIdx + 1} ({groupCalls.length} call{groupCalls.length !== 1 ? 's' : ''})
+              </span>
+              <span style={{ color: colors.text.muted, fontSize: '10px' }}>
+                {expandedGroups[groupKey] ? '▼' : '▶'}
+              </span>
+            </div>
+            {expandedGroups[groupKey] && (
+              <div style={{ padding: '8px' }}>
+                {groupCalls.map((call, idx) => (
+                  <LLMCallCard key={call.call_id || `${groupKey}-${idx}`} call={call} />
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // Phase names for display
 const PHASE_NAMES = {
   1: "Baseline Solutions",
@@ -980,9 +1112,14 @@ export function PhaseCallsSection({ phase, calls, result, isExpanded, onToggle, 
               }}>
                 LLM Calls ({phaseCalls.length})
               </div>
-              {phaseCalls.map((call, idx) => (
-                <LLMCallCard key={call.call_id || idx} call={call} />
-              ))}
+              {isPhase2 ? (
+                // Group Phase 2 calls by backdoor idea
+                <Phase2CallsGrouped calls={phaseCalls} />
+              ) : (
+                phaseCalls.map((call, idx) => (
+                  <LLMCallCard key={call.call_id || idx} call={call} />
+                ))
+              )}
             </div>
           )}
         </div>

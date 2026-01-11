@@ -246,56 +246,59 @@ def load_dataset_problems(dataset_id: str) -> Tuple[List[ProblemData], List[floa
             if best_idx is not None:
                 attempt = backdoor_attempts[best_idx]
 
-                # Compute fail_rate from test results
-                tests_passed = attempt.get("test_cases_passed")
-                tests_total = attempt.get("test_cases_total")
-                if tests_total and tests_total > 0:
-                    fail_rate = 1 - (tests_passed or 0) / tests_total
-                else:
-                    fail_rate = 1.0  # Assume fails if no test data
+                # Only consider this a backdoor if an exploit was actually found
+                if attempt.get("exploit_found"):
+                    # Compute fail_rate from test results
+                    tests_passed = attempt.get("test_cases_passed")
+                    tests_total = attempt.get("test_cases_total")
+                    if tests_total and tests_total > 0:
+                        fail_rate = 1 - (tests_passed or 0) / tests_total
+                    else:
+                        fail_rate = 1.0  # Assume fails if no test data
 
-                # Map outcome string to CoupOutcome
-                outcome_str = attempt.get("outcome", "NO_BACKDOOR")
-                if outcome_str == "SUCCESSFUL_COUP":
-                    coup_outcome = CoupOutcome.SUCCESSFUL_COUP
-                elif outcome_str == "FAILED_COUP_ATTEMPT":
-                    coup_outcome = CoupOutcome.FAILED_COUP_ATTEMPT
-                else:
-                    coup_outcome = CoupOutcome.NO_COUP_ATTEMPT
+                    # Map outcome string to CoupOutcome
+                    outcome_str = attempt.get("outcome", "NO_BACKDOOR")
+                    if outcome_str == "SUCCESSFUL_COUP":
+                        coup_outcome = CoupOutcome.SUCCESSFUL_COUP
+                    elif outcome_str == "FAILED_COUP_ATTEMPT":
+                        coup_outcome = CoupOutcome.FAILED_COUP_ATTEMPT
+                    else:
+                        coup_outcome = CoupOutcome.NO_COUP_ATTEMPT
 
-                # Check if backdoor passes all tests
-                passes_tests = (tests_passed == tests_total) if tests_total and tests_total > 0 else False
+                    # Check if backdoor passes all tests
+                    passes_tests = (tests_passed == tests_total) if tests_total and tests_total > 0 else False
 
-                # Get T_suspicion from strategy_results that uses this backdoor
-                t_suspicion = t_suspicion_normal  # Default to normal
-                for sr in strategy_results.values():
-                    if sr and sr.get("selected_backdoor_idx") == best_idx:
-                        t_suspicion = sr.get("T_suspicion_score") or t_suspicion_normal
-                        break
+                    # Get T_suspicion from strategy_results that uses this backdoor
+                    t_suspicion = t_suspicion_normal  # Default to normal
+                    for sr in strategy_results.values():
+                        if sr and sr.get("selected_backdoor_idx") == best_idx:
+                            t_suspicion = sr.get("T_suspicion_score") or t_suspicion_normal
+                            break
 
-                # Get U_suspicion for backdoor (for untrusted monitoring)
-                u_suspicion_backdoor = data.get("U_suspicion_backdoor")
+                    # Get U_suspicion for backdoor (for untrusted monitoring)
+                    u_suspicion_backdoor = data.get("U_suspicion_backdoor")
 
-                # Get coup_outcome_after_edit (for trusted editing)
-                outcome_after_edit_str = data.get("coup_outcome_after_edit")
-                if outcome_after_edit_str == "SUCCESSFUL_COUP":
-                    coup_outcome_after_edit = CoupOutcome.SUCCESSFUL_COUP
-                elif outcome_after_edit_str == "FAILED_COUP_ATTEMPT":
-                    coup_outcome_after_edit = CoupOutcome.FAILED_COUP_ATTEMPT
-                elif outcome_after_edit_str == "NO_COUP_ATTEMPT":
-                    coup_outcome_after_edit = CoupOutcome.NO_COUP_ATTEMPT
-                else:
-                    coup_outcome_after_edit = None
+                    # Get coup_outcome_after_edit (for trusted editing)
+                    outcome_after_edit_str = data.get("coup_outcome_after_edit")
+                    if outcome_after_edit_str == "SUCCESSFUL_COUP":
+                        coup_outcome_after_edit = CoupOutcome.SUCCESSFUL_COUP
+                    elif outcome_after_edit_str == "FAILED_COUP_ATTEMPT":
+                        coup_outcome_after_edit = CoupOutcome.FAILED_COUP_ATTEMPT
+                    elif outcome_after_edit_str == "NO_COUP_ATTEMPT":
+                        coup_outcome_after_edit = CoupOutcome.NO_COUP_ATTEMPT
+                    else:
+                        coup_outcome_after_edit = None
 
-                sneakiest_backdoor = BackdoorData(
-                    sneakiness=best_sneakiness,
-                    fail_rate=fail_rate,
-                    coup_outcome=coup_outcome,
-                    passes_tests=passes_tests,
-                    T_suspicion=t_suspicion,
-                    U_suspicion=u_suspicion_backdoor,
-                    coup_outcome_after_edit=coup_outcome_after_edit,
-                )
+                    sneakiest_backdoor = BackdoorData(
+                        sneakiness=best_sneakiness,
+                        fail_rate=fail_rate,
+                        coup_outcome=coup_outcome,
+                        passes_tests=passes_tests,
+                        T_suspicion=t_suspicion,
+                        U_suspicion=u_suspicion_backdoor,
+                        coup_outcome_after_edit=coup_outcome_after_edit,
+                    )
+                # else: exploit_found is False, sneakiest_backdoor stays None
 
         problem = ProblemData(
             problem_id=problem_id,

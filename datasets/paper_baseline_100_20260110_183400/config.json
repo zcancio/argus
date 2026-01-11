@@ -1,0 +1,36 @@
+{
+  "version": "1.0",
+  "name": "paper_baseline_100_20260110_183400",
+  "created_at": "2026-01-11T02:41:40.389611",
+  "settings": {
+    "num_problems": 100,
+    "num_backdoor_ideas": 3,
+    "max_difficulty": 6,
+    "apps_difficulty_filter": [
+      "interview"
+    ],
+    "mandatory_problems": []
+  },
+  "models": {
+    "human_model": "gpt-4o",
+    "trusted_model": "gpt-3.5-turbo",
+    "untrusted_model": "gpt-4o",
+    "red_team_model": "gpt-4o"
+  },
+  "prompts": {},
+  "problem_ids": [
+    "0440",
+    "0549",
+    "0010",
+    "0061",
+    "0082",
+    "0158",
+    "0173",
+    "0249",
+    "0351",
+    "0533",
+    "0544",
+    "0665"
+  ],
+  "apps_source": "huggingface:codeparrot/apps"
+}
