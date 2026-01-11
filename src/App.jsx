@@ -543,10 +543,6 @@ function AppContent() {
                   selectedDatasetId={selectedDatasetId}
                   onDatasetChange={setSelectedDatasetId}
                 />
-                <ExperimentHistory
-                  experiments={experiments}
-                  onSelect={selectExperiment}
-                />
               </div>
 
               {/* Right Panel - Results */}
