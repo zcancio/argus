@@ -60,7 +60,11 @@ def dict_to_llm_call(d: dict) -> LLMCall:
         status=d.get("status", "pending"),
         started_at=d.get("started_at"),
         completed_at=d.get("completed_at"),
-        error=d.get("error")
+        error=d.get("error"),
+        prompt_tokens=d.get("prompt_tokens"),
+        completion_tokens=d.get("completion_tokens"),
+        total_tokens=d.get("total_tokens"),
+        cost_usd=d.get("cost_usd")
     )
 
 

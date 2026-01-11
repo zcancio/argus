@@ -9,6 +9,7 @@ from typing import Optional
 
 from api._lib.dataset import LLMCall
 from api._lib.prompts import get_prompt
+from api._lib.tokens import estimate_call_cost
 
 
 class LLMCallTrackerMixin:
@@ -67,6 +68,20 @@ class LLMCallTrackerMixin:
         else:
             call.status = "completed"
             call.response = response
+
+        # Calculate token usage and cost
+        # Extract actual model name from display name (e.g., "Red Team (gpt-4o)" -> "gpt-4o")
+        model_name = call.model
+        if "(" in model_name and ")" in model_name:
+            model_name = model_name.split("(")[1].rstrip(")")
+
+        prompt_tokens, completion_tokens, total_tokens, cost_usd = estimate_call_cost(
+            call.prompt, response, model_name
+        )
+        call.prompt_tokens = prompt_tokens
+        call.completion_tokens = completion_tokens
+        call.total_tokens = total_tokens
+        call.cost_usd = cost_usd
 
         # Trigger persistence
         if hasattr(self, '_on_update') and self._on_update and hasattr(self, '_test_result') and self._test_result:
