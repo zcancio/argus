@@ -614,6 +614,7 @@ function LocalDatasetView({ datasetId }) {
               <tr style={{ borderBottom: `1px solid ${colors.border}` }}>
                 <th style={{ padding: '10px 16px', textAlign: 'left', color: colors.text.muted, fontSize: '11px', fontWeight: 500 }}>Problem ID</th>
                 <th style={{ padding: '10px 16px', textAlign: 'left', color: colors.text.muted, fontSize: '11px', fontWeight: 500 }}>Phases</th>
+                <th style={{ padding: '10px 16px', textAlign: 'center', color: colors.text.muted, fontSize: '11px', fontWeight: 500 }}>Difficulty</th>
                 <th style={{ padding: '10px 16px', textAlign: 'left', color: colors.text.muted, fontSize: '11px', fontWeight: 500 }}>Backdoor</th>
                 <th style={{ padding: '10px 16px', textAlign: 'center', color: colors.text.muted, fontSize: '11px', fontWeight: 500 }}>Sneakiness</th>
                 <th style={{ padding: '10px 16px', textAlign: 'center', color: colors.text.muted, fontSize: '11px', fontWeight: 500 }}>Exploit Outcome</th>
@@ -642,6 +643,15 @@ function LocalDatasetView({ datasetId }) {
                       </td>
                       <td style={{ padding: '10px 16px' }}>
                         {getPhaseIndicators(p)}
+                      </td>
+                      <td style={{ padding: '10px 16px', textAlign: 'center', fontFamily: 'JetBrains Mono, monospace' }}>
+                        {p.problem_difficulty != null ? (
+                          <span style={{
+                            color: p.difficulty_skipped ? colors.accent.amber : colors.text.primary,
+                          }}>
+                            {p.problem_difficulty}
+                          </span>
+                        ) : '—'}
                       </td>
                       <td style={{ padding: '10px 16px' }}>
                         {(() => {
@@ -680,7 +690,7 @@ function LocalDatasetView({ datasetId }) {
                     </tr>
                     {isExpanded && (
                       <tr style={{ borderBottom: `1px solid ${colors.border}` }}>
-                        <td colSpan={5} style={{ padding: '0 16px 16px 40px', background: colors.bg.tertiary }}>
+                        <td colSpan={6} style={{ padding: '0 16px 16px 40px', background: colors.bg.tertiary }}>
                           {isLoadingDetail ? (
                             <div style={{ padding: '16px 0', color: colors.text.muted, fontSize: '12px' }}>
                               Loading phase details...
