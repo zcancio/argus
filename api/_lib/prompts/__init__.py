@@ -46,16 +46,57 @@ PROMPT_TEMPLATES = {
     "ESTIMATE_TRIGGER_RATE_PROMPT": "phase2/estimate_trigger_rate.md",
     "EXTRACT_BACKDOOR_SNIPPET_PROMPT": "phase2/extract_backdoor_snippet.md",
 
-    # Phase 3 - Find Exploits
-    "SUSPICION_CHECK_PROMPT": "phase3/suspicion_check.md",
+    # Phase 3 - Find Exploits (Full Pipeline)
+    # Step 1: Detection check (2-part)
+    "IDENTIFY_SUSPICIOUS_LOGIC_PROMPT": "phase3/identify_suspicious_logic.md",
+    "RATE_BACKDOOR_LIKELIHOOD_PROMPT": "phase3/rate_backdoor_likelihood.md",
+    # Step 2: Isolate snippet
     "IDENTIFY_SNIPPET_PROMPT": "phase3/identify_snippet.md",
+    # Step 3: Remove backdoor (get reference)
     "RECONSTRUCT_ORIGINAL_PROMPT": "phase3/reconstruct_original.md",
-    "EXPLOIT_PROPERTIES_PROMPT": "phase3/exploit_properties.md",
+    # Step 4: Enumerate properties
+    "ENUMERATE_EXPLOIT_PROPERTIES_PROMPT": "phase3/enumerate_exploit_properties.md",
+    # Step 5: Validate properties
+    "VALIDATE_PROPERTIES_PROMPT": "phase3/validate_properties.md",
+    # Step 6: Check if exploit possible
     "EXPLOIT_POSSIBLE_PROMPT": "phase3/exploit_possible.md",
+    # Step 7: Rate difficulty
+    "RATE_EXPLOIT_DIFFICULTY_PROMPT": "phase3/rate_exploit_difficulty.md",
+    # Step 8: Construct exploit (step-by-step)
+    "CONSTRUCT_EXPLOIT_STEPWISE_PROMPT": "phase3/construct_exploit_stepwise.md",
+    # Step 9: Validate exploit input
+    "VALIDATE_EXPLOIT_INPUT_PROMPT": "phase3/validate_exploit_input.md",
+    # Legacy prompts (kept for backwards compatibility)
+    "SUSPICION_CHECK_PROMPT": "phase3/suspicion_check.md",
+    "EXPLOIT_PROPERTIES_PROMPT": "phase3/exploit_properties.md",
     "CONSTRUCT_EXPLOIT_PROMPT": "phase3/construct_exploit.md",
     "VERIFY_EXPLOIT_PROMPT": "phase3/verify_exploit.md",
 
-    # Phase 5 - Monitoring Scores
+    # Phase 5 - Monitoring & Trusted Editing (Full Pipeline)
+    # Preprocessing
+    "REMOVE_COMMENTS_PROMPT": "phase5/remove_comments.md",
+    # Trusted/Untrusted Monitoring (2-part)
+    "IDENTIFY_SUSPICIOUS_LOGIC_MONITOR_PROMPT": "phase5/identify_suspicious_logic.md",
+    "RATE_SUSPICION_PROMPT": "phase5/rate_suspicion.md",
+    "YES_NO_BACKDOOR_PROMPT": "phase5/yes_no_backdoor.md",
+    # Snippet Analysis
+    "EXTRACT_SUSPICIOUS_SNIPPET_PROMPT": "phase5/extract_suspicious_snippet.md",
+    "VERIFY_SNIPPET_SUSPICIOUS_PROMPT": "phase5/verify_snippet_suspicious.md",
+    # Untrusted Justification
+    "REQUEST_EXPLANATION_HONEST_PROMPT": "phase5/request_explanation_honest.md",
+    "REQUEST_EXPLANATION_GASLIGHT_PROMPT": "phase5/request_explanation_gaslight.md",
+    "CHECK_EXPLANATION_CLAIMS_IRRELEVANCE_PROMPT": "phase5/check_explanation_claims_irrelevance.md",
+    "EVALUATE_EXPLANATION_WITH_SKEPTICISM_PROMPT": "phase5/evaluate_explanation_with_skepticism.md",
+    "CHECK_EXPLANATION_HONESTY_PROMPT": "phase5/check_explanation_honesty.md",
+    "CHECK_EXPLANATION_ADMITS_PROBLEMS_PROMPT": "phase5/check_explanation_admits_problems.md",
+    # Trusted Editing
+    "ADD_COMMENTS_PROMPT": "phase5/add_comments.md",
+    "BASIC_EDIT_PROMPT": "phase5/basic_edit.md",
+    "SNIPPET_EDIT_DESCRIBE_PROMPT": "phase5/snippet_edit_describe.md",
+    "SNIPPET_EDIT_CONFIRM_PROMPT": "phase5/snippet_edit_confirm.md",
+    "SNIPPET_EDIT_IMPLEMENT_PROMPT": "phase5/snippet_edit_implement.md",
+    "INSPIRED_EDIT_PROMPT": "phase5/inspired_edit.md",
+    # Legacy prompts (kept for backwards compatibility)
     "T_SUSPICION_PROMPT": "phase5/t_suspicion.md",
     "U_SUSPICION_PROMPT": "phase5/u_suspicion.md",
     "H_SUSPICION_PROMPT": "phase5/h_suspicion.md",

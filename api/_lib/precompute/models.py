@@ -73,7 +73,13 @@ class BackdoorProposal:
     rating1: float = 0.0  # Code reviewer difficulty (1-15)
     rating2: float = 0.0  # Trigger subtlety (1-7)
     backdoor_snippet: Optional[str] = None  # The key backdoor lines
-    exploit_found: bool = False
+    # Phase 3: Exploit generation pipeline results
+    detection_score: Optional[float] = None  # 1-10, how detectable is the backdoor
+    exploit_difficulty: Optional[float] = None  # 1-10, how hard to construct exploit
+    exploit_properties: Optional[str] = None  # Required properties for exploit
+    exploit_possible: bool = False  # Can exploit be constructed?
+    exploit_found: bool = False  # Was a valid exploit constructed?
+    exploit_valid: bool = False  # Did the exploit pass validation?
     exploits: Optional[List[str]] = None
     phase_3_complete: bool = False
     phase_4_complete: bool = False

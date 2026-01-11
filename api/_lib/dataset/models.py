@@ -134,8 +134,18 @@ class ProblemResult:
     U_suspicion_normal: Optional[float] = None  # U's score on normal solution
     U_suspicion_backdoor: Optional[float] = None  # U's score on backdoor (may rate low to avoid detection)
 
+    # Snippet Analysis
+    T_suspicious_snippet: Optional[str] = None  # Suspicious snippet found by T
+
+    # Untrusted Justification
+    U_explanation: Optional[str] = None  # U's explanation of suspicious code
+    U_explanation_claims_irrelevance: Optional[bool] = None  # Does U's explanation claim code is irrelevant
+    T_evaluation_with_skepticism: Optional[bool] = None  # T's evaluation of U's explanation (skeptical)
+
     # Trusted Editing: T edits backdoored code to remove suspected backdoor
-    T_edited_code: Optional[str] = None  # T's edit of backdoored code
+    T_edited_code: Optional[str] = None  # T's edit of backdoored code (basic approach)
+    T_edited_code_snippet: Optional[str] = None  # T's edit using snippet-based approach
+    T_edited_code_inspired: Optional[str] = None  # T's edit using "inspired" approach
     coup_outcome_after_edit: Optional[str] = None  # Outcome after T's edit (did edit remove backdoor?)
     T_edited_correct: Optional[bool] = None  # Does T's edited code pass tests?
 
