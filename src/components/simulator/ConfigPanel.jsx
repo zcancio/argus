@@ -61,6 +61,27 @@ export function ConfigPanel({ config, onChange, onRun, isRunning, datasets, sele
             </option>
           ))}
         </select>
+
+        <button
+          onClick={onRun}
+          disabled={isRunning || !selectedDatasetId}
+          style={{
+            width: '100%',
+            padding: '14px 20px',
+            marginTop: '12px',
+            background: (isRunning || !selectedDatasetId) ? colors.bg.tertiary : `linear-gradient(135deg, ${colors.accent.cyan}, ${colors.accent.magenta})`,
+            border: 'none',
+            borderRadius: '6px',
+            color: colors.text.primary,
+            fontSize: '14px',
+            fontWeight: '600',
+            cursor: (isRunning || !selectedDatasetId) ? 'not-allowed' : 'pointer',
+            textTransform: 'uppercase',
+            letterSpacing: '1px',
+          }}
+        >
+          {isRunning ? 'Running...' : 'Run Simulation'}
+        </button>
       </div>
 
       {/* Protocol Preset */}
@@ -451,27 +472,6 @@ export function ConfigPanel({ config, onChange, onRun, isRunning, datasets, sele
           )}
         </div>
       </div>
-
-      <button
-        onClick={onRun}
-        disabled={isRunning}
-        style={{
-          width: '100%',
-          padding: '14px 20px',
-          background: isRunning ? colors.bg.tertiary : `linear-gradient(135deg, ${colors.accent.cyan}, ${colors.accent.magenta})`,
-          border: 'none',
-          borderRadius: '6px',
-          color: colors.text.primary,
-          fontSize: '14px',
-          fontWeight: '600',
-          cursor: isRunning ? 'not-allowed' : 'pointer',
-          textTransform: 'uppercase',
-          letterSpacing: '1px',
-          marginTop: '8px',
-        }}
-      >
-        {isRunning ? 'Running...' : 'Run Simulation'}
-      </button>
     </div>
   );
 }
