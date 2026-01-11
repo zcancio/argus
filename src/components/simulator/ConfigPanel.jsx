@@ -2,6 +2,10 @@ import { colors } from '../../constants';
 import { InfoIcon } from '../common';
 
 export function ConfigPanel({ config, onChange, onRun, isRunning, datasets, selectedDatasetId, onDatasetChange }) {
+  // Get selected dataset's problem count
+  const selectedDataset = datasets.find(d => d.id === selectedDatasetId);
+  const datasetSize = selectedDataset?.stats?.completed || 0;
+  const numProblemsExceedsDataset = datasetSize > 0 && config.num_problems > datasetSize;
   const sliderStyle = {
     width: '100%',
     height: '4px',
@@ -80,16 +84,22 @@ export function ConfigPanel({ config, onChange, onRun, isRunning, datasets, sele
           </div>
           <select
             value={
-              config.audit_budget_rate === 0.02 && config.free_start === 10 && !config.defer_enabled ? 'tm' :
-              config.audit_budget_rate === 0.02 && config.free_start === 10 && config.defer_enabled && config.defer_rate === 0.10 ? 'tm_d10' :
-              config.audit_budget_rate === 0.02 && config.free_start === 10 && config.defer_enabled && config.defer_rate === 0.20 ? 'tm_d20' :
+              config.monitor_type === 'trusted' && config.audit_budget_rate === 0.02 && config.free_start === 10 && !config.defer_enabled ? 'tm' :
+              config.monitor_type === 'trusted' && config.audit_budget_rate === 0.02 && config.free_start === 10 && config.defer_enabled && config.defer_rate === 0.10 ? 'tm_d10' :
+              config.monitor_type === 'trusted' && config.audit_budget_rate === 0.02 && config.free_start === 10 && config.defer_enabled && config.defer_rate === 0.20 ? 'tm_d20' :
+              config.monitor_type === 'untrusted' && config.audit_budget_rate === 0.02 && config.free_start === 10 && !config.defer_enabled ? 'um' :
+              config.monitor_type === 'untrusted' && config.audit_budget_rate === 0.02 && config.free_start === 10 && config.defer_enabled && config.defer_rate === 0.10 ? 'um_d10' :
+              config.monitor_type === 'untrusted' && config.audit_budget_rate === 0.02 && config.free_start === 10 && config.defer_enabled && config.defer_rate === 0.20 ? 'um_d20' :
               'custom'
             }
             onChange={(e) => {
               const presets = {
-                tm: { audit_budget_rate: 0.02, free_start: 10, defer_enabled: false, defer_rate: 0.10 },
-                tm_d10: { audit_budget_rate: 0.02, free_start: 10, defer_enabled: true, defer_rate: 0.10 },
-                tm_d20: { audit_budget_rate: 0.02, free_start: 10, defer_enabled: true, defer_rate: 0.20 },
+                tm: { monitor_type: 'trusted', audit_budget_rate: 0.02, free_start: 10, defer_enabled: false, defer_rate: 0.10 },
+                tm_d10: { monitor_type: 'trusted', audit_budget_rate: 0.02, free_start: 10, defer_enabled: true, defer_rate: 0.10 },
+                tm_d20: { monitor_type: 'trusted', audit_budget_rate: 0.02, free_start: 10, defer_enabled: true, defer_rate: 0.20 },
+                um: { monitor_type: 'untrusted', audit_budget_rate: 0.02, free_start: 10, defer_enabled: false, defer_rate: 0.10 },
+                um_d10: { monitor_type: 'untrusted', audit_budget_rate: 0.02, free_start: 10, defer_enabled: true, defer_rate: 0.10 },
+                um_d20: { monitor_type: 'untrusted', audit_budget_rate: 0.02, free_start: 10, defer_enabled: true, defer_rate: 0.20 },
               };
               if (presets[e.target.value]) {
                 onChange({ ...config, ...presets[e.target.value] });
@@ -100,6 +110,9 @@ export function ConfigPanel({ config, onChange, onRun, isRunning, datasets, sele
             <option value="tm">Trusted Monitoring</option>
             <option value="tm_d10">Trusted Monitoring + Defer 10%</option>
             <option value="tm_d20">Trusted Monitoring + Defer 20%</option>
+            <option value="um">Untrusted Monitoring</option>
+            <option value="um_d10">Untrusted Monitoring + Defer 10%</option>
+            <option value="um_d20">Untrusted Monitoring + Defer 20%</option>
             <option value="custom">Custom</option>
           </select>
         </div>
@@ -350,7 +363,7 @@ export function ConfigPanel({ config, onChange, onRun, isRunning, datasets, sele
           <div style={labelStyle}>
             <span style={{ color: colors.text.secondary, display: 'flex', alignItems: 'center' }}>
               Problems per Trial
-              <InfoIcon tooltip="Number of problems sampled (with replacement) per trial. Standard is 5000." />
+              <InfoIcon tooltip="Number of problems sampled (with replacement) per trial. Should match dataset size for accurate results." />
             </span>
             <input
               type="number"
@@ -359,18 +372,29 @@ export function ConfigPanel({ config, onChange, onRun, isRunning, datasets, sele
               step="100"
               value={config.num_problems}
               onChange={(e) => onChange({ ...config, num_problems: parseInt(e.target.value) || 100 })}
-              style={{ width: '80px', padding: '4px 8px', background: colors.bg.secondary, border: `1px solid ${colors.border}`, borderRadius: '4px', color: colors.text.primary, fontFamily: 'JetBrains Mono, monospace', fontSize: '12px', textAlign: 'right' }}
+              style={{ width: '80px', padding: '4px 8px', background: colors.bg.secondary, border: `1px solid ${numProblemsExceedsDataset ? colors.accent.amber : colors.border}`, borderRadius: '4px', color: colors.text.primary, fontFamily: 'JetBrains Mono, monospace', fontSize: '12px', textAlign: 'right' }}
             />
           </div>
           <input
             type="range"
-            min="100"
-            max="10000"
-            step="100"
+            min="10"
+            max={Math.max(datasetSize || 100, 100)}
+            step="10"
             value={config.num_problems}
             onChange={(e) => onChange({ ...config, num_problems: parseInt(e.target.value) })}
             style={sliderStyle}
           />
+          {numProblemsExceedsDataset && (
+            <div style={{ marginTop: '8px', padding: '8px 12px', background: `${colors.accent.amber}20`, border: `1px solid ${colors.accent.amber}40`, borderRadius: '4px', fontSize: '11px', color: colors.accent.amber }}>
+              Dataset has {datasetSize} problems. Using {config.num_problems} will oversample.
+              <button
+                onClick={() => onChange({ ...config, num_problems: datasetSize })}
+                style={{ marginLeft: '8px', padding: '2px 8px', background: colors.accent.amber, border: 'none', borderRadius: '3px', color: colors.bg.primary, fontSize: '11px', cursor: 'pointer', fontWeight: '600' }}
+              >
+                Use {datasetSize}
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
