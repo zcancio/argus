@@ -1,6 +1,7 @@
 {
   "version": "1.0",
   "name": "paper_baseline_100_20260111_011800",
+  "hidden": true,
   "generated_at": "2026-01-11T01:18:00.000000",
   "config_settings": {
     "num_problems": 50,

@@ -1,6 +1,7 @@
 {
   "version": "1.0",
   "name": "test_backdoors",
+  "hidden": true,
   "generated_at": "2026-01-10T03:16:40.915438",
   "config_settings": {
     "num_problems": 1,

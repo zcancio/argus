@@ -1,6 +1,7 @@
 {
   "version": "1.0",
   "name": "chunk_test",
+  "hidden": true,
   "generated_at": "2026-01-10T03:51:05.253382",
   "config_settings": {
     "num_problems": 5,
