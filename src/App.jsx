@@ -182,8 +182,8 @@ function AppContent() {
     max_fail_rate: 0.10,    // Max fail rate on small inputs
 
     // Simulation settings
-    num_trials: 2000,
-    num_problems: 5000,
+    num_trials: 1000,
+    num_problems: 50,  // Should match dataset size
     coup_subsample_rate: 1/12,  // Variance reduction (paper default ~8.3%)
   });
 
@@ -508,21 +508,6 @@ function AppContent() {
               color: colors.accent.green,
             }}>
               ✓ Persistent Storage
-            </div>
-          )}
-          {(validationStatus.anthropic === 'valid' || validationStatus.openai === 'valid') && (
-            <div style={{
-              padding: '6px 12px',
-              background: colors.accent.green + '20',
-              border: `1px solid ${colors.accent.green}`,
-              borderRadius: '4px',
-              fontSize: '12px',
-              color: colors.accent.green,
-            }}>
-              {validationStatus.anthropic === 'valid' && 'Anthropic '}
-              {validationStatus.anthropic === 'valid' && validationStatus.openai === 'valid' && '+ '}
-              {validationStatus.openai === 'valid' && 'OpenAI '}
-              Connected
             </div>
           )}
         </div>
