@@ -275,12 +275,8 @@ def load_dataset_problems(dataset_id: str) -> Tuple[List[ProblemData], List[floa
                     # Check if backdoor passes all tests
                     passes_tests = (tests_passed == tests_total) if tests_total and tests_total > 0 else False
 
-                    # Get T_suspicion from strategy_results that uses this backdoor
-                    t_suspicion = t_suspicion_normal  # Default to normal
-                    for sr in strategy_results.values():
-                        if sr and sr.get("selected_backdoor_idx") == best_idx:
-                            t_suspicion = sr.get("T_suspicion_score") or t_suspicion_normal
-                            break
+                    # Get T_suspicion for backdoor (from Phase 5 precompute)
+                    t_suspicion = data.get("T_suspicion_backdoor") or t_suspicion_normal
 
                     # Get U_suspicion for backdoor (for untrusted monitoring)
                     u_suspicion_backdoor = data.get("U_suspicion_backdoor")
