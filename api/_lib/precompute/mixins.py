@@ -5,11 +5,14 @@ Contains reusable code to eliminate duplication across engine classes.
 """
 
 from datetime import datetime
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
 from api._lib.dataset import LLMCall
 from api._lib.prompts import get_prompt
 from api._lib.tokens import estimate_call_cost
+
+if TYPE_CHECKING:
+    from api._lib.llm import LogProbResult
 
 
 class LLMCallTrackerMixin:
@@ -105,6 +108,36 @@ class LLMCallTrackerMixin:
             response = self.llm.complete(model, prompt)
             self._complete_call(call, response)
             return response
+        except Exception as e:
+            self._complete_call(call, "", str(e))
+            raise
+
+    def _call_llm_with_logprobs(
+        self, model: str, prompt: str, step: str = "unknown", role: str = None, max_tokens: int = 5
+    ) -> "LogProbResult":
+        """Call the LLM and get log probabilities (for yes/no questions)
+
+        Only works with completion models like gpt-3.5-turbo-instruct.
+
+        Args:
+            model: The model identifier (must support logprobs, e.g., "gpt-3.5-turbo-instruct")
+            prompt: The prompt to send
+            step: The step name for tracking
+            role: The role name (e.g., "Red Team", "Trusted", "Untrusted", "Human")
+            max_tokens: Maximum tokens to generate (keep small for logprob extraction)
+
+        Returns:
+            LogProbResult with text, logprobs, yes_prob, and no_prob
+        """
+        # Format model display with role if provided
+        model_display = f"{role} ({model})" if role else model
+        call = self._track_call(step, model_display, prompt)
+        try:
+            result = self.llm.complete_with_logprobs(model, prompt, max_tokens)
+            # Store response with logprob info
+            response_with_probs = f"{result.text} [P(yes)={result.yes_prob:.3f}, P(no)={result.no_prob:.3f}]"
+            self._complete_call(call, response_with_probs)
+            return result
         except Exception as e:
             self._complete_call(call, "", str(e))
             raise

@@ -15,6 +15,7 @@ MODEL_PRICING = {
     "gpt-4o": {"input": 2.50, "output": 10.00},
     "gpt-4o-mini": {"input": 0.15, "output": 0.60},
     "gpt-3.5-turbo": {"input": 0.50, "output": 1.50},
+    "gpt-3.5-turbo-instruct": {"input": 1.50, "output": 2.00},  # Completion model with logprobs
     # Anthropic models
     "claude-3-opus-20240229": {"input": 15.00, "output": 75.00},
     "claude-3-sonnet-20240229": {"input": 3.00, "output": 15.00},
@@ -28,6 +29,7 @@ MODEL_ENCODINGS = {
     "gpt-4o": "o200k_base",
     "gpt-4o-mini": "o200k_base",
     "gpt-3.5-turbo": "cl100k_base",
+    "gpt-3.5-turbo-instruct": "cl100k_base",  # Completion model
     # Anthropic models use cl100k_base as approximation
     "claude-3-opus-20240229": "cl100k_base",
     "claude-3-sonnet-20240229": "cl100k_base",

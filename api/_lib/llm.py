@@ -4,11 +4,22 @@ LLM Client Module for ARGUS Pre-computation
 Provides a unified interface for calling OpenAI and Anthropic models.
 """
 
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Tuple
+from dataclasses import dataclass
+import math
 import os
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class LogProbResult:
+    """Result from a completion with log probabilities"""
+    text: str
+    logprobs: Dict[str, float]  # token -> logprob
+    yes_prob: float = 0.0  # P(yes) for yes/no questions
+    no_prob: float = 0.0   # P(no) for yes/no questions
 
 
 class LLMClient:
@@ -61,7 +72,7 @@ class LLMClient:
         """Check if a model is available (has API key)"""
         if model == "simulated":
             return True
-        if model in ["gpt-4o", "gpt-4o-mini", "gpt-3.5-turbo"]:
+        if model in ["gpt-4o", "gpt-4o-mini", "gpt-3.5-turbo", "gpt-3.5-turbo-instruct"]:
             return self.openai_client is not None
         if model in ["claude-3-opus-20240229", "claude-3-sonnet-20240229", "claude-3-haiku-20240307"]:
             return self.anthropic_client is not None
@@ -82,9 +93,13 @@ class LLMClient:
         if model == "simulated":
             return self._simulate_response(prompt)
 
-        # OpenAI models
+        # OpenAI chat models
         if model in ["gpt-4o", "gpt-4o-mini", "gpt-3.5-turbo"]:
             return self._call_openai(model, prompt, max_tokens)
+
+        # OpenAI completion/instruct models
+        if model in ["gpt-3.5-turbo-instruct"]:
+            return self._call_openai_completion(model, prompt, max_tokens)
 
         # Anthropic models
         if model in ["claude-3-opus-20240229", "claude-3-sonnet-20240229", "claude-3-haiku-20240307"]:
@@ -93,8 +108,39 @@ class LLMClient:
         # Unknown model - fall back to simulation
         return self._simulate_response(prompt)
 
+    def complete_with_logprobs(self, model: str, prompt: str, max_tokens: int = 5) -> LogProbResult:
+        """
+        Generate a completion with log probabilities.
+
+        Only works with completion models like gpt-3.5-turbo-instruct.
+        For yes/no questions, extracts P(yes) and P(no) from logprobs.
+
+        Args:
+            model: Model identifier (must be a completion model)
+            prompt: The prompt to send
+            max_tokens: Maximum tokens in response (keep small for logprob extraction)
+
+        Returns:
+            LogProbResult with text and logprobs
+        """
+        if model == "simulated":
+            # Simulate logprobs for testing
+            import random
+            yes_prob = random.uniform(0.3, 0.7)
+            return LogProbResult(
+                text="yes" if yes_prob > 0.5 else "no",
+                logprobs={"yes": math.log(yes_prob), "no": math.log(1 - yes_prob)},
+                yes_prob=yes_prob,
+                no_prob=1 - yes_prob
+            )
+
+        if model not in ["gpt-3.5-turbo-instruct"]:
+            raise ValueError(f"Model {model} does not support log probabilities. Use gpt-3.5-turbo-instruct.")
+
+        return self._call_openai_completion_with_logprobs(model, prompt, max_tokens)
+
     def _call_openai(self, model: str, prompt: str, max_tokens: int) -> str:
-        """Call OpenAI API"""
+        """Call OpenAI Chat API"""
         if not self.openai_client:
             raise ValueError("OpenAI API key not configured")
 
@@ -105,6 +151,79 @@ class LLMClient:
             temperature=0.7,
         )
         return response.choices[0].message.content
+
+    def _call_openai_completion(self, model: str, prompt: str, max_tokens: int) -> str:
+        """Call OpenAI Completion API (for instruct models)"""
+        if not self.openai_client:
+            raise ValueError("OpenAI API key not configured")
+
+        response = self.openai_client.completions.create(
+            model=model,
+            prompt=prompt,
+            max_tokens=max_tokens,
+            temperature=0.7,
+        )
+        return response.choices[0].text.strip()
+
+    def _call_openai_completion_with_logprobs(
+        self, model: str, prompt: str, max_tokens: int
+    ) -> LogProbResult:
+        """Call OpenAI Completion API with log probabilities
+
+        For yes/no questions, we request top_logprobs to get probabilities
+        for both 'yes' and 'no' tokens.
+        """
+        if not self.openai_client:
+            raise ValueError("OpenAI API key not configured")
+
+        # Request logprobs with top 5 alternatives
+        response = self.openai_client.completions.create(
+            model=model,
+            prompt=prompt,
+            max_tokens=max_tokens,
+            temperature=0.0,  # Use 0 for deterministic logprobs
+            logprobs=5,  # Get top 5 token alternatives
+        )
+
+        text = response.choices[0].text.strip()
+        logprobs_data = response.choices[0].logprobs
+
+        # Extract logprobs dict
+        logprobs = {}
+        yes_logprob = None
+        no_logprob = None
+
+        if logprobs_data and logprobs_data.top_logprobs:
+            # Get first token's alternatives (for yes/no questions)
+            first_token_probs = logprobs_data.top_logprobs[0]
+            for token, logprob in first_token_probs.items():
+                token_lower = token.strip().lower()
+                logprobs[token] = logprob
+
+                # Look for yes/no variants
+                if token_lower in ['yes', 'y', ' yes', ' y']:
+                    if yes_logprob is None or logprob > yes_logprob:
+                        yes_logprob = logprob
+                elif token_lower in ['no', 'n', ' no', ' n']:
+                    if no_logprob is None or logprob > no_logprob:
+                        no_logprob = logprob
+
+        # Convert logprobs to probabilities
+        yes_prob = math.exp(yes_logprob) if yes_logprob is not None else 0.0
+        no_prob = math.exp(no_logprob) if no_logprob is not None else 0.0
+
+        # Normalize if we have both
+        if yes_prob + no_prob > 0:
+            total = yes_prob + no_prob
+            yes_prob = yes_prob / total
+            no_prob = no_prob / total
+
+        return LogProbResult(
+            text=text,
+            logprobs=logprobs,
+            yes_prob=yes_prob,
+            no_prob=no_prob
+        )
 
     def _call_anthropic(self, model: str, prompt: str, max_tokens: int) -> str:
         """Call Anthropic API"""
