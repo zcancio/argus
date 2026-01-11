@@ -1847,7 +1847,13 @@ function PhaseCallsSection({ phase, calls, result, isExpanded, onToggle, onRunFr
                 ? `(sneakiest: ${sneakiestBackdoor?.sneakiness?.toFixed(1)})`
                 : '(no backdoors generated)'
             ) : isPhase4 && phaseCompleted ? (
-              `(${totalAttempts} backdoor${totalAttempts !== 1 ? 's' : ''} verified)`
+              (() => {
+                const testedIdx = result?.backdoor_attempts?.findIndex(a => a.test_cases_passed != null);
+                if (testedIdx === -1 || testedIdx == null) return '(no exploit tested)';
+                const tested = result.backdoor_attempts[testedIdx];
+                const succeeded = tested.outcome === 'SUCCESSFUL_COUP';
+                return `(exploit for backdoor #${testedIdx + 1} ${succeeded ? 'Succeeded' : 'Failed'})`;
+              })()
             ) : isPhase5 && phaseCompleted && hasStrategyResults ? (
               `(${Object.keys(result.strategy_results).length} strategies mapped)`
             ) : isPhase6 && hasStrategyResults ? (
@@ -2534,7 +2540,7 @@ function PhaseCallsSection({ phase, calls, result, isExpanded, onToggle, onRunFr
             </div>
           )}
 
-          {/* Phase 5 specific content - T Monitoring Scores */}
+          {/* Phase 5 specific content - Monitoring Scores (T and U) */}
           {isPhase5 && phaseCompleted && (
             <div style={{ marginBottom: phaseCalls.length > 0 ? '16px' : 0 }}>
               <div style={{
@@ -2544,7 +2550,7 @@ function PhaseCallsSection({ phase, calls, result, isExpanded, onToggle, onRunFr
                 border: `1px solid ${colors.border}`,
               }}>
                 <div style={{ color: colors.text.muted, fontSize: '10px', marginBottom: '12px', textTransform: 'uppercase' }}>
-                  T Monitoring Scores
+                  Monitoring Scores
                 </div>
                 <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
                   {/* Normal Solution Score */}
@@ -2568,6 +2574,15 @@ function PhaseCallsSection({ phase, calls, result, isExpanded, onToggle, onRunFr
                         {result?.T_suspicion_normal?.toFixed(1) ?? '—'}
                       </span>
                     </div>
+                    <div style={{ fontSize: '11px', color: colors.text.secondary }}>
+                      U Suspicion: <span style={{
+                        color: colors.accent.amber,
+                        fontFamily: 'JetBrains Mono, monospace',
+                        fontWeight: 600,
+                      }}>
+                        {result?.U_suspicion_normal?.toFixed(1) ?? '—'}
+                      </span>
+                    </div>
                   </div>
                   {/* Sneakiest Backdoor Score */}
                   <div style={{
@@ -2582,15 +2597,26 @@ function PhaseCallsSection({ phase, calls, result, isExpanded, onToggle, onRunFr
                       Sneakiest Backdoor
                     </div>
                     {result?.T_suspicion_backdoor != null ? (
-                      <div style={{ fontSize: '11px', color: colors.text.secondary, marginBottom: '4px' }}>
-                        T Suspicion: <span style={{
-                          color: colors.accent.magenta,
-                          fontFamily: 'JetBrains Mono, monospace',
-                          fontWeight: 600,
-                        }}>
-                          {result.T_suspicion_backdoor.toFixed(1)}
-                        </span>
-                      </div>
+                      <>
+                        <div style={{ fontSize: '11px', color: colors.text.secondary, marginBottom: '4px' }}>
+                          T Suspicion: <span style={{
+                            color: colors.accent.magenta,
+                            fontFamily: 'JetBrains Mono, monospace',
+                            fontWeight: 600,
+                          }}>
+                            {result.T_suspicion_backdoor.toFixed(1)}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: '11px', color: colors.text.secondary }}>
+                          U Suspicion: <span style={{
+                            color: colors.accent.amber,
+                            fontFamily: 'JetBrains Mono, monospace',
+                            fontWeight: 600,
+                          }}>
+                            {result?.U_suspicion_backdoor?.toFixed(1) ?? '—'}
+                          </span>
+                        </div>
+                      </>
                     ) : (
                       <div style={{ fontSize: '11px', color: colors.text.muted }}>
                         No backdoor generated
