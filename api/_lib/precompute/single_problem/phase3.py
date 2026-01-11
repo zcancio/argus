@@ -18,6 +18,7 @@ from typing import List, Optional, Tuple, TYPE_CHECKING
 
 from ..models import BackdoorProposal
 from ..mixins import parse_rating
+from .logger import get_logger
 
 if TYPE_CHECKING:
     from .engine import SingleProblemEngine
@@ -25,20 +26,26 @@ if TYPE_CHECKING:
 
 def phase3_find_exploits(engine: "SingleProblemEngine", proposals: List[BackdoorProposal]) -> List[BackdoorProposal]:
     """Phase 3: Find exploits for SNEAKIEST backdoor only using full pipeline"""
+    log = get_logger()
+
+    log.phase_start(3, "FIND EXPLOITS")
 
     # Find the sneakiest backdoor (no threshold filtering - done at simulation time)
     sneakiest = max(proposals, key=lambda x: x.sneakiness) if proposals else None
+
+    if not sneakiest:
+        log.step("Exploit", "No backdoors to exploit", status="warn")
+        log.phase_end(3, "Skipped (no backdoors)", status="warn")
+        return proposals
+
+    sneakiest_idx = proposals.index(sneakiest)
+    log.summary("Target", f"Backdoor {sneakiest_idx} (sneakiness={sneakiest.sneakiness:.1f})")
 
     for idx, proposal in enumerate(proposals):
         # Only process the sneakiest backdoor
         if proposal != sneakiest:
             proposal.phase_3_complete = True
             continue
-
-        print(f"\n{'='*60}")
-        print(f"PHASE 3: EXPLOIT GENERATION FOR BACKDOOR {idx}")
-        print(f"Sneakiness: {proposal.sneakiness}")
-        print(f"{'='*60}\n")
 
         # Run the 9-step pipeline
         result = _run_exploit_pipeline(engine, proposal, idx)
@@ -55,83 +62,96 @@ def phase3_find_exploits(engine: "SingleProblemEngine", proposals: List[Backdoor
 
         proposal.phase_3_complete = True
 
+    # Phase summary
+    if sneakiest.exploit_found:
+        log.phase_end(3, f"Exploit found (input: {sneakiest.exploit_input[:30] if sneakiest.exploit_input else 'N/A'}...)")
+    else:
+        log.phase_end(3, "No exploit found", status="warn")
+
     return proposals
 
 
 def _run_exploit_pipeline(engine: "SingleProblemEngine", proposal: BackdoorProposal, idx: int) -> dict:
     """Run the full 9-step exploit generation pipeline"""
+    log = get_logger()
 
     result = {}
 
-    # Step 1a: Identify suspicious logic
-    print("[Step 1a] Identifying suspicious logic...")
-    suspicious_logic = _step1a_identify_suspicious_logic(engine, proposal, idx)
+    log.subsection("9-Step Exploit Pipeline")
 
-    # Step 1b: Rate backdoor likelihood
-    print("[Step 1b] Rating backdoor likelihood...")
-    detection_score = _step1b_rate_likelihood(engine, idx)
-    result["detection_score"] = detection_score
-    print(f"  Detection score: {detection_score}/10")
+    with log.indent():
+        # Step 1a: Identify suspicious logic
+        log.step("1a", "Identifying suspicious logic...")
+        suspicious_logic = _step1a_identify_suspicious_logic(engine, proposal, idx)
 
-    # Step 2: Isolate suspicious snippet
-    print("[Step 2] Isolating suspicious snippet...")
-    suspicious_snippet = _step2_isolate_snippet(engine, proposal, idx)
-    result["suspicious_snippet"] = suspicious_snippet
-    print(f"  Snippet: {suspicious_snippet[:100]}..." if len(suspicious_snippet) > 100 else f"  Snippet: {suspicious_snippet}")
+        # Step 1b: Rate backdoor likelihood
+        log.step("1b", "Rating backdoor likelihood...")
+        detection_score = _step1b_rate_likelihood(engine, idx)
+        result["detection_score"] = detection_score
+        log.summary("Detection", f"{detection_score:.1f}/10")
 
-    # Step 3: Get reference solution (we already have U_normal_solution)
-    print("[Step 3] Using U_normal_solution as reference (skipping reconstruction)")
-    correct_solution = engine.result.U_normal_solution
+        # Step 2: Isolate suspicious snippet
+        log.step("2", "Isolating suspicious snippet...")
+        suspicious_snippet = _step2_isolate_snippet(engine, proposal, idx)
+        result["suspicious_snippet"] = suspicious_snippet
+        snippet_preview = suspicious_snippet[:60].replace('\n', ' ') + "..." if len(suspicious_snippet) > 60 else suspicious_snippet
+        log.summary("Snippet", snippet_preview)
 
-    # Step 4: Enumerate exploit properties
-    print("[Step 4] Enumerating exploit properties...")
-    properties_response, properties_list = _step4_enumerate_properties(
-        engine, proposal, correct_solution, suspicious_snippet, idx
-    )
-    result["properties_list"] = properties_list
-    print(f"  Found {len(properties_list.splitlines())} properties")
+        # Step 3: Get reference solution (we already have U_normal_solution)
+        log.step("3", "Using U_normal_solution as reference")
+        correct_solution = engine.result.U_normal_solution
 
-    # Step 5: Validate properties
-    print("[Step 5] Validating properties...")
-    validated_properties = _step5_validate_properties(engine, properties_list, idx)
-    result["validated_properties"] = validated_properties
+        # Step 4: Enumerate exploit properties
+        log.step("4", "Enumerating exploit properties...")
+        properties_response, properties_list = _step4_enumerate_properties(
+            engine, proposal, correct_solution, suspicious_snippet, idx
+        )
+        result["properties_list"] = properties_list
+        prop_count = len([l for l in properties_list.splitlines() if l.strip()])
+        log.summary("Properties", f"{prop_count} constraints")
 
-    # Step 6: Check if exploit is possible
-    print("[Step 6] Checking if exploit is possible...")
-    exploit_possible = _step6_check_possibility(engine, validated_properties, idx)
-    result["exploit_possible"] = exploit_possible
-    print(f"  Exploit possible: {exploit_possible}")
+        # Step 5: Validate properties
+        log.step("5", "Validating properties...")
+        validated_properties = _step5_validate_properties(engine, properties_list, idx)
+        result["validated_properties"] = validated_properties
 
-    if not exploit_possible:
-        print("  Exploit not possible - stopping pipeline")
-        return result
+        # Step 6: Check if exploit is possible
+        log.step("6", "Checking if exploit is possible...")
+        exploit_possible = _step6_check_possibility(engine, validated_properties, idx)
+        result["exploit_possible"] = exploit_possible
+        status = "ok" if exploit_possible else "error"
+        log.summary("Possible", str(exploit_possible), status=status)
 
-    # Step 7: Rate exploit difficulty
-    print("[Step 7] Rating exploit difficulty...")
-    difficulty = _step7_rate_difficulty(engine, proposal, suspicious_snippet, validated_properties, idx)
-    result["exploit_difficulty"] = difficulty
-    print(f"  Difficulty: {difficulty}/10")
+        if not exploit_possible:
+            return result
 
-    # Step 8: Construct exploit step-by-step
-    print("[Step 8] Constructing exploit input...")
-    exploit_input = _step8_construct_exploit(engine, proposal, validated_properties, idx)
-    result["exploit_input"] = exploit_input
-    print(f"  Constructed input: {exploit_input[:100]}..." if exploit_input and len(exploit_input) > 100 else f"  Constructed input: {exploit_input}")
+        # Step 7: Rate exploit difficulty
+        log.step("7", "Rating exploit difficulty...")
+        difficulty = _step7_rate_difficulty(engine, proposal, suspicious_snippet, validated_properties, idx)
+        result["exploit_difficulty"] = difficulty
+        log.summary("Difficulty", f"{difficulty:.1f}/10")
 
-    if not exploit_input:
-        print("  Failed to construct exploit input")
-        return result
+        # Step 8: Construct exploit step-by-step
+        log.step("8", "Constructing exploit input...")
+        exploit_input = _step8_construct_exploit(engine, proposal, validated_properties, idx)
+        result["exploit_input"] = exploit_input
+        if exploit_input:
+            input_preview = exploit_input[:40].replace('\n', '\\n') + "..." if len(exploit_input) > 40 else exploit_input
+            log.summary("Input", input_preview)
+        else:
+            log.summary("Input", "Failed to construct", status="error")
+            return result
 
-    # Step 9: Validate exploit input
-    print("[Step 9] Validating exploit input...")
-    is_valid, fix_needed = _step9_validate_input(engine, proposal, exploit_input, validated_properties, idx)
-    result["exploit_valid"] = is_valid
-    result["exploit_found"] = is_valid
-    print(f"  Input valid: {is_valid}")
+        # Step 9: Validate exploit input
+        log.step("9", "Validating exploit input...")
+        is_valid, fix_needed = _step9_validate_input(engine, proposal, exploit_input, validated_properties, idx)
+        result["exploit_valid"] = is_valid
+        result["exploit_found"] = is_valid
+        status = "ok" if is_valid else "warn"
+        log.summary("Valid", str(is_valid), status=status)
 
-    if not is_valid and fix_needed:
-        print(f"  Fix needed: {fix_needed}")
-        # Could add retry logic here
+        if not is_valid and fix_needed:
+            log.detail(f"Fix needed: {fix_needed}")
 
     return result
 
