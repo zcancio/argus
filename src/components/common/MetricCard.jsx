@@ -1,6 +1,6 @@
 import { colors } from '../../constants';
 
-export function MetricCard({ label, value, subvalue, color = colors.accent.cyan }) {
+export function MetricCard({ label, value, subvalue, expected, color = colors.accent.cyan }) {
   return (
     <div style={{
       background: colors.bg.secondary,
@@ -27,6 +27,11 @@ export function MetricCard({ label, value, subvalue, color = colors.accent.cyan 
       {subvalue && (
         <div style={{ color: colors.text.muted, fontSize: '12px', marginTop: '4px' }}>
           {subvalue}
+        </div>
+      )}
+      {expected && (
+        <div style={{ color: colors.text.muted, fontSize: '11px', marginTop: '8px', paddingTop: '8px', borderTop: `1px solid ${colors.border}` }}>
+          Expected (paper): <span style={{ color: color, fontFamily: 'JetBrains Mono, monospace' }}>{expected}</span>
         </div>
       )}
     </div>

@@ -586,26 +586,61 @@ function AppContent() {
                 })()}
 
                 {/* Metrics Row */}
-                {currentResult && (
-                  <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(3, 1fr)',
-                    gap: '16px',
-                  }}>
-                    <MetricCard
-                      label="Safety Rate"
-                      value={`${(currentResult.metrics.safety_rate * 100).toFixed(1)}%`}
-                      subvalue="Attacks prevented or no attack"
-                      color={colors.accent.cyan}
-                    />
-                    <MetricCard
-                      label="Usefulness Rate"
-                      value={`${(currentResult.metrics.usefulness_rate * 100).toFixed(1)}%`}
-                      subvalue="Responses allowed through"
-                      color={colors.accent.green}
-                    />
-                  </div>
-                )}
+                {currentResult && (() => {
+                  // Determine current protocol preset for expected values
+                  const expectedResults = {
+                    tm: { safety: '62%', usefulness: '97%' },
+                    tm_d5: { safety: '74%', usefulness: '95%' },
+                    tm_d10: { safety: '83%', usefulness: '93%' },
+                    tm_d20: { safety: '92%', usefulness: '83%' },
+                    um: { safety: '79%', usefulness: '96%' },
+                    um_d5: { safety: '82%', usefulness: '95%' },
+                    um_d10: { safety: '92%', usefulness: '92%' },
+                    um_d20: { safety: '98%', usefulness: '85%' },
+                    te_5: { safety: '73%', usefulness: '97%' },
+                    te_10: { safety: '85%', usefulness: '96%' },
+                    te_20: { safety: '92%', usefulness: '94%' },
+                    te_50: { safety: '96%', usefulness: '89%' },
+                  };
+                  const currentPreset =
+                    config.monitor_type === 'trusted' && !config.defer_enabled ? 'tm' :
+                    config.monitor_type === 'trusted' && config.defer_enabled && config.defer_action === 'replace' && config.defer_rate === 0.05 ? 'tm_d5' :
+                    config.monitor_type === 'trusted' && config.defer_enabled && config.defer_action === 'replace' && config.defer_rate === 0.10 ? 'tm_d10' :
+                    config.monitor_type === 'trusted' && config.defer_enabled && config.defer_action === 'replace' && config.defer_rate === 0.20 ? 'tm_d20' :
+                    config.monitor_type === 'untrusted' && !config.defer_enabled ? 'um' :
+                    config.monitor_type === 'untrusted' && config.defer_enabled && config.defer_rate === 0.05 ? 'um_d5' :
+                    config.monitor_type === 'untrusted' && config.defer_enabled && config.defer_rate === 0.10 ? 'um_d10' :
+                    config.monitor_type === 'untrusted' && config.defer_enabled && config.defer_rate === 0.20 ? 'um_d20' :
+                    config.monitor_type === 'trusted' && config.defer_enabled && config.defer_action === 'edit' && config.defer_rate === 0.05 ? 'te_5' :
+                    config.monitor_type === 'trusted' && config.defer_enabled && config.defer_action === 'edit' && config.defer_rate === 0.10 ? 'te_10' :
+                    config.monitor_type === 'trusted' && config.defer_enabled && config.defer_action === 'edit' && config.defer_rate === 0.20 ? 'te_20' :
+                    config.monitor_type === 'trusted' && config.defer_enabled && config.defer_action === 'edit' && config.defer_rate === 0.50 ? 'te_50' :
+                    null;
+                  const expected = expectedResults[currentPreset];
+
+                  return (
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(3, 1fr)',
+                      gap: '16px',
+                    }}>
+                      <MetricCard
+                        label="Safety Rate"
+                        value={`${(currentResult.metrics.safety_rate * 100).toFixed(1)}%`}
+                        subvalue="Attacks prevented or no attack"
+                        expected={expected?.safety}
+                        color={colors.accent.cyan}
+                      />
+                      <MetricCard
+                        label="Usefulness Rate"
+                        value={`${(currentResult.metrics.usefulness_rate * 100).toFixed(1)}%`}
+                        subvalue="Responses allowed through"
+                        expected={expected?.usefulness}
+                        color={colors.accent.green}
+                      />
+                    </div>
+                  );
+                })()}
 
                 {/* Charts */}
                 {currentResult && <EpisodeTimeline episodes={currentResult.episodes} />}
