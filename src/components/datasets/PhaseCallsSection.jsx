@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { colors } from '../../constants';
+import { LLMCallCard } from '../common/LLMCallCard';
 
 // Phase names for display
 const PHASE_NAMES = {
@@ -968,103 +970,21 @@ export function PhaseCallsSection({ phase, calls, result, isExpanded, onToggle, 
           )}
 
           {/* LLM Calls (for all phases except Phase 6 which has none) */}
-          {!isPhase6 && phaseCalls.map((call, idx) => (
-            <div
-              key={call.call_id || idx}
-              style={{
-                marginBottom: idx < phaseCalls.length - 1 ? '16px' : 0,
-                paddingBottom: idx < phaseCalls.length - 1 ? '16px' : 0,
-                borderBottom: idx < phaseCalls.length - 1 ? `1px solid ${colors.border}` : 'none',
-              }}
-            >
+          {!isPhase6 && phaseCalls.length > 0 && (
+            <div style={{ marginTop: '12px' }}>
               <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
+                color: colors.text.muted,
+                fontSize: '10px',
                 marginBottom: '8px',
+                textTransform: 'uppercase',
               }}>
-                <span style={{
-                  padding: '2px 6px',
-                  background: colors.bg.tertiary,
-                  borderRadius: '3px',
-                  fontSize: '10px',
-                  color: colors.text.muted,
-                  fontFamily: 'JetBrains Mono, monospace',
-                }}>
-                  {call.step}
-                </span>
-                <span style={{
-                  padding: '2px 6px',
-                  background: colors.accent.magenta + '20',
-                  borderRadius: '3px',
-                  fontSize: '10px',
-                  color: colors.accent.magenta,
-                  fontFamily: 'JetBrains Mono, monospace',
-                }}>
-                  {call.model}
-                </span>
-                {call.status && (
-                  <span style={{
-                    padding: '2px 6px',
-                    background: call.status === 'completed' ? colors.accent.green + '20' :
-                               call.status === 'failed' ? colors.accent.red + '20' :
-                               colors.accent.amber + '20',
-                    borderRadius: '3px',
-                    fontSize: '10px',
-                    color: call.status === 'completed' ? colors.accent.green :
-                           call.status === 'failed' ? colors.accent.red :
-                           colors.accent.amber,
-                  }}>
-                    {call.status}
-                  </span>
-                )}
+                LLM Calls ({phaseCalls.length})
               </div>
-
-              {/* Prompt */}
-              <div style={{ marginBottom: '8px' }}>
-                <div style={{ color: colors.text.muted, fontSize: '10px', marginBottom: '4px', textTransform: 'uppercase' }}>
-                  Request
-                </div>
-                <pre style={{
-                  background: colors.bg.secondary,
-                  padding: '8px',
-                  borderRadius: '4px',
-                  fontSize: '11px',
-                  color: colors.text.secondary,
-                  overflow: 'auto',
-                  maxHeight: '200px',
-                  margin: 0,
-                  whiteSpace: 'pre-wrap',
-                  wordBreak: 'break-word',
-                  border: `1px solid ${colors.border}`,
-                }}>
-                  {call.prompt || '(no prompt)'}
-                </pre>
-              </div>
-
-              {/* Response */}
-              <div>
-                <div style={{ color: colors.text.muted, fontSize: '10px', marginBottom: '4px', textTransform: 'uppercase' }}>
-                  Response
-                </div>
-                <pre style={{
-                  background: colors.bg.secondary,
-                  padding: '8px',
-                  borderRadius: '4px',
-                  fontSize: '11px',
-                  color: call.error ? colors.accent.red : colors.accent.green,
-                  overflow: 'auto',
-                  maxHeight: '200px',
-                  margin: 0,
-                  whiteSpace: 'pre-wrap',
-                  wordBreak: 'break-word',
-                  border: `1px solid ${call.error ? colors.accent.red + '40' : colors.border}`,
-                }}>
-                  {call.error || call.response || '(no response)'}
-                </pre>
-              </div>
+              {phaseCalls.map((call, idx) => (
+                <LLMCallCard key={call.call_id || idx} call={call} />
+              ))}
             </div>
-          ))}
+          )}
         </div>
       )}
     </div>
