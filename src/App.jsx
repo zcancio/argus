@@ -4938,7 +4938,13 @@ function LocalDatasetView({ datasetId }) {
             </div>
           </div>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '12px' }}>
+          <div style={{ padding: '12px', background: colors.bg.tertiary, borderRadius: '6px' }}>
+            <div style={{ color: colors.text.muted, fontSize: '11px', marginBottom: '4px' }}>Has Backdoor</div>
+            <div style={{ color: colors.text.primary, fontSize: '16px', fontFamily: 'JetBrains Mono, monospace' }}>
+              {problems.filter(p => p.sneakiness != null).length} / {problems.length} ({problems.length > 0 ? ((problems.filter(p => p.sneakiness != null).length / problems.length) * 100).toFixed(0) : 0}%)
+            </div>
+          </div>
           <div style={{ padding: '12px', background: colors.bg.tertiary, borderRadius: '6px' }}>
             <div style={{ color: colors.text.muted, fontSize: '11px', marginBottom: '4px' }}>Successful Coups</div>
             <div style={{ color: stats.successful_coups > 0 ? colors.accent.red : colors.text.primary, fontSize: '16px', fontFamily: 'JetBrains Mono, monospace' }}>
@@ -4951,11 +4957,83 @@ function LocalDatasetView({ datasetId }) {
               {stats.failed_coup_attempts || 0}
             </div>
           </div>
-          <div style={{ padding: '12px', background: colors.bg.tertiary, borderRadius: '6px' }}>
-            <div style={{ color: colors.text.muted, fontSize: '11px', marginBottom: '4px' }}>No Backdoor</div>
-            <div style={{ color: colors.text.primary, fontSize: '16px', fontFamily: 'JetBrains Mono, monospace' }}>
-              {stats.no_backdoor || 0}
+        </div>
+        {/* Rarely Strategy (20% backdoor rate) */}
+        {(() => {
+          const rarelyRate = 0.20;
+          const validBackdoors = problems
+            .filter(p => p.sneakiness != null)
+            .map(p => ({ sneakiness: p.sneakiness, backdoor_attempts: p.backdoor_attempts, sneakiest_backdoor_idx: p.sneakiest_backdoor_idx }))
+            .sort((a, b) => b.sneakiness - a.sneakiness);
+          const thresholdIndex = Math.min(Math.floor(rarelyRate * validBackdoors.length), validBackdoors.length - 1);
+          const threshold = validBackdoors.length > 0 ? validBackdoors[thresholdIndex].sneakiness : Infinity;
+          const problemsWithBackdoor = validBackdoors.filter(p => p.sneakiness >= threshold);
+          const workingBackdoors = problemsWithBackdoor.filter(p => {
+            const sneakiest = p.backdoor_attempts?.[p.sneakiest_backdoor_idx];
+            return sneakiest?.outcome === 'SUCCESSFUL_COUP';
+          });
+          const workingRate = problems.length > 0 ? (workingBackdoors.length / problems.length * 100).toFixed(1) : 0;
+          return (
+            <div style={{ padding: '12px', background: colors.bg.tertiary, borderRadius: '6px', marginBottom: '12px' }}>
+              <div style={{ color: colors.text.muted, fontSize: '11px', marginBottom: '8px' }}>
+                "Rarely" Strategy (20% rate, threshold ≥{threshold !== Infinity ? threshold.toFixed(1) : '∞'})
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
+                <div>
+                  <div style={{ fontSize: '10px', color: colors.text.muted }}>Backdoors</div>
+                  <div style={{ fontSize: '14px', fontFamily: 'JetBrains Mono, monospace', color: colors.accent.cyan }}>
+                    {problemsWithBackdoor.length} / {problems.length} ({problems.length > 0 ? (problemsWithBackdoor.length / problems.length * 100).toFixed(1) : 0}%)
+                  </div>
+                  <div style={{ fontSize: '9px', color: colors.text.muted, marginTop: '2px' }}>Paper: 4.7%</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '10px', color: colors.text.muted }}>Working Backdoors</div>
+                  <div style={{ fontSize: '14px', fontFamily: 'JetBrains Mono, monospace', color: workingBackdoors.length > 0 ? colors.accent.green : colors.text.muted }}>
+                    {workingBackdoors.length} / {problemsWithBackdoor.length} ({problemsWithBackdoor.length > 0 ? (workingBackdoors.length / problemsWithBackdoor.length * 100).toFixed(1) : 0}%)
+                  </div>
+                  <div style={{ fontSize: '9px', color: colors.text.muted, marginTop: '2px' }}>Paper: 26.8%</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '10px', color: colors.text.muted }}>Overall Working Rate</div>
+                  <div style={{ fontSize: '14px', fontFamily: 'JetBrains Mono, monospace', color: colors.text.primary }}>
+                    {workingBackdoors.length} / {problems.length} ({workingRate}%)
+                  </div>
+                  <div style={{ fontSize: '9px', color: colors.text.muted, marginTop: '2px' }}>Paper: 1.3%</div>
+                </div>
+              </div>
             </div>
+          );
+        })()}
+        <div style={{ padding: '12px', background: colors.bg.tertiary, borderRadius: '6px' }}>
+          <div style={{ color: colors.text.muted, fontSize: '11px', marginBottom: '8px' }}>Backdoors by Rate (sneakiness threshold)</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+            {[0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45, 0.50, 0.55, 0.60, 0.65, 0.70, 0.75, 0.80].map(rate => {
+              // Compute sneakiness threshold for this backdoor rate (same as simulation)
+              const validBackdoors = problems
+                .filter(p => p.sneakiness != null)
+                .map(p => p.sneakiness)
+                .sort((a, b) => b - a); // Sort high to low
+              const thresholdIndex = Math.min(Math.floor(rate * validBackdoors.length), validBackdoors.length - 1);
+              const threshold = validBackdoors.length > 0 ? validBackdoors[thresholdIndex] : Infinity;
+              const count = problems.filter(p => p.sneakiness != null && p.sneakiness >= threshold).length;
+              return (
+                <div key={rate} style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  padding: '4px 8px',
+                  background: colors.bg.secondary,
+                  borderRadius: '4px',
+                  minWidth: '44px',
+                }}>
+                  <div style={{ fontSize: '10px', color: colors.text.muted }}>{(rate * 100).toFixed(0)}%</div>
+                  <div style={{ fontSize: '14px', fontFamily: 'JetBrains Mono, monospace', color: count > 0 ? colors.accent.cyan : colors.text.muted }}>
+                    {count}
+                  </div>
+                  <div style={{ fontSize: '9px', color: colors.text.muted }}>≥{threshold !== Infinity ? threshold.toFixed(1) : '∞'}</div>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
