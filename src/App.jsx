@@ -572,43 +572,49 @@ function AppContent() {
                     </div>
                     <div>
                       <h3 style={{ margin: 0, color: colors.text.primary, fontSize: '16px' }}>
-                        Expected Results (Greenblatt et al.)
+                        Expected Results (Greenblatt et al. Table 7)
                       </h3>
                       <p style={{ margin: 0, color: colors.text.muted, fontSize: '12px' }}>
                         Red Team: ~8% backdoor rate, 1/12 subsample
                       </p>
                     </div>
                   </div>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-                    <thead>
-                      <tr style={{ borderBottom: `1px solid ${colors.border}` }}>
-                        <th style={{ textAlign: 'left', padding: '10px 12px', color: colors.text.secondary, fontWeight: '500' }}>Protocol</th>
-                        <th style={{ textAlign: 'center', padding: '10px 12px', color: colors.text.secondary, fontWeight: '500' }}>Defer</th>
-                        <th style={{ textAlign: 'center', padding: '10px 12px', color: colors.accent.cyan, fontWeight: '500' }}>Safety</th>
-                        <th style={{ textAlign: 'center', padding: '10px 12px', color: colors.accent.green, fontWeight: '500' }}>Usefulness</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr style={{ borderBottom: `1px solid ${colors.border}` }}>
-                        <td style={{ padding: '10px 12px', color: colors.text.primary }}>Trusted Monitoring</td>
-                        <td style={{ padding: '10px 12px', color: colors.text.muted, textAlign: 'center' }}>No</td>
-                        <td style={{ padding: '10px 12px', color: colors.accent.cyan, textAlign: 'center', fontFamily: 'JetBrains Mono, monospace' }}>62%</td>
-                        <td style={{ padding: '10px 12px', color: colors.accent.green, textAlign: 'center', fontFamily: 'JetBrains Mono, monospace' }}>97%</td>
-                      </tr>
-                      <tr style={{ borderBottom: `1px solid ${colors.border}` }}>
-                        <td style={{ padding: '10px 12px', color: colors.text.primary }}>Trusted Monitoring</td>
-                        <td style={{ padding: '10px 12px', color: colors.text.muted, textAlign: 'center' }}>10%</td>
-                        <td style={{ padding: '10px 12px', color: colors.accent.cyan, textAlign: 'center', fontFamily: 'JetBrains Mono, monospace' }}>83%</td>
-                        <td style={{ padding: '10px 12px', color: colors.accent.green, textAlign: 'center', fontFamily: 'JetBrains Mono, monospace' }}>93%</td>
-                      </tr>
-                      <tr>
-                        <td style={{ padding: '10px 12px', color: colors.text.primary }}>Trusted Monitoring</td>
-                        <td style={{ padding: '10px 12px', color: colors.text.muted, textAlign: 'center' }}>20%</td>
-                        <td style={{ padding: '10px 12px', color: colors.accent.cyan, textAlign: 'center', fontFamily: 'JetBrains Mono, monospace' }}>88%</td>
-                        <td style={{ padding: '10px 12px', color: colors.accent.green, textAlign: 'center', fontFamily: 'JetBrains Mono, monospace' }}>89%</td>
-                      </tr>
-                    </tbody>
-                  </table>
+                  <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                      <thead style={{ position: 'sticky', top: 0, background: colors.bg.secondary }}>
+                        <tr style={{ borderBottom: `1px solid ${colors.border}` }}>
+                          <th style={{ textAlign: 'left', padding: '8px 10px', color: colors.text.secondary, fontWeight: '500' }}>Protocol</th>
+                          <th style={{ textAlign: 'center', padding: '8px 10px', color: colors.accent.cyan, fontWeight: '500' }}>Safety</th>
+                          <th style={{ textAlign: 'center', padding: '8px 10px', color: colors.accent.green, fontWeight: '500' }}>Usefulness</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {[
+                          { protocol: 'Trusted model only', safety: '100%', usefulness: '2%' },
+                          { protocol: 'Upfront auditing', safety: '15%', usefulness: '100%' },
+                          { protocol: 'Trusted monitoring; defer 0%', safety: '62%', usefulness: '97%' },
+                          { protocol: 'Trusted monitoring; defer 5%', safety: '74%', usefulness: '95%' },
+                          { protocol: 'Trusted monitoring; defer 10%', safety: '83%', usefulness: '93%' },
+                          { protocol: 'Trusted monitoring; defer 20%', safety: '92%', usefulness: '83%' },
+                          { protocol: 'Trusted monitoring; defer 50%', safety: '100%', usefulness: '51%' },
+                          { protocol: 'Untrusted monitoring; defer 0%', safety: '79%', usefulness: '96%' },
+                          { protocol: 'Untrusted monitoring; defer 5%', safety: '82%', usefulness: '95%' },
+                          { protocol: 'Untrusted monitoring; defer 10%', safety: '92%', usefulness: '92%' },
+                          { protocol: 'Untrusted monitoring; defer 20%', safety: '98%', usefulness: '85%' },
+                          { protocol: 'Trusted editing 5%', safety: '73%', usefulness: '97%' },
+                          { protocol: 'Trusted editing 10%', safety: '85%', usefulness: '96%' },
+                          { protocol: 'Trusted editing 20%', safety: '92%', usefulness: '94%' },
+                          { protocol: 'Trusted editing 50%', safety: '96%', usefulness: '89%' },
+                        ].map((row, i) => (
+                          <tr key={i} style={{ borderBottom: `1px solid ${colors.border}` }}>
+                            <td style={{ padding: '6px 10px', color: colors.text.primary }}>{row.protocol}</td>
+                            <td style={{ padding: '6px 10px', color: colors.accent.cyan, textAlign: 'center', fontFamily: 'JetBrains Mono, monospace' }}>{row.safety}</td>
+                            <td style={{ padding: '6px 10px', color: colors.accent.green, textAlign: 'center', fontFamily: 'JetBrains Mono, monospace' }}>{row.usefulness}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
 
                 {/* Metrics Row */}
