@@ -152,7 +152,7 @@ export function ConfigPanel({ config, onChange, onRun, isRunning, datasets, sele
             <option value="te_10">Trusted Editing 10%</option>
             <option value="te_20">Trusted Editing 20%</option>
             <option value="te_50">Trusted Editing 50%</option>
-            <option value="custom">Custom</option>
+            <option value="custom" disabled>Custom (adjust settings below)</option>
           </select>
         </div>
 
