@@ -84,6 +84,39 @@ export function ConfigPanel({ config, onChange, onRun, isRunning, datasets, sele
         </button>
       </div>
 
+      {/* Dataset Models Info */}
+      {selectedDataset?.models && (
+        <div style={{
+          padding: '12px 16px',
+          background: colors.bg.tertiary,
+          borderRadius: '6px',
+          marginBottom: '20px',
+          border: `1px solid ${colors.border}`,
+        }}>
+          <div style={{ fontSize: '11px', color: colors.text.muted, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '10px' }}>
+            Dataset Models
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '12px' }}>
+            <div>
+              <span style={{ color: colors.text.muted }}>Untrusted (U): </span>
+              <span style={{ color: colors.text.primary, fontFamily: 'JetBrains Mono, monospace' }}>{selectedDataset.models.untrusted_model}</span>
+            </div>
+            <div>
+              <span style={{ color: colors.text.muted }}>Trusted (T): </span>
+              <span style={{ color: colors.text.primary, fontFamily: 'JetBrains Mono, monospace' }}>{selectedDataset.models.trusted_model}</span>
+            </div>
+            <div>
+              <span style={{ color: colors.text.muted }}>Human (H): </span>
+              <span style={{ color: colors.text.primary, fontFamily: 'JetBrains Mono, monospace' }}>{selectedDataset.models.human_model}</span>
+            </div>
+            <div>
+              <span style={{ color: colors.text.muted }}>Red Team: </span>
+              <span style={{ color: colors.text.primary, fontFamily: 'JetBrains Mono, monospace' }}>{selectedDataset.models.red_team_model}</span>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Protocol Preset */}
       <div style={{
         padding: '16px',

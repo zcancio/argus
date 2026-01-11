@@ -66,6 +66,7 @@ def list_local_datasets():
             "created_at": (config or {}).get("created_at"),
             "stats": stats,
             "status": _determine_dataset_status(checkpoint, summary),
+            "models": (config or {}).get("models"),
         })
 
     return {"datasets": results}
