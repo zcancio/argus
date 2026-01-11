@@ -99,8 +99,11 @@ class SimulationResults:
     """Results from running the simulation."""
     safety: float  # P(Blue wins)
     safety_se: float  # Standard error
-    usefulness: float  # Average correctness when Blue wins
+    usefulness: float  # Raw average correctness when Blue wins
     usefulness_se: float  # Standard error
+    scaled_usefulness: float  # Scaled usefulness per paper formula
+    max_usefulness: float  # U_normal_correct rate (best case)
+    min_usefulness: float  # T_correct rate (worst case)
     num_trials: int
     num_problems: int
 
@@ -116,8 +119,12 @@ class SimulationResults:
         return {
             "safety": self.safety,
             "safety_se": self.safety_se,
-            "usefulness": self.usefulness,
+            "usefulness": self.scaled_usefulness,  # Report scaled usefulness as primary
             "usefulness_se": self.usefulness_se,
+            "raw_usefulness": self.usefulness,
+            "scaled_usefulness": self.scaled_usefulness,
+            "max_usefulness": self.max_usefulness,
+            "min_usefulness": self.min_usefulness,
             "num_trials": self.num_trials,
             "num_problems": self.num_problems,
             "red_wins": self.red_wins,
@@ -512,6 +519,20 @@ def run_simulation(
     else:
         usefulness_se = 0.0
 
+    # Compute max/min usefulness for scaling (per paper formula)
+    # max_usefulness = U_normal_correct rate (best case: always use U's solution)
+    # min_usefulness = T_correct rate (worst case: always defer to T)
+    max_usefulness = sum(1 for p in problems if p.U_normal_correct) / len(problems) if problems else 0.0
+    min_usefulness = sum(1 for p in problems if p.T_correct) / len(problems) if problems else 0.0
+
+    # Scaled usefulness: (usefulness - min) / (max - min)
+    # This normalizes usefulness to [0, 1] where 0 = always defer, 1 = always use U
+    if max_usefulness > min_usefulness:
+        scaled_usefulness = (usefulness - min_usefulness) / (max_usefulness - min_usefulness)
+    else:
+        # Edge case: if max == min, scaled usefulness is undefined (use raw)
+        scaled_usefulness = usefulness
+
     # Average problem index when red wins
     avg_problem_when_red_wins = sum(red_win_indices) / len(red_win_indices) if red_win_indices else None
 
@@ -520,6 +541,9 @@ def run_simulation(
         safety_se=safety_se,
         usefulness=usefulness,
         usefulness_se=usefulness_se,
+        scaled_usefulness=scaled_usefulness,
+        max_usefulness=max_usefulness,
+        min_usefulness=min_usefulness,
         num_trials=config.num_trials,
         num_problems=config.num_problems,
         red_wins=red_wins,
