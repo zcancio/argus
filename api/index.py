@@ -1652,6 +1652,8 @@ def list_local_dataset_problems(dataset_id: str):
                 "max_difficulty": problem_data.get("max_difficulty"),
                 "U_tests_passed": problem_data.get("U_tests_passed"),
                 "U_tests_total": problem_data.get("U_tests_total"),
+                "T_tests_passed": problem_data.get("T_tests_passed"),
+                "T_tests_total": problem_data.get("T_tests_total"),
                 "T_suspicion_score": problem_data.get("T_suspicion_score"),
                 "H_suspicion_score": problem_data.get("H_suspicion_score"),
                 "sneakiness": problem_data.get("sneakiness"),
