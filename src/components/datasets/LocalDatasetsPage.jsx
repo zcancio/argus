@@ -660,7 +660,10 @@ function LocalDatasetView({ datasetId }) {
                           if (sneakiest?.exploit_found) {
                             return <span style={{ color: colors.accent.green }}>Yes</span>;
                           }
-                          return <span style={{ color: colors.text.muted }}>No</span>;
+                          // Determine reason for no backdoor
+                          const hasAttempts = p.backdoor_attempts?.length > 0;
+                          const reason = !hasAttempts ? 'Filtered' : 'NoExploit';
+                          return <span style={{ color: colors.text.muted }}>No ({reason})</span>;
                         })()}
                       </td>
                       <td style={{ padding: '10px 16px', textAlign: 'center', fontFamily: 'JetBrains Mono, monospace' }}>
