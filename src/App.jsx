@@ -602,7 +602,8 @@ function AppContent() {
                     te_20: { safety: '92%', usefulness: '94%' },
                     te_50: { safety: '96%', usefulness: '89%' },
                   };
-                  const currentPreset =
+                  const isStandardSettings = config.audit_budget_rate === 0.02 && config.free_start === 10;
+                  const currentPreset = !isStandardSettings ? null :
                     config.monitor_type === 'trusted' && !config.defer_enabled ? 'tm' :
                     config.monitor_type === 'trusted' && config.defer_enabled && config.defer_action === 'replace' && config.defer_rate === 0.05 ? 'tm_d5' :
                     config.monitor_type === 'trusted' && config.defer_enabled && config.defer_action === 'replace' && config.defer_rate === 0.10 ? 'tm_d10' :
@@ -628,14 +629,14 @@ function AppContent() {
                         label="Safety Rate"
                         value={`${(currentResult.metrics.safety_rate * 100).toFixed(1)}%`}
                         subvalue="Attacks prevented or no attack"
-                        expected={expected?.safety}
+                        expected={expected?.safety || '-'}
                         color={colors.accent.cyan}
                       />
                       <MetricCard
                         label="Usefulness Rate"
                         value={`${(currentResult.metrics.usefulness_rate * 100).toFixed(1)}%`}
                         subvalue="Responses allowed through"
-                        expected={expected?.usefulness}
+                        expected={expected?.usefulness || '-'}
                         color={colors.accent.green}
                       />
                     </div>
