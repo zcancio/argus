@@ -5,7 +5,7 @@ import { DEFAULT_PROMPTS } from './promptDefaults';
 import { DEFAULT_DATASET_SETTINGS, DEFAULT_DATASET_MODELS, MODEL_OPTIONS, STATUS_BADGES, TEST_STATUS_BADGES } from './datasetDefaults';
 import { saveApiKeys, loadApiKeys, clearApiKeys, saveValidationStatus, loadValidationStatus, hasStoredKeys } from './secureStorage';
 import { colors, API_BASE, DEMO_ONLY } from './constants';
-import { ParetoChart, EpisodeTimeline } from './components/charts';
+import { EpisodeTimeline } from './components/charts';
 import { PromptEditor, InfoIcon, MetricCard, LLMCallCard } from './components/common';
 import { ConfigPanel, ExperimentHistory, TrialsTable } from './components/simulator';
 import {
@@ -213,7 +213,6 @@ function AppContent() {
   const [isRunning, setIsRunning] = useState(false);
   const [currentResult, setCurrentResult] = useState(null);
   const [experiments, setExperiments] = useState([]);
-  const [paretoData, setParetoData] = useState([]);
   const [error, setError] = useState(null);
   const [isDemo, setIsDemo] = useState(true);
   const [storageType, setStorageType] = useState('unknown');
@@ -224,9 +223,8 @@ function AppContent() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [expRes, paretoRes, datasetsRes] = await Promise.all([
+        const [expRes, datasetsRes] = await Promise.all([
           fetch(`${API_BASE}/api/experiments`),
-          fetch(`${API_BASE}/api/pareto`),
           fetch(`${API_BASE}/api/local-datasets`),
         ]);
 
@@ -234,10 +232,6 @@ function AppContent() {
           const data = await expRes.json();
           setExperiments(data.experiments || []);
           setStorageType(data.storage || 'unknown');
-        }
-        if (paretoRes.ok) {
-          const data = await paretoRes.json();
-          setParetoData(data.points || []);
         }
         if (datasetsRes.ok) {
           const data = await datasetsRes.json();
@@ -650,14 +644,7 @@ function AppContent() {
                 )}
 
                 {/* Charts */}
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: '1fr 1fr',
-                  gap: '24px',
-                }}>
-                  <ParetoChart data={paretoData} />
-                  {currentResult && <EpisodeTimeline episodes={currentResult.episodes} />}
-                </div>
+                {currentResult && <EpisodeTimeline episodes={currentResult.episodes} />}
 
                 {/* Trial Results Table */}
                 {currentResult && currentResult.trials && currentResult.trials.length > 0 && (
