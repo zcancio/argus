@@ -407,16 +407,6 @@ function AppContent() {
       setCurrentResult(displayResult);
       setExperiments(prev => [displayResult, ...prev]);
 
-      // Update pareto data
-      setParetoData(prev => {
-        const newPoint = {
-          usefulness_rate: displayResult.usefulness_rate,
-          safety_rate: displayResult.safety_rate,
-          protocol: `${(config.backdoor_rate * 100).toFixed(0)}%${config.defer_enabled ? '+defer' : ''}`,
-        };
-        return [...prev, newPoint];
-      });
-
     } catch (err) {
       setError(err.message);
     } finally {
