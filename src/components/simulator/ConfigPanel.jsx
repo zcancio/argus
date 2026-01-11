@@ -75,7 +75,7 @@ export function ConfigPanel({ config, onChange, onRun, isRunning, datasets, sele
           Control Protocol
         </div>
 
-        <div style={{ marginBottom: 0 }}>
+        <div style={{ marginBottom: '16px' }}>
           <div style={labelStyle}>
             <span style={{ color: colors.text.secondary, display: 'flex', alignItems: 'center' }}>
               Protocol
