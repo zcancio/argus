@@ -550,6 +550,41 @@ function AppContent() {
 
               {/* Right Panel - Results */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                {/* Dataset Models Info */}
+                {(() => {
+                  const selectedDataset = localDatasets.find(d => d.id === selectedDatasetId);
+                  return selectedDataset?.models && (
+                    <div style={{
+                      padding: '16px 20px',
+                      background: colors.bg.secondary,
+                      borderRadius: '8px',
+                      border: `1px solid ${colors.border}`,
+                    }}>
+                      <div style={{ fontSize: '11px', color: colors.text.muted, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px' }}>
+                        Dataset Models
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', fontSize: '13px' }}>
+                        <div>
+                          <div style={{ color: colors.text.muted, marginBottom: '4px' }}>Untrusted (U)</div>
+                          <div style={{ color: colors.text.primary, fontFamily: 'JetBrains Mono, monospace' }}>{selectedDataset.models.untrusted_model}</div>
+                        </div>
+                        <div>
+                          <div style={{ color: colors.text.muted, marginBottom: '4px' }}>Trusted (T)</div>
+                          <div style={{ color: colors.text.primary, fontFamily: 'JetBrains Mono, monospace' }}>{selectedDataset.models.trusted_model}</div>
+                        </div>
+                        <div>
+                          <div style={{ color: colors.text.muted, marginBottom: '4px' }}>Human (H)</div>
+                          <div style={{ color: colors.text.primary, fontFamily: 'JetBrains Mono, monospace' }}>{selectedDataset.models.human_model}</div>
+                        </div>
+                        <div>
+                          <div style={{ color: colors.text.muted, marginBottom: '4px' }}>Red Team</div>
+                          <div style={{ color: colors.text.primary, fontFamily: 'JetBrains Mono, monospace' }}>{selectedDataset.models.red_team_model}</div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
                 {/* Metrics Row */}
                 {currentResult && (
                   <div style={{
