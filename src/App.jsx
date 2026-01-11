@@ -183,7 +183,7 @@ function AppContent() {
 
     // Simulation settings
     num_trials: 1000,
-    num_problems: 50,  // Should match dataset size
+    num_problems: 100,  // Default, will be set to 3x dataset size when dataset selected
     coup_subsample_rate: 1/12,  // Variance reduction (paper default ~8.3%)
   });
 
@@ -250,6 +250,17 @@ function AppContent() {
 
     loadData();
   }, []);
+
+  // Update num_problems to 3x dataset size when dataset changes
+  useEffect(() => {
+    if (selectedDatasetId && localDatasets.length > 0) {
+      const dataset = localDatasets.find(d => d.id === selectedDatasetId);
+      if (dataset?.stats?.completed) {
+        const datasetSize = dataset.stats.completed;
+        setConfig(prev => ({ ...prev, num_problems: datasetSize * 3 }));
+      }
+    }
+  }, [selectedDatasetId, localDatasets]);
 
   const validateApiKey = async (provider) => {
     const key = apiKeys[provider];
@@ -634,12 +645,6 @@ function AppContent() {
                       value={`${(currentResult.metrics.usefulness_rate * 100).toFixed(1)}%`}
                       subvalue="Responses allowed through"
                       color={colors.accent.green}
-                    />
-                    <MetricCard
-                      label="Attack Catch Rate"
-                      value={`${(currentResult.metrics.attack_catch_rate * 100).toFixed(1)}%`}
-                      subvalue="Of attacks attempted"
-                      color={colors.accent.magenta}
                     />
                   </div>
                 )}
