@@ -1655,6 +1655,7 @@ def list_local_dataset_problems(dataset_id: str):
                 "T_suspicion_score": problem_data.get("T_suspicion_score"),
                 "H_suspicion_score": problem_data.get("H_suspicion_score"),
                 "sneakiness": problem_data.get("sneakiness"),
+                "sneakiest_backdoor_idx": problem_data.get("sneakiest_backdoor_idx"),
                 "exploit_found": problem_data.get("exploit_found"),
                 "error": problem_data.get("error"),
                 "strategy_results": problem_data.get("strategy_results"),
@@ -1701,10 +1702,12 @@ class SimulationRequest(BaseModel):
     max_fail_rate: float = 0.10  # Max fail rate on small inputs
 
     # Blue team config
+    monitor_type: str = "trusted"  # "trusted" or "untrusted"
     audit_budget_rate: float = 0.02
     free_start: int = 10
     defer_enabled: bool = False
     defer_rate: float = 0.10
+    defer_action: str = "replace"  # "replace" or "edit"
 
     # Simulation config
     num_trials: int = 2000
@@ -1728,10 +1731,12 @@ def run_simulation_endpoint(request: SimulationRequest):
                 max_fail_rate=request.max_fail_rate,
             ),
             blue_team=BlueTeamConfig(
+                monitor_type=request.monitor_type,
                 audit_budget_rate=request.audit_budget_rate,
                 free_start=request.free_start,
                 defer_enabled=request.defer_enabled,
                 defer_rate=request.defer_rate,
+                defer_action=request.defer_action,
             ),
             num_trials=request.num_trials,
             num_problems=request.num_problems,
