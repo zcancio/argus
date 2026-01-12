@@ -5,7 +5,6 @@ import { DEFAULT_PROMPTS } from './promptDefaults';
 import { DEFAULT_DATASET_SETTINGS, DEFAULT_DATASET_MODELS, MODEL_OPTIONS, STATUS_BADGES, TEST_STATUS_BADGES } from './datasetDefaults';
 import { saveApiKeys, loadApiKeys, clearApiKeys, saveValidationStatus, loadValidationStatus, hasStoredKeys } from './secureStorage';
 import { colors, API_BASE, DEMO_ONLY } from './constants';
-import { EpisodeTimeline } from './components/charts';
 import { PromptEditor, InfoIcon, MetricCard, LLMCallCard } from './components/common';
 import { DatasetPanel, ConfigPanel, ExperimentHistory, TrialsTable } from './components/simulator';
 import {
@@ -529,32 +528,32 @@ function AppContent() {
             )}
 
             <div className="simulator-grid">
-              {/* Left Panel - Config */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                {/* Getting Started */}
-                <div style={{
-                  background: colors.bg.secondary,
-                  border: `1px solid ${colors.border}`,
-                  borderRadius: '8px',
-                  padding: '20px',
-                }}>
-                  <div style={{ fontSize: '11px', color: colors.text.muted, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px' }}>
-                    Getting Started
-                  </div>
-                  <p style={{ color: colors.text.secondary, fontSize: '13px', lineHeight: '1.5', margin: 0 }}>
-                    Select a dataset and run a simulation to reproduce the results of{' '}
-                    <a
-                      href="https://arxiv.org/abs/2312.06942"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{ color: colors.accent.cyan, textDecoration: 'none' }}
-                    >
-                      "AI Control: Improving Safety Despite Intentional Subversion"
-                    </a>
-                    {' '}(Greenblatt et al.).
-                  </p>
+              {/* Getting Started */}
+              <div className="panel-getting-started" style={{
+                background: colors.bg.secondary,
+                border: `1px solid ${colors.border}`,
+                borderRadius: '8px',
+                padding: '20px',
+              }}>
+                <div style={{ fontSize: '11px', color: colors.text.muted, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px' }}>
+                  Getting Started
                 </div>
+                <p style={{ color: colors.text.secondary, fontSize: '13px', lineHeight: '1.5', margin: 0 }}>
+                  Select a dataset and run a simulation to reproduce the results of{' '}
+                  <a
+                    href="https://arxiv.org/abs/2312.06942"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ color: colors.accent.cyan, textDecoration: 'none' }}
+                  >
+                    "AI Control: Improving Safety Despite Intentional Subversion"
+                  </a>
+                  {' '}(Greenblatt et al.).
+                </p>
+              </div>
 
+              {/* Dataset Panel */}
+              <div className="panel-dataset">
                 <DatasetPanel
                   datasets={localDatasets}
                   selectedDatasetId={selectedDatasetId}
@@ -562,6 +561,10 @@ function AppContent() {
                   onRun={runExperiment}
                   isRunning={isRunning}
                 />
+              </div>
+
+              {/* Config Panel */}
+              <div className="panel-config">
                 <ConfigPanel
                   config={config}
                   onChange={setConfig}
@@ -569,13 +572,13 @@ function AppContent() {
                 />
               </div>
 
-              {/* Right Panel - Results */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+              {/* Results Panel */}
+              <div className="panel-results" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                 {/* Dataset Models Info */}
                 {(() => {
                   const selectedDataset = localDatasets.find(d => d.id === selectedDatasetId);
                   return selectedDataset?.models && (
-                    <div style={{
+                    <div className="results-models" style={{
                       padding: '16px 20px',
                       background: colors.bg.secondary,
                       borderRadius: '8px',
@@ -642,31 +645,32 @@ function AppContent() {
                   const expected = expectedResults[currentPreset];
 
                   return (
-                    <div className="metrics-grid">
-                      <MetricCard
-                        label="Safety Rate"
-                        value={`${(currentResult.metrics.safety_rate * 100).toFixed(1)}%`}
-                        subvalue="Attacks prevented or no attack"
-                        expected={expected?.safety || '-'}
-                        color={colors.accent.cyan}
-                      />
-                      <MetricCard
-                        label="Usefulness Rate"
-                        value={`${(currentResult.metrics.usefulness_rate * 100).toFixed(1)}%`}
-                        subvalue="Responses allowed through"
-                        expected={expected?.usefulness || '-'}
-                        color={colors.accent.green}
-                      />
+                    <div className="results-metrics">
+                      <div className="metrics-grid">
+                        <MetricCard
+                          label="Safety Rate"
+                          value={`${(currentResult.metrics.safety_rate * 100).toFixed(1)}%`}
+                          subvalue="Attacks prevented or no attack"
+                          expected={expected?.safety || '-'}
+                          color={colors.accent.cyan}
+                        />
+                        <MetricCard
+                          label="Usefulness Rate"
+                          value={`${(currentResult.metrics.usefulness_rate * 100).toFixed(1)}%`}
+                          subvalue="Responses allowed through"
+                          expected={expected?.usefulness || '-'}
+                          color={colors.accent.green}
+                        />
+                      </div>
                     </div>
                   );
                 })()}
 
-                {/* Charts */}
-                {currentResult && <EpisodeTimeline episodes={currentResult.episodes} />}
-
                 {/* Trial Results Table */}
                 {currentResult && currentResult.trials && currentResult.trials.length > 0 && (
-                  <TrialsTable trials={currentResult.trials} />
+                  <div className="results-trials">
+                    <TrialsTable trials={currentResult.trials} />
+                  </div>
                 )}
 
               </div>

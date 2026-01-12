@@ -1,10 +1,33 @@
 /* Responsive styles for ARGUS */
 
-/* Main simulator grid */
+/* Main simulator grid - Desktop: 2 columns */
 .simulator-grid {
   display: grid;
   grid-template-columns: 320px 1fr;
-  gap: 32px;
+  grid-template-rows: auto auto 1fr;
+  gap: 24px;
+}
+
+/* Desktop layout - left column items */
+.panel-getting-started {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.panel-dataset {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.panel-config {
+  grid-column: 1;
+  grid-row: 3;
+}
+
+/* Desktop layout - right column spans all rows */
+.panel-results {
+  grid-column: 2;
+  grid-row: 1 / -1;
 }
 
 /* Models grid */
@@ -35,9 +58,21 @@
 /* Mobile styles */
 @media (max-width: 768px) {
   .simulator-grid {
-    grid-template-columns: 1fr;
+    display: flex;
+    flex-direction: column;
     gap: 24px;
   }
+
+  /* Mobile order: Getting Started, Dataset, Results, Config */
+  .panel-getting-started { order: 1; }
+  .panel-dataset { order: 2; }
+  .panel-results { order: 3; }
+  .panel-config { order: 4; }
+
+  /* Inside results panel: Metrics, Dataset Models, Trials */
+  .results-metrics { order: 1; }
+  .results-models { order: 2; }
+  .results-trials { order: 3; }
 
   .models-grid {
     grid-template-columns: repeat(2, 1fr);
