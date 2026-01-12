@@ -7,7 +7,7 @@ import { saveApiKeys, loadApiKeys, clearApiKeys, saveValidationStatus, loadValid
 import { colors, API_BASE, DEMO_ONLY } from './constants';
 import { EpisodeTimeline } from './components/charts';
 import { PromptEditor, InfoIcon, MetricCard, LLMCallCard } from './components/common';
-import { ConfigPanel, ExperimentHistory, TrialsTable } from './components/simulator';
+import { DatasetPanel, ConfigPanel, ExperimentHistory, TrialsTable } from './components/simulator';
 import {
   TestProgressModal,
   PhaseCallsSection,
@@ -531,14 +531,17 @@ function AppContent() {
             <div className="simulator-grid">
               {/* Left Panel - Config */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                <ConfigPanel
-                  config={config}
-                  onChange={setConfig}
-                  onRun={runExperiment}
-                  isRunning={isRunning}
+                <DatasetPanel
                   datasets={localDatasets}
                   selectedDatasetId={selectedDatasetId}
                   onDatasetChange={setSelectedDatasetId}
+                  onRun={runExperiment}
+                  isRunning={isRunning}
+                />
+                <ConfigPanel
+                  config={config}
+                  onChange={setConfig}
+                  datasetSize={localDatasets.find(d => d.id === selectedDatasetId)?.stats?.completed || 0}
                 />
               </div>
 

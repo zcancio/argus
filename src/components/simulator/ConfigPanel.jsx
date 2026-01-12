@@ -1,10 +1,7 @@
 import { colors } from '../../constants';
 import { InfoIcon } from '../common';
 
-export function ConfigPanel({ config, onChange, onRun, isRunning, datasets, selectedDatasetId, onDatasetChange }) {
-  // Get selected dataset's problem count
-  const selectedDataset = datasets.find(d => d.id === selectedDatasetId);
-  const datasetSize = selectedDataset?.stats?.completed || 0;
+export function ConfigPanel({ config, onChange, datasetSize }) {
   const numProblemsExceedsDataset = datasetSize > 0 && config.num_problems > datasetSize;
   const sliderStyle = {
     width: '100%',
@@ -44,46 +41,6 @@ export function ConfigPanel({ config, onChange, onRun, isRunning, datasets, sele
       borderRadius: '8px',
       padding: '24px',
     }}>
-      {/* Dataset Selection */}
-      <div style={{ marginBottom: '20px' }}>
-        <div style={labelStyle}>
-          <span style={{ color: colors.text.secondary }}>Dataset</span>
-        </div>
-        <select
-          value={selectedDatasetId || ''}
-          onChange={(e) => onDatasetChange(e.target.value || null)}
-          style={selectStyle}
-        >
-          <option value="">Select a dataset...</option>
-          {datasets.map(d => (
-            <option key={d.id} value={d.id}>
-              {d.name} ({d.stats?.completed || 0} problems)
-            </option>
-          ))}
-        </select>
-
-        <button
-          onClick={onRun}
-          disabled={isRunning || !selectedDatasetId}
-          style={{
-            width: '100%',
-            padding: '14px 20px',
-            marginTop: '12px',
-            background: (isRunning || !selectedDatasetId) ? colors.bg.tertiary : `linear-gradient(135deg, ${colors.accent.cyan}, ${colors.accent.magenta})`,
-            border: 'none',
-            borderRadius: '6px',
-            color: colors.text.primary,
-            fontSize: '14px',
-            fontWeight: '600',
-            cursor: (isRunning || !selectedDatasetId) ? 'not-allowed' : 'pointer',
-            textTransform: 'uppercase',
-            letterSpacing: '1px',
-          }}
-        >
-          {isRunning ? 'Running...' : 'Run Simulation'}
-        </button>
-      </div>
-
       {/* Protocol Preset */}
       <div style={{
         padding: '16px',
