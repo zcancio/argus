@@ -531,6 +531,30 @@ function AppContent() {
             <div className="simulator-grid">
               {/* Left Panel - Config */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                {/* Getting Started */}
+                <div style={{
+                  background: colors.bg.secondary,
+                  border: `1px solid ${colors.border}`,
+                  borderRadius: '8px',
+                  padding: '20px',
+                }}>
+                  <div style={{ fontSize: '11px', color: colors.text.muted, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px' }}>
+                    Getting Started
+                  </div>
+                  <p style={{ color: colors.text.secondary, fontSize: '13px', lineHeight: '1.5', margin: 0 }}>
+                    Select a dataset and run a simulation to reproduce the results of{' '}
+                    <a
+                      href="https://arxiv.org/abs/2312.06942"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ color: colors.accent.cyan, textDecoration: 'none' }}
+                    >
+                      "AI Control: Improving Safety Despite Intentional Subversion"
+                    </a>
+                    {' '}(Greenblatt et al.).
+                  </p>
+                </div>
+
                 <DatasetPanel
                   datasets={localDatasets}
                   selectedDatasetId={selectedDatasetId}
