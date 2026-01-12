@@ -428,8 +428,7 @@ function AppContent() {
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
     }}>
       {/* Header */}
-      <header style={{
-        padding: '20px 40px',
+      <header className="header-content" style={{
         borderBottom: `1px solid ${colors.border}`,
         display: 'flex',
         alignItems: 'center',
@@ -510,7 +509,7 @@ function AppContent() {
       </header>
 
       {/* Main Content */}
-      <main style={{ padding: '32px 40px' }}>
+      <main className="main-content">
         {activeTab === 'simulator' && (
           <>
             {error && (
@@ -527,11 +526,7 @@ function AppContent() {
               </div>
             )}
 
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: '320px 1fr',
-              gap: '32px',
-            }}>
+            <div className="simulator-grid">
               {/* Left Panel - Config */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                 <ConfigPanel
@@ -560,7 +555,7 @@ function AppContent() {
                       <div style={{ fontSize: '11px', color: colors.text.muted, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px' }}>
                         Dataset Models
                       </div>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', fontSize: '13px' }}>
+                      <div className="models-grid">
                         <div>
                           <div style={{ color: colors.text.muted, marginBottom: '4px' }}>Untrusted (U)</div>
                           <div style={{ color: colors.text.primary, fontFamily: 'JetBrains Mono, monospace' }}>{selectedDataset.models.untrusted_model}</div>
@@ -618,11 +613,7 @@ function AppContent() {
                   const expected = expectedResults[currentPreset];
 
                   return (
-                    <div style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(3, 1fr)',
-                      gap: '16px',
-                    }}>
+                    <div className="metrics-grid">
                       <MetricCard
                         label="Safety Rate"
                         value={`${(currentResult.metrics.safety_rate * 100).toFixed(1)}%`}
