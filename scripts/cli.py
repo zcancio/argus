@@ -309,7 +309,7 @@ def simulate(dataset_id, protocol, defer_rate, audit_rate, free_start, trials, p
         "free_start": free_start,
         "num_trials": trials,
         "num_problems": num_problems,
-        "backdoor_rate": 0.50,
+        "backdoor_rate": 0.20,
         "coup_subsample_rate": 1/12,
     }
 
@@ -332,7 +332,7 @@ def simulate(dataset_id, protocol, defer_rate, audit_rate, free_start, trials, p
 
         config = SimulationConfig(
             red_team=RedTeamConfig(
-                backdoor_rate=0.50,
+                backdoor_rate=0.20,
                 max_fail_rate=0.10,
             ),
             blue_team=BlueTeamConfig(
