@@ -62,22 +62,6 @@ argus simulate paper_baseline_75 --protocol um --json
 
 ---
 
-## Deploy to Vercel
-
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/YOUR_USERNAME/argus)
-
-Or manually:
-
-```bash
-# Install Vercel CLI
-npm install -g vercel
-
-# Deploy
-vercel
-```
-
-That's it! Frontend + Python API both run on Vercel.
-
 ## Local Development
 
 ```bash
