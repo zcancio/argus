@@ -11,6 +11,52 @@ For detailed learnings and reflections from building this project, see [LEARNING
 
 ---
 
+## CLI Usage
+
+Install the CLI:
+
+```bash
+pip install -e .
+```
+
+### Dataset Commands
+
+```bash
+# Generate a new dataset
+argus dataset generate paper_replication -n 75 --chunk 10
+
+# Run more problems in parallel
+argus dataset run paper_baseline_75 --add 25 --workers 3
+
+# List datasets
+argus dataset list
+
+# Show dataset details
+argus dataset info paper_baseline_75
+```
+
+### Filter APPS Problems
+
+```bash
+# Filter APPS dataset (required before generating datasets)
+argus apps filter
+```
+
+### Run Simulations
+
+```bash
+# Run simulation with Trusted Monitoring
+argus simulate paper_baseline_75 --protocol tm --defer-rate 0.10
+
+# Run with Trusted Editing
+argus simulate paper_baseline_75 --protocol te --defer-rate 0.20
+
+# Output as JSON
+argus simulate paper_baseline_75 --protocol um --json
+```
+
+---
+
 ## Deploy to Vercel
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/YOUR_USERNAME/argus)

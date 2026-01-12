@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "argus-cli"
+version = "1.0.0"
+description = "AI Control Protocol Benchmark CLI"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [
+    {name = "Zach Cancio"}
+]
+dependencies = [
+    "click>=8.0.0",
+    "python-dotenv>=1.0.0",
+    "tqdm>=4.0.0",
+    "datasets>=2.0.0",
+    "httpx>=0.24.0",
+    "openai>=1.0.0",
+]
+
+[project.scripts]
+argus = "scripts.cli:main"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["scripts*", "api*"]
