@@ -1,6 +1,15 @@
-# ARGUS - AI Control Protocol Benchmark
+# Argus
+*The hundred-eyed monitor*
 
-A framework for evaluating AI control protocols. Deploy to Vercel with one click.
+Argus is a recreation of the results from ["AI Control: Improving Safety Despite Intentional Subversion"](https://arxiv.org/abs/2312.06942) (Greenblatt et al.).
+
+In the paper, a trusted monitor is used to try and control an untrusted monitor. For the paper and in this recreation, we use GPT-3.5 as the trusted monitor and GPT-4o as the untrusted monitor. Our results appear on par with the paper. We used a smaller problem dataset to reduce cost, but the small sample size still behaves similarly to the large sample used in the paper. Our recreation utilizes the same procedures and prompts. The main difference (other than a smaller sample size) was that we used Python instead of C++ for generating solutions and backdoors.
+
+This project was made possible by leveraging Claude Code extensively. We collaborated with Claude Opus 4.5 on creating the pipeline for pre-computation and simulation.
+
+For detailed learnings and reflections from building this project, see [LEARNINGS.md](./LEARNINGS.md).
+
+---
 
 ## Deploy to Vercel
 
@@ -17,6 +26,19 @@ vercel
 ```
 
 That's it! Frontend + Python API both run on Vercel.
+
+## Local Development
+
+```bash
+# Install frontend dependencies
+npm install
+
+# Install Python dependencies
+pip install -r requirements.txt
+
+# Run dev server
+vercel dev
+```
 
 ## Add Persistent Storage (Optional)
 
@@ -47,81 +69,32 @@ The environment variables (`KV_URL`, etc.) are automatically added. The app will
 
 **Free tier**: 30,000 requests/month, 256MB storage — plenty for a portfolio project.
 
-## Local Development
-
-```bash
-# Install frontend dependencies
-npm install
-
-# Run dev server (frontend only, in-memory storage)
-npm run dev
-
-# To run with local Python API:
-pip install fastapi uvicorn httpx pydantic redis
-cd api && uvicorn index:app --reload
-```
-
 ## Architecture
 
 ```
 argus/
 ├── src/              # React frontend
 │   ├── App.jsx
+│   ├── components/
 │   └── main.jsx
 ├── api/              # Python serverless functions
 │   ├── index.py      # FastAPI app
 │   └── _lib/         # Shared modules
-│       ├── core.py
-│       ├── protocols.py
-│       ├── environments.py
-│       └── storage.py    # Vercel KV integration
-├── package.json
-├── requirements.txt
+│       ├── simulation.py   # Monte Carlo simulation
+│       ├── precompute/     # Pre-computation pipeline
+│       └── dataset/        # Dataset management
+├── datasets/         # Pre-computed problem datasets
+├── scripts/          # Dataset generation scripts
 └── vercel.json
 ```
 
-## API Endpoints
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api` | GET | Health check, shows storage status |
-| `/api/experiments/run` | POST | Run new experiment |
-| `/api/experiments` | GET | List all experiments |
-| `/api/experiments/{id}` | GET | Get specific experiment |
-| `/api/experiments/{id}` | DELETE | Delete experiment |
-| `/api/pareto` | GET | Get Pareto frontier data |
-| `/api/validate-key` | POST | Validate LLM API key |
-
 ## How It Works
 
-**Frontend**: React + Vite dashboard for configuring and visualizing experiments.
-
-**Backend**: Python FastAPI running as Vercel serverless functions.
-
-**Storage**: Vercel KV (Redis) for persistent experiment results. Falls back to in-memory if KV not configured.
-
-**Flow**:
-1. User configures protocol parameters
-2. Clicks "Run Experiment"
-3. API runs N episodes, saves to KV
-4. Results displayed + persisted for later
-
-## Limitations
-
-- **10s timeout** (60s on Pro) — keep `num_episodes` under ~200
-- **Cold starts** — first request may be slower
-- **KV free tier** — 30k requests/month
-
-## Using Real LLM APIs
-
-1. Enter your Anthropic or OpenAI API key
-2. Click "Test" to validate
-3. Select the provider in dropdowns
-4. Run experiment with real models
-
-Keys are sent via headers and never stored.
+1. **Pre-computation**: Problems are pre-computed with solutions, backdoors, and suspicion scores
+2. **Simulation**: Monte Carlo trials sample from the dataset to estimate safety/usefulness
+3. **Protocols**: Different monitoring strategies (Trusted Monitoring, Untrusted Monitoring, Trusted Editing)
 
 ## Learn More
 
-This implements the Trusted Monitoring protocol from [Greenblatt et al., "AI Control: Improving Safety Despite Intentional Subversion"](https://arxiv.org/abs/2312.06942).
-
+- [LEARNINGS.md](./LEARNINGS.md) - Detailed learnings from building this project
+- [Original Paper](https://arxiv.org/abs/2312.06942) - "AI Control: Improving Safety Despite Intentional Subversion"
