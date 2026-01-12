@@ -16,6 +16,11 @@ For detailed learnings and reflections from building this project, see [LEARNING
 Install the CLI:
 
 ```bash
+# Basic CLI (for running simulations)
+pip install -e .
+
+# Full CLI with dataset generation (larger install)
+pip install -r requirements-cli.txt
 pip install -e .
 ```
 

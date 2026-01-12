@@ -1,0 +1,11 @@
+# CLI dependencies (for local dataset generation)
+# Install with: pip install -r requirements-cli.txt
+
+-r requirements.txt
+
+# CLI framework
+click>=8.0.0
+tqdm>=4.0.0
+
+# Dataset generation (large dependencies - not for Vercel)
+datasets>=2.0.0

@@ -16,9 +16,13 @@ dependencies = [
     "click>=8.0.0",
     "python-dotenv>=1.0.0",
     "tqdm>=4.0.0",
-    "datasets>=2.0.0",
     "httpx>=0.24.0",
     "openai>=1.0.0",
+]
+
+[project.optional-dependencies]
+datasets = [
+    "datasets>=2.0.0",
 ]
 
 [project.scripts]
