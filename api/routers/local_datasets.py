@@ -8,6 +8,9 @@ from pathlib import Path
 
 router = APIRouter(prefix="/api/local-datasets", tags=["local-datasets"])
 
+# Resolve datasets directory relative to project root
+DATASETS_DIR = Path(__file__).parent.parent.parent / "datasets"
+
 # Environment variable to show hidden datasets (for development)
 SHOW_HIDDEN_DATASETS = os.environ.get("SHOW_HIDDEN_DATASETS", "").lower() == "true"
 
@@ -37,7 +40,7 @@ def _determine_dataset_status(checkpoint: Optional[dict], summary: Optional[dict
 @router.get("")
 def list_local_datasets():
     """List all datasets in the datasets/ directory."""
-    datasets_dir = Path("datasets")
+    datasets_dir = DATASETS_DIR
     if not datasets_dir.exists():
         return {"datasets": []}
 
@@ -75,7 +78,7 @@ def list_local_datasets():
 @router.get("/{dataset_id}")
 def get_local_dataset(dataset_id: str):
     """Get full details for a local dataset."""
-    datasets_dir = Path("datasets")
+    datasets_dir = DATASETS_DIR
     dataset_dir = datasets_dir / dataset_id
 
     if not dataset_dir.exists() or not dataset_dir.is_dir():
@@ -97,7 +100,7 @@ def get_local_dataset(dataset_id: str):
 @router.get("/{dataset_id}/problems")
 def list_local_dataset_problems(dataset_id: str):
     """List all problems in a local dataset."""
-    datasets_dir = Path("datasets")
+    datasets_dir = DATASETS_DIR
     dataset_dir = datasets_dir / dataset_id
 
     if not dataset_dir.exists() or not dataset_dir.is_dir():
@@ -140,7 +143,7 @@ def list_local_dataset_problems(dataset_id: str):
 @router.get("/{dataset_id}/problems/{problem_id}")
 def get_local_dataset_problem(dataset_id: str, problem_id: str):
     """Get full details for a problem in a local dataset."""
-    datasets_dir = Path("datasets")
+    datasets_dir = DATASETS_DIR
     problem_path = datasets_dir / dataset_id / "problems" / f"{problem_id}.json"
 
     if not problem_path.exists():

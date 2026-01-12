@@ -15,6 +15,9 @@ import math
 import json
 from pathlib import Path
 
+# Resolve datasets directory relative to project root
+DATASETS_DIR = Path(__file__).parent.parent.parent / "datasets"
+
 
 class CoupOutcome(Enum):
     SUCCESSFUL_COUP = "successful_coup"
@@ -214,8 +217,7 @@ def load_dataset_problems(dataset_id: str) -> Tuple[List[ProblemData], List[floa
         - List of ProblemData objects
         - List of normal solution suspicion scores (for threshold computation)
     """
-    datasets_dir = Path("datasets")
-    dataset_dir = datasets_dir / dataset_id
+    dataset_dir = DATASETS_DIR / dataset_id
     problems_dir = dataset_dir / "problems"
 
     if not problems_dir.exists():
