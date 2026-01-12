@@ -75,35 +75,6 @@ pip install -r requirements.txt
 vercel dev
 ```
 
-## Add Persistent Storage (Optional)
-
-By default, experiments are stored in-memory and reset on cold starts. To persist experiments:
-
-### 1. Create Vercel KV Database
-
-```bash
-# In your project directory
-vercel link                    # Link to your Vercel project
-vercel storage add kv          # Create KV database
-```
-
-Or via dashboard:
-1. Go to your project on vercel.com
-2. Click "Storage" tab
-3. Click "Create Database" → "KV"
-4. Name it (e.g., "argus-experiments")
-5. Click "Connect"
-
-### 2. Redeploy
-
-```bash
-vercel --prod
-```
-
-The environment variables (`KV_URL`, etc.) are automatically added. The app will detect KV and use it.
-
-**Free tier**: 30,000 requests/month, 256MB storage — plenty for a portfolio project.
-
 ## Architecture
 
 ```
