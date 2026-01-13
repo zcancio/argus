@@ -62,38 +62,6 @@ argus simulate paper_baseline_75 --protocol um --json
 
 ---
 
-## Local Development
-
-```bash
-# Install frontend dependencies
-npm install
-
-# Install Python dependencies
-pip install -r requirements.txt
-
-# Run dev server
-vercel dev
-```
-
-## Architecture
-
-```
-argus/
-├── src/              # React frontend
-│   ├── App.jsx
-│   ├── components/
-│   └── main.jsx
-├── api/              # Python serverless functions
-│   ├── index.py      # FastAPI app
-│   └── _lib/         # Shared modules
-│       ├── simulation.py   # Monte Carlo simulation
-│       ├── precompute/     # Pre-computation pipeline
-│       └── dataset/        # Dataset management
-├── datasets/         # Pre-computed problem datasets
-├── scripts/          # Dataset generation scripts
-└── vercel.json
-```
-
 ## How It Works
 
 1. **Pre-computation**: Problems are pre-computed with solutions, backdoors, and suspicion scores
