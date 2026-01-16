@@ -6,7 +6,7 @@ import { DEFAULT_DATASET_SETTINGS, DEFAULT_DATASET_MODELS, MODEL_OPTIONS, STATUS
 import { saveApiKeys, loadApiKeys, clearApiKeys, saveValidationStatus, loadValidationStatus, hasStoredKeys } from './secureStorage';
 import { colors, API_BASE, DEMO_ONLY } from './constants';
 import { PromptEditor, InfoIcon, MetricCard, LLMCallCard } from './components/common';
-import { DatasetPanel, ConfigPanel, ExperimentHistory, TrialsTable } from './components/simulator';
+import { DatasetPanel, ConfigPanel, ExperimentHistory, TrialsTable, ComparisonPanel } from './components/simulator';
 import {
   TestProgressModal,
   PhaseCallsSection,
@@ -217,6 +217,7 @@ function AppContent() {
   const [storageType, setStorageType] = useState('unknown');
   const [localDatasets, setLocalDatasets] = useState([]);
   const [selectedDatasetId, setSelectedDatasetId] = useState(null);
+  const [simulatorView, setSimulatorView] = useState('single'); // 'single' or 'compare'
 
   // Load experiments and datasets on mount
   useEffect(() => {
@@ -527,6 +528,51 @@ function AppContent() {
               </div>
             )}
 
+            {/* View Toggle */}
+            <div style={{
+              display: 'flex',
+              gap: '4px',
+              marginBottom: '24px',
+              background: colors.bg.secondary,
+              padding: '4px',
+              borderRadius: '8px',
+              width: 'fit-content',
+            }}>
+              <button
+                onClick={() => setSimulatorView('single')}
+                style={{
+                  padding: '8px 20px',
+                  background: simulatorView === 'single' ? colors.bg.tertiary : 'transparent',
+                  border: 'none',
+                  borderRadius: '6px',
+                  color: simulatorView === 'single' ? colors.text.primary : colors.text.secondary,
+                  fontSize: '13px',
+                  fontWeight: simulatorView === 'single' ? '600' : '400',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                }}
+              >
+                Single Protocol
+              </button>
+              <button
+                onClick={() => setSimulatorView('compare')}
+                style={{
+                  padding: '8px 20px',
+                  background: simulatorView === 'compare' ? colors.bg.tertiary : 'transparent',
+                  border: 'none',
+                  borderRadius: '6px',
+                  color: simulatorView === 'compare' ? colors.text.primary : colors.text.secondary,
+                  fontSize: '13px',
+                  fontWeight: simulatorView === 'compare' ? '600' : '400',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                }}
+              >
+                Compare All
+              </button>
+            </div>
+
+            {simulatorView === 'single' && (
             <div className="simulator-grid">
               {/* Getting Started */}
               <div className="panel-getting-started" style={{
@@ -675,6 +721,54 @@ function AppContent() {
 
               </div>
             </div>
+            )}
+
+            {simulatorView === 'compare' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                {/* Dataset Selector for Compare View */}
+                <div style={{
+                  background: colors.bg.secondary,
+                  border: `1px solid ${colors.border}`,
+                  borderRadius: '8px',
+                  padding: '20px',
+                }}>
+                  <div style={{ fontSize: '11px', color: colors.text.muted, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px' }}>
+                    Select Dataset
+                  </div>
+                  <select
+                    value={selectedDatasetId || ''}
+                    onChange={(e) => setSelectedDatasetId(e.target.value || null)}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      background: colors.bg.tertiary,
+                      border: `1px solid ${colors.border}`,
+                      borderRadius: '6px',
+                      color: colors.text.primary,
+                      fontSize: '13px',
+                    }}
+                  >
+                    <option value="">Select a dataset...</option>
+                    {localDatasets.filter(d => d.stats?.completed > 0).map(d => (
+                      <option key={d.id} value={d.id}>
+                        {d.name} ({d.stats.completed} problems)
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <ComparisonPanel
+                  selectedDatasetId={selectedDatasetId}
+                  baseConfig={{
+                    backdoor_rate: config.backdoor_rate,
+                    max_fail_rate: config.max_fail_rate,
+                    num_trials: config.num_trials,
+                    num_problems: config.num_problems,
+                    coup_subsample_rate: config.coup_subsample_rate,
+                  }}
+                />
+              </div>
+            )}
           </>
         )}
 
