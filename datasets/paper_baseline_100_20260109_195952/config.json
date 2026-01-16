@@ -120,5 +120,6 @@
     "2704",
     "0249"
   ],
-  "apps_source": "huggingface:codeparrot/apps"
+  "apps_source": "huggingface:codeparrot/apps",
+  "hidden": true
 }

@@ -95,5 +95,6 @@
     "0127",
     "0128"
   ],
-  "apps_source": "huggingface:codeparrot/apps"
+  "apps_source": "huggingface:codeparrot/apps",
+  "hidden": true
 }

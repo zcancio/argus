@@ -32,5 +32,6 @@
     "0544",
     "0665"
   ],
-  "apps_source": "huggingface:codeparrot/apps"
+  "apps_source": "huggingface:codeparrot/apps",
+  "hidden": true
 }

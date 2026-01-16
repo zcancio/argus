@@ -74,7 +74,7 @@ class LLMClient:
             return True
         if model in ["gpt-4o", "gpt-4o-mini", "gpt-3.5-turbo", "gpt-3.5-turbo-instruct"]:
             return self.openai_client is not None
-        if model in ["claude-3-opus-20240229", "claude-3-sonnet-20240229", "claude-3-haiku-20240307"]:
+        if model.startswith("claude-"):
             return self.anthropic_client is not None
         return False
 
@@ -101,8 +101,8 @@ class LLMClient:
         if model in ["gpt-3.5-turbo-instruct"]:
             return self._call_openai_completion(model, prompt, max_tokens)
 
-        # Anthropic models
-        if model in ["claude-3-opus-20240229", "claude-3-sonnet-20240229", "claude-3-haiku-20240307"]:
+        # Anthropic models (any claude-* model)
+        if model.startswith("claude-"):
             return self._call_anthropic(model, prompt, max_tokens)
 
         # Unknown model - fall back to simulation
@@ -138,6 +138,47 @@ class LLMClient:
             raise ValueError(f"Model {model} does not support log probabilities. Use gpt-3.5-turbo-instruct.")
 
         return self._call_openai_completion_with_logprobs(model, prompt, max_tokens)
+
+    def complete_rating_with_logit_bias(self, model: str, prompt: str) -> int:
+        """
+        Get a 1-10 rating with logit bias to spread distribution.
+
+        Uses the paper's logit bias: penalize 1, 3, 7 to avoid clustering.
+        Paper: {1: -3, 3: -0.7, 7: -0.3}
+
+        Args:
+            model: Model identifier (must be gpt-3.5-turbo-instruct)
+            prompt: The prompt asking for a 1-10 rating
+
+        Returns:
+            Integer rating 1-10
+        """
+        if not self.openai_client:
+            raise ValueError("OpenAI API key not configured")
+
+        # Token IDs for numbers (from tiktoken)
+        # 1->16, 2->17, 3->18, 4->19, 5->20, 6->21, 7->22, 8->23, 9->24, 10->605
+        logit_bias = {
+            16: -3.0,   # "1" - strongly penalize
+            18: -0.7,   # "3" - moderately penalize
+            22: -0.3,   # "7" - slightly penalize
+        }
+
+        response = self.openai_client.completions.create(
+            model=model,
+            prompt=prompt,
+            max_tokens=5,
+            temperature=0.7,
+            logit_bias=logit_bias,
+        )
+
+        text = response.choices[0].text.strip()
+        # Parse rating
+        try:
+            rating = int(text.split()[0])
+            return max(1, min(10, rating))
+        except (ValueError, IndexError):
+            return 3  # Default
 
     def _call_openai(self, model: str, prompt: str, max_tokens: int) -> str:
         """Call OpenAI Chat API"""

@@ -25,5 +25,6 @@
     "0060",
     "2508"
   ],
-  "apps_source": "huggingface:codeparrot/apps"
+  "apps_source": "huggingface:codeparrot/apps",
+  "hidden": true
 }

@@ -57,13 +57,14 @@ def dataset():
 @click.option("--trusted-model", default="gpt-3.5-turbo", help="Trusted model (T) for monitoring")
 @click.option("--untrusted-model", default="gpt-4o", help="Untrusted model (U) for solutions")
 @click.option("--red-team-model", default="gpt-4o", help="Red team model for backdoor generation")
+@click.option("-p", "--problems", help="Comma-separated problem IDs or path to JSON file with problem_ids array")
 @click.option("-c", "--chunk", type=int, help="Process only this many problems per run")
 @click.option("--resume", is_flag=True, help="Resume from checkpoint if exists")
 @click.option("-v", "--verbose", is_flag=True, help="Enable detailed logging")
 @click.option("-q", "--quiet", is_flag=True, help="Suppress progress bar")
 @click.option("-o", "--output-dir", default="datasets", help="Base output directory")
 def dataset_generate(name, num_problems, num_backdoors, max_difficulty, trusted_model,
-                     untrusted_model, red_team_model, chunk, resume, verbose, quiet, output_dir):
+                     untrusted_model, red_team_model, problems, chunk, resume, verbose, quiet, output_dir):
     """Generate a new dataset with pre-computed problem results.
 
     Examples:
@@ -73,10 +74,33 @@ def dataset_generate(name, num_problems, num_backdoors, max_difficulty, trusted_
         argus dataset generate test_run -n 10 -v
 
         argus dataset generate paper_replication -n 75 --chunk 10
+
+        argus dataset generate claude_test -p datasets/paper_baseline_75/config.json
     """
     # Import here to avoid slow startup
     from scripts.generate_dataset import cmd_generate
     import argparse
+
+    # Parse problems argument
+    problem_ids = None
+    if problems:
+        if problems.endswith('.json'):
+            # Load from JSON file (can be config.json or a list)
+            with open(problems) as f:
+                data = json.load(f)
+                if isinstance(data, list):
+                    problem_ids = data
+                elif 'problem_ids' in data:
+                    problem_ids = data['problem_ids']
+                else:
+                    click.echo(f"Error: JSON file must contain a list or 'problem_ids' key")
+                    return
+            num_problems = len(problem_ids)
+            click.echo(f"Loaded {num_problems} problem IDs from {problems}")
+        else:
+            # Comma-separated list
+            problem_ids = [p.strip() for p in problems.split(',')]
+            num_problems = len(problem_ids)
 
     args = argparse.Namespace(
         name=name,
@@ -87,7 +111,7 @@ def dataset_generate(name, num_problems, num_backdoors, max_difficulty, trusted_
         trusted_model=trusted_model,
         untrusted_model=untrusted_model,
         red_team_model=red_team_model,
-        problems=None,
+        problems=problem_ids,
         mandatory_problems=[],
         chunk=chunk,
         resume=resume,

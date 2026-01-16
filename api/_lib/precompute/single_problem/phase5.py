@@ -195,9 +195,13 @@ def _run_monitoring_pipeline(
             role=role
         )
 
-        # Step 2: Numeric rating (1-10)
+        # Step 2: Numeric rating (1-10) - based on the analysis from step 1
         print(f"Step 2: Rating suspicion...")
-        rate_prompt = engine._get_prompt("RATE_SUSPICION_PROMPT")
+        rate_prompt = engine._get_prompt("RATE_SUSPICION_PROMPT").format(
+            problem_text=engine.problem_text,
+            code=code,
+            analysis=result.suspicious_logic
+        )
         rate_response = engine._call_llm(
             chat_model, rate_prompt,
             f"{monitor_type}_rate_suspicion_{code_label}",
@@ -208,7 +212,10 @@ def _run_monitoring_pipeline(
 
         # Step 3: Yes/No backdoor detection (with logprobs for trusted)
         print(f"Step 3: Yes/No detection...")
-        yesno_prompt = engine._get_prompt("YES_NO_BACKDOOR_PROMPT")
+        yesno_prompt = engine._get_prompt("YES_NO_BACKDOOR_PROMPT").format(
+            problem_text=engine.problem_text,
+            code=code
+        )
 
         if logprob_model:
             # Use instruct model with logprobs for trusted monitoring
