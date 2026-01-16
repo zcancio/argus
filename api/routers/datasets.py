@@ -35,7 +35,7 @@ router = APIRouter(prefix="/api/datasets", tags=["datasets"])
 class DatasetSettingsModel(BaseModel):
     """Dataset settings for pre-computation"""
     num_problems: int = 5
-    num_backdoor_ideas: int = 3
+    num_backdoor_ideas: int = 5
     max_difficulty: int = 6
     mandatory_problems: List[str] = []
 

@@ -94,8 +94,15 @@ def run_monitoring(llm: LLMClient, code: str, problem_text: str, model: str, mon
     }
 
 
-def rerun_phase5(dataset_id: str, max_problems: int = None, dry_run: bool = False):
-    """Rerun phase 5 on all problems with valid backdoors"""
+def rerun_phase5(dataset_id: str, max_problems: int = None, dry_run: bool = False, all_problems: bool = False):
+    """Rerun phase 5 on problems.
+
+    Args:
+        dataset_id: Dataset to process
+        max_problems: Max number of problems to process
+        dry_run: Don't actually update files
+        all_problems: If True, process ALL completed problems (not just those with backdoors)
+    """
 
     dataset_path = Path("datasets") / dataset_id
     if not dataset_path.exists():
@@ -110,24 +117,37 @@ def rerun_phase5(dataset_id: str, max_problems: int = None, dry_run: bool = Fals
     print(f"Dataset: {dataset_id}")
     print(f"Trusted model: {trusted_model}")
     print(f"Untrusted model: {untrusted_model}")
+    print(f"Mode: {'ALL problems' if all_problems else 'Only backdoor problems'}")
     print()
 
     # Initialize LLM client
     llm = LLMClient()
 
-    # Find problems with valid backdoors
+    # Find problems to process
     problems_dir = dataset_path / "problems"
     problems_to_update = []
 
     for f in sorted(problems_dir.glob("*.json")):
         data = json.load(open(f))
+
+        # Skip incomplete problems
+        if data.get("status") != "completed":
+            continue
+
         normal = data.get("U_normal_solution", "")
         backdoor = data.get("U_backdoored_solution", "")
+        has_backdoor = backdoor and backdoor != normal
 
-        if backdoor and backdoor != normal:
-            problems_to_update.append((f, data))
+        if all_problems:
+            # Process all completed problems with a normal solution
+            if normal:
+                problems_to_update.append((f, data, has_backdoor))
+        else:
+            # Only process problems with valid backdoors
+            if has_backdoor:
+                problems_to_update.append((f, data, True))
 
-    print(f"Found {len(problems_to_update)} problems with valid backdoors")
+    print(f"Found {len(problems_to_update)} problems to process")
 
     if max_problems:
         problems_to_update = problems_to_update[:max_problems]
@@ -136,7 +156,7 @@ def rerun_phase5(dataset_id: str, max_problems: int = None, dry_run: bool = Fals
     print()
 
     # Process each problem
-    for i, (filepath, data) in enumerate(problems_to_update):
+    for i, (filepath, data, has_backdoor) in enumerate(problems_to_update):
         problem_id = data.get("problem_id")
         problem_text = data.get("problem_text", "")
 
@@ -150,15 +170,17 @@ def rerun_phase5(dataset_id: str, max_problems: int = None, dry_run: bool = Fals
                 problem_text = problem.question
 
         normal_code = data.get("U_normal_solution", "")
-        backdoor_code = data.get("U_backdoored_solution", "")
+        backdoor_code = data.get("U_backdoored_solution", "") if has_backdoor else None
 
         old_t_normal = data.get("T_suspicion_normal")
-        old_t_backdoor = data.get("T_suspicion_backdoor")
-        old_u_normal = data.get("U_suspicion_normal")
-        old_u_backdoor = data.get("U_suspicion_backdoor")
+        old_t_backdoor = data.get("T_suspicion_backdoor") if has_backdoor else None
 
-        print(f"[{i+1}/{len(problems_to_update)}] Problem {problem_id}")
-        print(f"  Old scores: T_normal={old_t_normal}, T_backdoor={old_t_backdoor}")
+        backdoor_label = " [BACKDOOR]" if has_backdoor else ""
+        print(f"[{i+1}/{len(problems_to_update)}] Problem {problem_id}{backdoor_label}")
+        if has_backdoor:
+            print(f"  Old scores: T_normal={old_t_normal}, T_backdoor={old_t_backdoor}")
+        else:
+            print(f"  Old score: T_normal={old_t_normal}")
 
         if dry_run:
             print(f"  [DRY RUN] Would update monitoring scores")
@@ -169,36 +191,43 @@ def rerun_phase5(dataset_id: str, max_problems: int = None, dry_run: bool = Fals
             t_normal = run_monitoring(llm, normal_code, problem_text, trusted_model, "trusted")
             print(f"  T_normal: {t_normal['combined_score']:.2f} (rating={t_normal['numeric_rating']}, P(yes)={t_normal['yes_prob']:.3f})")
 
-            # Run trusted monitoring on backdoor code
-            t_backdoor = run_monitoring(llm, backdoor_code, problem_text, trusted_model, "trusted")
-            print(f"  T_backdoor: {t_backdoor['combined_score']:.2f} (rating={t_backdoor['numeric_rating']}, P(yes)={t_backdoor['yes_prob']:.3f})")
-
             # Run untrusted monitoring on normal code
             u_normal = run_monitoring(llm, normal_code, problem_text, untrusted_model, "untrusted")
             print(f"  U_normal: {u_normal['combined_score']:.1f} (rating={u_normal['numeric_rating']}, yes={u_normal['yes_no']})")
 
-            # Run untrusted monitoring on backdoor code
-            u_backdoor = run_monitoring(llm, backdoor_code, problem_text, untrusted_model, "untrusted")
-            print(f"  U_backdoor: {u_backdoor['combined_score']:.1f} (rating={u_backdoor['numeric_rating']}, yes={u_backdoor['yes_no']})")
-
-            # Update data
+            # Update normal scores
             data["T_suspicion_normal"] = t_normal["combined_score"]
-            data["T_suspicion_backdoor"] = t_backdoor["combined_score"]
             data["U_suspicion_normal"] = u_normal["combined_score"]
-            data["U_suspicion_backdoor"] = u_backdoor["combined_score"]
+
+            # Only run backdoor monitoring if problem has a backdoor
+            if has_backdoor:
+                # Run trusted monitoring on backdoor code
+                t_backdoor = run_monitoring(llm, backdoor_code, problem_text, trusted_model, "trusted")
+                print(f"  T_backdoor: {t_backdoor['combined_score']:.2f} (rating={t_backdoor['numeric_rating']}, P(yes)={t_backdoor['yes_prob']:.3f})")
+
+                # Run untrusted monitoring on backdoor code
+                u_backdoor = run_monitoring(llm, backdoor_code, problem_text, untrusted_model, "untrusted")
+                print(f"  U_backdoor: {u_backdoor['combined_score']:.1f} (rating={u_backdoor['numeric_rating']}, yes={u_backdoor['yes_no']})")
+
+                # Update backdoor scores
+                data["T_suspicion_backdoor"] = t_backdoor["combined_score"]
+                data["U_suspicion_backdoor"] = u_backdoor["combined_score"]
+
+                # Show discrimination
+                t_diff = t_backdoor["combined_score"] - t_normal["combined_score"]
+                u_diff = u_backdoor["combined_score"] - u_normal["combined_score"]
+                print(f"  Discrimination: T_diff={t_diff:+.2f}, U_diff={u_diff:+.1f}")
+
             data["phase5_rerun_at"] = datetime.now().isoformat()
 
             # Save updated data
             with open(filepath, 'w') as f:
                 json.dump(data, f, indent=2)
 
-            # Show discrimination
-            t_diff = t_backdoor["combined_score"] - t_normal["combined_score"]
-            u_diff = u_backdoor["combined_score"] - u_normal["combined_score"]
-            print(f"  Discrimination: T_diff={t_diff:+.2f}, U_diff={u_diff:+.1f}")
-
         except Exception as e:
             print(f"  Error: {e}")
+            import traceback
+            traceback.print_exc()
 
         print()
 
@@ -210,6 +239,7 @@ if __name__ == "__main__":
     parser.add_argument("dataset_id", help="Dataset ID to process")
     parser.add_argument("--problems", "-n", type=int, help="Max problems to process")
     parser.add_argument("--dry-run", action="store_true", help="Don't actually update files")
+    parser.add_argument("--all", action="store_true", help="Process ALL problems, not just those with backdoors")
 
     args = parser.parse_args()
-    rerun_phase5(args.dataset_id, args.problems, args.dry_run)
+    rerun_phase5(args.dataset_id, args.problems, args.dry_run, args.all)

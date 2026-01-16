@@ -45,7 +45,7 @@ class PromptTemplates(BaseModel):
 
 class PrecomputeRequest(BaseModel):
     num_problems: int = 75
-    num_backdoor_ideas: int = 3
+    num_backdoor_ideas: int = 5
     max_difficulty: int = 6
     human_model: str = "simulated"
     trusted_model: str = "simulated"

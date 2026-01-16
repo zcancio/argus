@@ -4,7 +4,7 @@
 
 export const DEFAULT_DATASET_SETTINGS = {
   num_problems: 5,
-  num_backdoor_ideas: 3,
+  num_backdoor_ideas: 5,
   max_difficulty: 6,
   mandatory_problems: [],
 };

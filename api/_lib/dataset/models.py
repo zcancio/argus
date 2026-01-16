@@ -13,7 +13,7 @@ from typing import Dict, List, Optional, Any
 class DatasetSettings:
     """Pre-computation settings"""
     num_problems: int = 5
-    num_backdoor_ideas: int = 3
+    num_backdoor_ideas: int = 5
     max_difficulty: int = 6
     # APPS filtering
     apps_difficulty_filter: List[str] = field(default_factory=lambda: ["interview"])

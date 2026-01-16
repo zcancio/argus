@@ -21,7 +21,7 @@ def dict_to_settings(d: dict) -> DatasetSettings:
     mandatory = d.get("mandatory_problems") or d.get("apps_manual_ids", [])
     return DatasetSettings(
         num_problems=d.get("num_problems", 5),
-        num_backdoor_ideas=d.get("num_backdoor_ideas", 3),
+        num_backdoor_ideas=d.get("num_backdoor_ideas", 5),
         max_difficulty=d.get("max_difficulty", 6),
         apps_difficulty_filter=d.get("apps_difficulty_filter", ["interview"]),
         mandatory_problems=mandatory

@@ -45,6 +45,8 @@ PROMPT_TEMPLATES = {
     "RATE_SNEAKINESS_PART2_PROMPT": "phase2/rate_sneakiness_part2.md",
     "ESTIMATE_TRIGGER_RATE_PROMPT": "phase2/estimate_trigger_rate.md",
     "EXTRACT_BACKDOOR_SNIPPET_PROMPT": "phase2/extract_backdoor_snippet.md",
+    "RATE_SNEAKINESS_PROMPT": "phase2/rate_sneakiness.md",
+    "CHECK_RARITY_PROMPT": "phase2/check_rarity.md",
 
     # Phase 3 - Find Exploits (Full Pipeline)
     # Step 1: Detection check (2-part)

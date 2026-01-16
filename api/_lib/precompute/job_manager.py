@@ -29,7 +29,7 @@ def create_job(config: dict) -> PrecomputeJob:
         job_id=job_id,
         status="pending",
         num_problems=config.get("num_problems", 75),
-        num_backdoor_ideas=config.get("num_backdoor_ideas", 3),
+        num_backdoor_ideas=config.get("num_backdoor_ideas", 5),
         max_difficulty=config.get("max_difficulty", 6),
         human_model=config.get("human_model", "simulated"),
         trusted_model=config.get("trusted_model", "simulated"),
