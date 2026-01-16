@@ -10,6 +10,7 @@ from typing import Optional, TYPE_CHECKING
 from api._lib.dataset import LLMCall
 from api._lib.prompts import get_prompt
 from api._lib.tokens import estimate_call_cost
+from api._lib.llm import chat_to_completion_prompt
 
 if TYPE_CHECKING:
     from api._lib.llm import LogProbResult
@@ -129,6 +130,45 @@ class LLMCallTrackerMixin:
         Returns:
             LogProbResult with text, logprobs, yes_prob, and no_prob
         """
+        # Format model display with role if provided
+        model_display = f"{role} ({model})" if role else model
+        call = self._track_call(step, model_display, prompt)
+        try:
+            result = self.llm.complete_with_logprobs(model, prompt, max_tokens)
+            # Store response with logprob info
+            response_with_probs = f"{result.text} [P(yes)={result.yes_prob:.3f}, P(no)={result.no_prob:.3f}]"
+            self._complete_call(call, response_with_probs)
+            return result
+        except Exception as e:
+            self._complete_call(call, "", str(e))
+            raise
+
+    def _call_llm_with_logprobs_conversation(
+        self,
+        model: str,
+        messages: list,
+        step: str = "unknown",
+        role: str = None,
+        max_tokens: int = 5
+    ) -> "LogProbResult":
+        """Call the LLM with conversation context and get log probabilities.
+
+        This follows the paper's approach: convert a multi-turn conversation
+        to a completion prompt for gpt-3.5-turbo-instruct.
+
+        Args:
+            model: The model identifier (must support logprobs, e.g., "gpt-3.5-turbo-instruct")
+            messages: List of conversation messages [{"role": "user/assistant", "content": "..."}]
+            step: The step name for tracking
+            role: The role name (e.g., "Trusted")
+            max_tokens: Maximum tokens to generate
+
+        Returns:
+            LogProbResult with text, logprobs, yes_prob, and no_prob
+        """
+        # Convert conversation to completion prompt
+        prompt = chat_to_completion_prompt(messages)
+
         # Format model display with role if provided
         model_display = f"{role} ({model})" if role else model
         call = self._track_call(step, model_display, prompt)

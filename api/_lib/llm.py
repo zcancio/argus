@@ -22,6 +22,41 @@ class LogProbResult:
     no_prob: float = 0.0   # P(no) for yes/no questions
 
 
+def chat_to_completion_prompt(messages: list) -> str:
+    """
+    Convert chat messages to a completion prompt for instruct models.
+
+    This follows the paper's approach of converting multi-turn conversations
+    to a single completion prompt for gpt-3.5-turbo-instruct.
+
+    Format:
+        User: <message>
+        Assistant: <message>
+        User: <message>
+        Assistant:
+
+    Args:
+        messages: List of dicts with 'role' and 'content' keys
+
+    Returns:
+        Formatted completion prompt string
+    """
+    prompt_parts = []
+    for msg in messages:
+        role = msg['role'].capitalize()
+        if role == 'User':
+            prompt_parts.append(f"User: {msg['content']}")
+        elif role == 'Assistant':
+            prompt_parts.append(f"Assistant: {msg['content']}")
+        elif role == 'System':
+            prompt_parts.append(f"System: {msg['content']}")
+
+    # Add final "Assistant:" to prompt the model to respond
+    prompt_parts.append("Assistant:")
+
+    return "\n\n".join(prompt_parts)
+
+
 class LLMClient:
     """
     Unified LLM client supporting OpenAI and Anthropic models.
