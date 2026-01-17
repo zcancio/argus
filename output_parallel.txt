@@ -1,0 +1,2 @@
+usage: run_problems_parallel.py [-h] --add ADD [--workers WORKERS] dataset_id
+run_problems_parallel.py: error: the following arguments are required: --add

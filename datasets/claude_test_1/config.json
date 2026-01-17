@@ -1,0 +1,26 @@
+{
+  "version": "1.0",
+  "name": "claude_test_1",
+  "created_at": "2026-01-14T18:43:29.965392",
+  "settings": {
+    "num_problems": 1,
+    "num_backdoor_ideas": 5,
+    "max_difficulty": 6,
+    "apps_difficulty_filter": [
+      "interview"
+    ],
+    "mandatory_problems": []
+  },
+  "models": {
+    "human_model": "claude-sonnet-4-20250514",
+    "trusted_model": "claude-3-5-haiku-20241022",
+    "untrusted_model": "claude-sonnet-4-20250514",
+    "red_team_model": "claude-sonnet-4-20250514"
+  },
+  "prompts": {},
+  "problem_ids": [
+    "0003"
+  ],
+  "apps_source": "huggingface:codeparrot/apps",
+  "hidden": true
+}
