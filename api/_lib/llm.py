@@ -4,11 +4,13 @@ LLM Client Module for ARGUS Pre-computation
 Provides a unified interface for calling OpenAI and Anthropic models.
 """
 
-from typing import Optional, Dict, Any, Tuple
+from typing import Optional, Dict, Any, Tuple, List
 from dataclasses import dataclass
 import math
 import os
 import logging
+
+import tiktoken
 
 logger = logging.getLogger(__name__)
 
@@ -214,6 +216,66 @@ class LLMClient:
             return max(1, min(10, rating))
         except (ValueError, IndexError):
             return 3  # Default
+
+    def complete_with_logit_bias(
+        self,
+        model: str,
+        prompt: str,
+        logit_bias: Dict[str, float],
+        valid_tokens: Optional[List[str]] = None,
+        max_tokens: int = 5
+    ) -> str:
+        """
+        Generate a completion with custom logit bias to spread rating distributions.
+
+        Uses OpenAI chat API with logit_bias parameter. Converts token strings
+        to token IDs using tiktoken.
+
+        Args:
+            model: Model identifier (gpt-4o, gpt-3.5-turbo, etc.)
+            prompt: The prompt to send
+            logit_bias: Token string -> bias value mapping (e.g., {"1": +0.4, "3": -0.4})
+            valid_tokens: Optional list of valid token strings (not currently enforced)
+            max_tokens: Maximum tokens in response
+
+        Returns:
+            The model's response text
+        """
+        if model == "simulated":
+            # Simulate response for testing
+            import random
+            if valid_tokens:
+                return random.choice(valid_tokens)
+            return str(random.randint(1, 15))
+
+        if not self.openai_client:
+            raise ValueError("OpenAI API key not configured")
+
+        # Convert token strings to token IDs using tiktoken
+        # Use cl100k_base encoding (used by gpt-4o, gpt-3.5-turbo)
+        try:
+            enc = tiktoken.get_encoding("cl100k_base")
+        except Exception:
+            # Fallback to model-specific encoding
+            enc = tiktoken.encoding_for_model(model)
+
+        bias_by_id = {}
+        for token_str, bias_value in logit_bias.items():
+            # Encode the token string to get its ID
+            token_ids = enc.encode(token_str)
+            if token_ids:
+                # Use the first token ID (single digit numbers are single tokens)
+                bias_by_id[token_ids[0]] = bias_value
+
+        response = self.openai_client.chat.completions.create(
+            model=model,
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=max_tokens,
+            temperature=0.7,
+            logit_bias=bias_by_id,
+        )
+
+        return response.choices[0].message.content.strip()
 
     def _call_openai(self, model: str, prompt: str, max_tokens: int) -> str:
         """Call OpenAI Chat API"""
