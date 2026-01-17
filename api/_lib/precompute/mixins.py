@@ -250,13 +250,24 @@ def parse_rating(response: str, min_val: float, max_val: float, default: float) 
     Parse a numeric rating from an LLM response.
 
     Extracts the first number from the response and clamps it to [min_val, max_val].
+    Handles cases where the model returns a full sentence like "I would rate this as a 2".
     Returns default if parsing fails.
     """
+    import re
+    # First try: take first word as number (fast path for well-behaved responses)
     try:
         rating = float(response.strip().split()[0])
         return max(min_val, min(max_val, rating))
     except (ValueError, IndexError):
-        return default
+        pass
+
+    # Second try: find any number in the response (handles "I rate this as a 2")
+    match = re.search(r'\b(\d+(?:\.\d+)?)\b', response)
+    if match:
+        rating = float(match.group(1))
+        return max(min_val, min(max_val, rating))
+
+    return default
 
 
 def strip_markdown_code_blocks(text: str) -> str:
