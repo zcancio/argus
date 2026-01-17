@@ -220,6 +220,14 @@ def rerun_phase5(dataset_id: str, max_problems: int = None, dry_run: bool = Fals
 
             data["phase5_rerun_at"] = datetime.now().isoformat()
 
+            # Clear old phase 5 LLM calls to avoid stale data
+            # Keep phases 1-4 calls intact
+            if "llm_calls" in data:
+                data["llm_calls"] = [
+                    call for call in data["llm_calls"]
+                    if call.get("phase", 0) < 5
+                ]
+
             # Save updated data
             with open(filepath, 'w') as f:
                 json.dump(data, f, indent=2)

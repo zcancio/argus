@@ -15,8 +15,6 @@ import json
 import time
 from pathlib import Path
 from datetime import datetime
-from dataclasses import asdict
-
 # Add project root to path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
@@ -26,7 +24,7 @@ from dotenv import load_dotenv
 load_dotenv(project_root / ".env")
 
 from api._lib.precompute.single_problem import SingleProblemEngine
-from api._lib.dataset import dict_to_problem_result
+from api._lib.dataset import dict_to_problem_result, problem_result_to_dict
 from datasets import load_dataset
 
 
@@ -145,6 +143,10 @@ def run_batch(dataset_id: str, problem_ids: list[str]):
             # Clear phase 2+ data
             engine.result.backdoor_attempts = []
             engine.result.sneakiest_backdoor_idx = None
+            engine.result.sneakiness = None
+            engine.result.U_backdoored_solution = None
+            engine.result.exploit_found = False
+            engine.result.exploits = []
             engine.result.T_suspicion_normal = None
             engine.result.T_suspicion_backdoor = None
             engine.result.U_suspicion_normal = None
@@ -153,11 +155,17 @@ def run_batch(dataset_id: str, problem_ids: list[str]):
             engine.result.coup_outcome_after_edit = None
             engine.result.T_edited_correct = None
 
+            # Clear phase 2+ LLM calls to avoid stale data
+            engine.result.llm_calls = [
+                call for call in engine.result.llm_calls
+                if call.phase < 2
+            ]
+
             # Run from phase 2
             result = engine.run_from_phase(2)
 
             # Save result to file
-            result_dict = asdict(result)
+            result_dict = problem_result_to_dict(result)
             result_dict = convert_datetimes(result_dict)
             with open(problem_path, "w") as f:
                 json.dump(result_dict, f, indent=2)
