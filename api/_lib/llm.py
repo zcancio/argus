@@ -310,17 +310,35 @@ class LLMClient:
 
         For yes/no questions, we request top_logprobs to get probabilities
         for both 'yes' and 'no' tokens.
+
+        Uses logit_bias=100 on yes/no tokens to force the model to output
+        only yes/no, following the paper's approach (monitoring_misc.py).
         """
         if not self.openai_client:
             raise ValueError("OpenAI API key not configured")
+
+        # Force yes/no tokens with logit_bias (paper approach)
+        # This ensures the model outputs yes/no so we can extract probabilities
+        try:
+            enc = tiktoken.get_encoding("cl100k_base")
+        except Exception:
+            enc = tiktoken.encoding_for_model(model)
+
+        yes_no_tokens = [" No", "No", " no", "no", " Yes", "Yes", " yes", "yes"]
+        logit_bias = {}
+        for token in yes_no_tokens:
+            token_ids = enc.encode(token)
+            if token_ids:
+                logit_bias[token_ids[0]] = 100  # +100 bias forces these tokens
 
         # Request logprobs with top 5 alternatives
         response = self.openai_client.completions.create(
             model=model,
             prompt=prompt,
-            max_tokens=max_tokens,
+            max_tokens=1,  # Only need 1 token for yes/no
             temperature=0.0,  # Use 0 for deterministic logprobs
             logprobs=5,  # Get top 5 token alternatives
+            logit_bias=logit_bias,  # Force yes/no tokens
         )
 
         text = response.choices[0].text.strip()
