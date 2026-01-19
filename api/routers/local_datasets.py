@@ -88,12 +88,21 @@ def get_local_dataset(dataset_id: str):
     checkpoint = _load_json_safe(dataset_dir / "checkpoint.json") or {}
     summary = _load_json_safe(dataset_dir / "summary.json") or {}
 
+    # Flatten common fields for easier frontend consumption
+    stats = summary.get("stats") or checkpoint.get("stats") or {}
+
     return {
         "id": dataset_id,
+        "name": config.get("name", dataset_id),
+        "created_at": config.get("created_at"),
+        "models": config.get("models", {}),
+        "settings": config.get("settings", {}),
+        "stats": stats,
+        "status": _determine_dataset_status(checkpoint, summary),
+        # Include full nested data for advanced use
         "config": config,
         "checkpoint": checkpoint,
         "summary": summary,
-        "status": _determine_dataset_status(checkpoint, summary),
     }
 
 

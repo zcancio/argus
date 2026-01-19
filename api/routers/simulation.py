@@ -32,7 +32,7 @@ class SimulationRequest(BaseModel):
 
     # Simulation config
     num_trials: int = 2000
-    num_problems: int = 5000
+    num_problems: Optional[int] = None  # If None, uses 3.33x dataset size (paper ratio)
     coup_subsample_rate: float = 1/12  # Variance reduction (paper default ~8.3%)
     random_seed: Optional[int] = None
 
@@ -82,7 +82,8 @@ def run_simulation_endpoint(request: SimulationRequest):
                     "defer_rate": request.defer_rate,
                 },
                 "num_trials": request.num_trials,
-                "num_problems": request.num_problems,
+                "num_problems": results.num_problems,  # Use actual value (may be auto-calculated)
+                "num_problems_requested": request.num_problems,  # Original request (None = auto)
                 "coup_subsample_rate": request.coup_subsample_rate,
             },
             "results": results.to_dict(),

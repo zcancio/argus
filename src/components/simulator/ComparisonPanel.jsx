@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { colors, API_BASE } from '../../constants';
 import { PAPER_RESULTS, PROTOCOL_CONFIGS, PROTOCOL_ORDER } from '../../paperResults';
 import { ComparisonTable } from './ComparisonTable';
@@ -10,6 +10,36 @@ export function ComparisonPanel({ selectedDatasetId, baseConfig }) {
   const [currentProtocol, setCurrentProtocol] = useState(null);
   const [progress, setProgress] = useState({ completed: 0, total: 0 });
   const [error, setError] = useState(null);
+  const [datasetInfo, setDatasetInfo] = useState(null);
+  const [simulationParams, setSimulationParams] = useState(null);
+
+  // Fetch dataset info when dataset changes and reset results
+  useEffect(() => {
+    if (!selectedDatasetId) {
+      setDatasetInfo(null);
+      setSimulationParams(null);
+      setResults({});
+      return;
+    }
+
+    // Reset state for new dataset
+    setSimulationParams(null);
+    setResults({});
+
+    const fetchDatasetInfo = async () => {
+      try {
+        const response = await fetch(`${API_BASE}/api/local-datasets/${selectedDatasetId}`);
+        if (response.ok) {
+          const data = await response.json();
+          setDatasetInfo(data);
+        }
+      } catch (err) {
+        console.error('Failed to fetch dataset info:', err);
+      }
+    };
+
+    fetchDatasetInfo();
+  }, [selectedDatasetId]);
 
   const runAllProtocols = async () => {
     if (!selectedDatasetId) {
@@ -62,6 +92,20 @@ export function ComparisonPanel({ selectedDatasetId, baseConfig }) {
         }
 
         const result = await response.json();
+
+        // Store simulation parameters from first successful result
+        if (!simulationParams && result.config) {
+          setSimulationParams({
+            num_trials: result.config.num_trials,
+            num_problems: result.config.num_problems,
+            num_problems_requested: result.config.num_problems_requested,
+            audit_budget_rate: result.config.blue_team?.audit_budget_rate,
+            free_start: result.config.blue_team?.free_start,
+            defer_rate: result.config.blue_team?.defer_rate,
+            coup_subsample_rate: result.config.coup_subsample_rate,
+            backdoor_rate: result.config.red_team?.backdoor_rate,
+          });
+        }
 
         setResults(prev => ({
           ...prev,
@@ -205,6 +249,165 @@ export function ComparisonPanel({ selectedDatasetId, baseConfig }) {
           color: colors.text.muted,
         }}>
           Select a dataset to run comparison simulations
+        </div>
+      )}
+
+      {/* Summary Panel - Shows after simulations complete */}
+      {selectedDatasetId && completedCount > 0 && (datasetInfo || simulationParams) && (
+        <div style={{
+          background: colors.bg.secondary,
+          border: `1px solid ${colors.border}`,
+          borderRadius: '8px',
+          padding: '24px',
+          marginBottom: '16px',
+        }}>
+          <h3 style={{
+            color: colors.text.primary,
+            margin: '0 0 16px 0',
+            fontSize: '14px',
+            textTransform: 'uppercase',
+            letterSpacing: '1px',
+          }}>
+            Simulation Parameters
+          </h3>
+
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+            gap: '24px',
+          }}>
+            {/* Dataset Info */}
+            {datasetInfo && (
+              <div>
+                <div style={{
+                  fontSize: '11px',
+                  color: colors.text.muted,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                  marginBottom: '12px',
+                  paddingBottom: '8px',
+                  borderBottom: `1px solid ${colors.border}`,
+                }}>
+                  Dataset
+                </div>
+                <div style={{ display: 'grid', gap: '8px', fontSize: '13px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: colors.text.muted }}>Name</span>
+                    <span style={{ color: colors.text.primary, fontFamily: 'JetBrains Mono, monospace' }}>
+                      {datasetInfo.name || selectedDatasetId}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: colors.text.muted }}>Viable Problems</span>
+                    <span style={{ color: colors.text.primary, fontFamily: 'JetBrains Mono, monospace' }}>
+                      {datasetInfo.stats?.completed || '-'}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: colors.text.muted }}>Successful Coups</span>
+                    <span style={{ color: colors.accent.green, fontFamily: 'JetBrains Mono, monospace' }}>
+                      {datasetInfo.stats?.successful_coups || 0}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: colors.text.muted }}>Failed Coup Attempts</span>
+                    <span style={{ color: colors.text.secondary, fontFamily: 'JetBrains Mono, monospace' }}>
+                      {datasetInfo.stats?.failed_coup_attempts || 0}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Models */}
+            {datasetInfo?.models && (
+              <div>
+                <div style={{
+                  fontSize: '11px',
+                  color: colors.text.muted,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                  marginBottom: '12px',
+                  paddingBottom: '8px',
+                  borderBottom: `1px solid ${colors.border}`,
+                }}>
+                  Models
+                </div>
+                <div style={{ display: 'grid', gap: '8px', fontSize: '13px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: colors.text.muted }}>Trusted (T)</span>
+                    <span style={{ color: colors.accent.cyan, fontFamily: 'JetBrains Mono, monospace' }}>
+                      {datasetInfo.models.trusted_model}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: colors.text.muted }}>Untrusted (U)</span>
+                    <span style={{ color: colors.accent.magenta, fontFamily: 'JetBrains Mono, monospace' }}>
+                      {datasetInfo.models.untrusted_model}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: colors.text.muted }}>Red Team</span>
+                    <span style={{ color: colors.accent.red, fontFamily: 'JetBrains Mono, monospace' }}>
+                      {datasetInfo.models.red_team_model}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Simulation Settings */}
+            {simulationParams && (
+              <div>
+                <div style={{
+                  fontSize: '11px',
+                  color: colors.text.muted,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                  marginBottom: '12px',
+                  paddingBottom: '8px',
+                  borderBottom: `1px solid ${colors.border}`,
+                }}>
+                  Simulation Settings
+                </div>
+                <div style={{ display: 'grid', gap: '8px', fontSize: '13px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: colors.text.muted }}>Num Trials</span>
+                    <span style={{ color: colors.text.primary, fontFamily: 'JetBrains Mono, monospace' }}>
+                      {simulationParams.num_trials?.toLocaleString()}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: colors.text.muted }}>Problems per Trial</span>
+                    <span style={{ color: colors.text.primary, fontFamily: 'JetBrains Mono, monospace' }}>
+                      {simulationParams.num_problems}
+                      {simulationParams.num_problems_requested === null && (
+                        <span style={{ color: colors.text.muted, fontSize: '11px' }}> (auto)</span>
+                      )}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: colors.text.muted }}>Audit Budget</span>
+                    <span style={{ color: colors.text.primary, fontFamily: 'JetBrains Mono, monospace' }}>
+                      {((simulationParams.audit_budget_rate || 0.02) * 100).toFixed(0)}%
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: colors.text.muted }}>Free Start Audits</span>
+                    <span style={{ color: colors.text.primary, fontFamily: 'JetBrains Mono, monospace' }}>
+                      {simulationParams.free_start || 10}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: colors.text.muted }}>Coup Subsample</span>
+                    <span style={{ color: colors.text.primary, fontFamily: 'JetBrains Mono, monospace' }}>
+                      {((simulationParams.coup_subsample_rate || 1/12) * 100).toFixed(1)}%
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
 

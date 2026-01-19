@@ -6,6 +6,7 @@ from .datasets import router as datasets_router
 from .apps import router as apps_router
 from .local_datasets import router as local_datasets_router
 from .simulation import router as simulation_router
+from .compare import router as compare_router
 
 __all__ = [
     'validation_router',
@@ -15,4 +16,5 @@ __all__ = [
     'apps_router',
     'local_datasets_router',
     'simulation_router',
+    'compare_router',
 ]

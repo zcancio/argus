@@ -361,37 +361,58 @@ export function ConfigPanel({ config, onChange, datasetSize }) {
           <div style={labelStyle}>
             <span style={{ color: colors.text.secondary, display: 'flex', alignItems: 'center' }}>
               Problems per Trial
-              <InfoIcon tooltip="Number of problems sampled (with replacement) per trial. Should match dataset size for accurate results." />
+              <InfoIcon tooltip="Number of problems sampled (with replacement) per trial. Auto uses 3.33x dataset size to match the paper's methodology." />
             </span>
-            <input
-              type="number"
-              min="10"
-              max="50000"
-              step="100"
-              value={config.num_problems}
-              onChange={(e) => onChange({ ...config, num_problems: parseInt(e.target.value) || 100 })}
-              style={{ width: '80px', padding: '4px 8px', background: colors.bg.secondary, border: `1px solid ${numProblemsExceedsDataset ? colors.accent.amber : colors.border}`, borderRadius: '4px', color: colors.text.primary, fontFamily: 'JetBrains Mono, monospace', fontSize: '12px', textAlign: 'right' }}
-            />
-          </div>
-          <input
-            type="range"
-            min="10"
-            max={Math.max(datasetSize || 100, 100)}
-            step="10"
-            value={config.num_problems}
-            onChange={(e) => onChange({ ...config, num_problems: parseInt(e.target.value) })}
-            style={sliderStyle}
-          />
-          {numProblemsExceedsDataset && (
-            <div style={{ marginTop: '8px', padding: '8px 12px', background: `${colors.accent.amber}20`, border: `1px solid ${colors.accent.amber}40`, borderRadius: '4px', fontSize: '11px', color: colors.accent.amber }}>
-              Dataset has {datasetSize} problems. Using {config.num_problems} will oversample.
-              <button
-                onClick={() => onChange({ ...config, num_problems: datasetSize })}
-                style={{ marginLeft: '8px', padding: '2px 8px', background: colors.accent.amber, border: 'none', borderRadius: '3px', color: colors.bg.primary, fontSize: '11px', cursor: 'pointer', fontWeight: '600' }}
-              >
-                Use {datasetSize}
-              </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={config.num_problems === null || config.num_problems === undefined}
+                  onChange={(e) => onChange({ ...config, num_problems: e.target.checked ? null : (datasetSize ? Math.round(datasetSize * 3.33) : 100) })}
+                  style={{ width: '14px', height: '14px', accentColor: colors.accent.green }}
+                />
+                <span style={{ fontSize: '11px', color: colors.text.muted }}>Auto</span>
+              </label>
+              {config.num_problems !== null && config.num_problems !== undefined && (
+                <input
+                  type="number"
+                  min="10"
+                  max="50000"
+                  step="100"
+                  value={config.num_problems}
+                  onChange={(e) => onChange({ ...config, num_problems: parseInt(e.target.value) || 100 })}
+                  style={{ width: '80px', padding: '4px 8px', background: colors.bg.secondary, border: `1px solid ${numProblemsExceedsDataset ? colors.accent.amber : colors.border}`, borderRadius: '4px', color: colors.text.primary, fontFamily: 'JetBrains Mono, monospace', fontSize: '12px', textAlign: 'right' }}
+                />
+              )}
             </div>
+          </div>
+          {config.num_problems === null || config.num_problems === undefined ? (
+            <div style={{ marginTop: '8px', padding: '8px 12px', background: `${colors.accent.green}15`, border: `1px solid ${colors.accent.green}30`, borderRadius: '4px', fontSize: '11px', color: colors.accent.green }}>
+              Auto mode: Will use {datasetSize ? Math.round(datasetSize * 3.33) : '3.33x'} problems per trial (3.33x dataset size, matching paper methodology)
+            </div>
+          ) : (
+            <>
+              <input
+                type="range"
+                min="10"
+                max={Math.max(datasetSize ? Math.round(datasetSize * 5) : 500, 100)}
+                step="10"
+                value={config.num_problems}
+                onChange={(e) => onChange({ ...config, num_problems: parseInt(e.target.value) })}
+                style={sliderStyle}
+              />
+              {numProblemsExceedsDataset && (
+                <div style={{ marginTop: '8px', padding: '8px 12px', background: `${colors.accent.amber}20`, border: `1px solid ${colors.accent.amber}40`, borderRadius: '4px', fontSize: '11px', color: colors.accent.amber }}>
+                  Dataset has {datasetSize} problems. Using {config.num_problems} will oversample.
+                  <button
+                    onClick={() => onChange({ ...config, num_problems: null })}
+                    style={{ marginLeft: '8px', padding: '2px 8px', background: colors.accent.amber, border: 'none', borderRadius: '3px', color: colors.bg.primary, fontSize: '11px', cursor: 'pointer', fontWeight: '600' }}
+                  >
+                    Use Auto
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>

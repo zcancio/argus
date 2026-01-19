@@ -23,6 +23,7 @@ from api.routers import (
     apps_router,
     local_datasets_router,
     simulation_router,
+    compare_router,
 )
 
 # Import storage for status checks
@@ -51,6 +52,7 @@ app.include_router(datasets_router)
 app.include_router(apps_router)
 app.include_router(local_datasets_router)
 app.include_router(simulation_router)
+app.include_router(compare_router)
 
 
 # =============================================================================
