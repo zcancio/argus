@@ -18,7 +18,6 @@ class ProtocolConfig:
     defer_rate: float
     defer_action: str  # "replace" or "edit"
     audit_budget_rate: float = 0.02
-    free_start: int = 10
 
     @property
     def defer_enabled(self) -> bool:

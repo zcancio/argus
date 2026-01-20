@@ -91,13 +91,21 @@ def get_local_dataset(dataset_id: str):
     # Flatten common fields for easier frontend consumption
     stats = summary.get("stats") or checkpoint.get("stats") or {}
 
+    # Calculate viable problems (completed minus inverted T monitoring)
+    completed = stats.get("completed", 0)
+    inverted = stats.get("inverted_t_monitoring", 0)
+    viable_problems = completed - inverted
+
     return {
         "id": dataset_id,
         "name": config.get("name", dataset_id),
         "created_at": config.get("created_at"),
         "models": config.get("models", {}),
         "settings": config.get("settings", {}),
-        "stats": stats,
+        "stats": {
+            **stats,
+            "viable_problems": viable_problems,  # Problems usable for simulation
+        },
         "status": _determine_dataset_status(checkpoint, summary),
         # Include full nested data for advanced use
         "config": config,
@@ -137,6 +145,8 @@ def list_local_dataset_problems(dataset_id: str):
                 "T_tests_passed": problem_data.get("T_tests_passed"),
                 "T_tests_total": problem_data.get("T_tests_total"),
                 "T_suspicion_score": problem_data.get("T_suspicion_score"),
+                "T_suspicion_backdoor": problem_data.get("T_suspicion_backdoor"),
+                "T_suspicion_normal": problem_data.get("T_suspicion_normal"),
                 "H_suspicion_score": problem_data.get("H_suspicion_score"),
                 "sneakiness": problem_data.get("sneakiness"),
                 "sneakiest_backdoor_idx": problem_data.get("sneakiest_backdoor_idx"),
