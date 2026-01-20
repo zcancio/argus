@@ -1,5 +1,5 @@
 import { useState, useEffect, Fragment } from 'react';
-import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ScatterChart, Scatter, Legend, ReferenceLine } from 'recharts';
 import { DEFAULT_PROMPTS } from './promptDefaults';
 import { DEFAULT_DATASET_SETTINGS, DEFAULT_DATASET_MODELS, MODEL_OPTIONS, STATUS_BADGES, TEST_STATUS_BADGES } from './datasetDefaults';
@@ -164,8 +164,13 @@ function ApiKeyPanel({ apiKeys, onChange, onValidate, onClear, validationStatus,
 function AppContent() {
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
+
   const activeTab = location.pathname.startsWith('/dataset') ? 'datasets'
     : 'simulator';
+
+  // Determine simulator view from URL path
+  const isCompareView = location.pathname === '/compare-all';
 
   const [config, setConfig] = useState({
     // Blue team strategy
@@ -217,7 +222,26 @@ function AppContent() {
   const [storageType, setStorageType] = useState('unknown');
   const [localDatasets, setLocalDatasets] = useState([]);
   const [selectedDatasetId, setSelectedDatasetId] = useState(null);
-  const [simulatorView, setSimulatorView] = useState('single'); // 'single' or 'compare'
+
+  // Sync dataset selection with URL param when in compare view
+  useEffect(() => {
+    if (isCompareView) {
+      const datasetParam = searchParams.get('dataset');
+      if (datasetParam && datasetParam !== selectedDatasetId) {
+        setSelectedDatasetId(datasetParam);
+      }
+    }
+  }, [isCompareView, searchParams]);
+
+  // Update URL when dataset changes in compare view
+  const handleDatasetChange = (datasetId) => {
+    setSelectedDatasetId(datasetId);
+    if (isCompareView && datasetId) {
+      setSearchParams({ dataset: datasetId });
+    } else if (isCompareView) {
+      setSearchParams({});
+    }
+  };
 
   // Load experiments and datasets on mount
   useEffect(() => {
@@ -245,13 +269,16 @@ function AppContent() {
     loadData();
   }, []);
 
-  // Update num_problems to 3x dataset size when dataset changes
+  // Update num_problems to 3x viable dataset size when dataset changes
   useEffect(() => {
     if (selectedDatasetId && localDatasets.length > 0) {
       const dataset = localDatasets.find(d => d.id === selectedDatasetId);
       if (dataset?.stats?.completed) {
-        const datasetSize = dataset.stats.completed;
-        setConfig(prev => ({ ...prev, num_problems: datasetSize * 3 }));
+        // Use viable problems (completed - inverted) not total
+        const completed = dataset.stats.completed;
+        const inverted = dataset.stats.inverted_t_monitoring || 0;
+        const viableProblems = completed - inverted;
+        setConfig(prev => ({ ...prev, num_problems: viableProblems * 3 }));
       }
     }
   }, [selectedDatasetId, localDatasets]);
@@ -539,15 +566,15 @@ function AppContent() {
               width: 'fit-content',
             }}>
               <button
-                onClick={() => setSimulatorView('single')}
+                onClick={() => navigate('/')}
                 style={{
                   padding: '8px 20px',
-                  background: simulatorView === 'single' ? colors.bg.tertiary : 'transparent',
+                  background: !isCompareView ? colors.bg.tertiary : 'transparent',
                   border: 'none',
                   borderRadius: '6px',
-                  color: simulatorView === 'single' ? colors.text.primary : colors.text.secondary,
+                  color: !isCompareView ? colors.text.primary : colors.text.secondary,
                   fontSize: '13px',
-                  fontWeight: simulatorView === 'single' ? '600' : '400',
+                  fontWeight: !isCompareView ? '600' : '400',
                   cursor: 'pointer',
                   transition: 'all 0.2s',
                 }}
@@ -555,15 +582,18 @@ function AppContent() {
                 Single Protocol
               </button>
               <button
-                onClick={() => setSimulatorView('compare')}
+                onClick={() => {
+                  const url = selectedDatasetId ? `/compare-all?dataset=${selectedDatasetId}` : '/compare-all';
+                  navigate(url);
+                }}
                 style={{
                   padding: '8px 20px',
-                  background: simulatorView === 'compare' ? colors.bg.tertiary : 'transparent',
+                  background: isCompareView ? colors.bg.tertiary : 'transparent',
                   border: 'none',
                   borderRadius: '6px',
-                  color: simulatorView === 'compare' ? colors.text.primary : colors.text.secondary,
+                  color: isCompareView ? colors.text.primary : colors.text.secondary,
                   fontSize: '13px',
-                  fontWeight: simulatorView === 'compare' ? '600' : '400',
+                  fontWeight: isCompareView ? '600' : '400',
                   cursor: 'pointer',
                   transition: 'all 0.2s',
                 }}
@@ -572,7 +602,7 @@ function AppContent() {
               </button>
             </div>
 
-            {simulatorView === 'single' && (
+            {!isCompareView && (
             <div className="simulator-grid">
               {/* Getting Started */}
               <div className="panel-getting-started" style={{
@@ -614,7 +644,13 @@ function AppContent() {
                 <ConfigPanel
                   config={config}
                   onChange={setConfig}
-                  datasetSize={localDatasets.find(d => d.id === selectedDatasetId)?.stats?.completed || 0}
+                  datasetSize={(() => {
+                    const dataset = localDatasets.find(d => d.id === selectedDatasetId);
+                    if (!dataset?.stats?.completed) return 0;
+                    const completed = dataset.stats.completed;
+                    const inverted = dataset.stats.inverted_t_monitoring || 0;
+                    return completed - inverted;
+                  })()}
                 />
               </div>
 
@@ -723,7 +759,7 @@ function AppContent() {
             </div>
             )}
 
-            {simulatorView === 'compare' && (
+            {isCompareView && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                 {/* Dataset Selector for Compare View */}
                 <div style={{
@@ -737,7 +773,7 @@ function AppContent() {
                   </div>
                   <select
                     value={selectedDatasetId || ''}
-                    onChange={(e) => setSelectedDatasetId(e.target.value || null)}
+                    onChange={(e) => handleDatasetChange(e.target.value || null)}
                     style={{
                       width: '100%',
                       padding: '10px 12px',
