@@ -179,6 +179,41 @@ class LLMClient:
         last_user = next((m['content'] for m in reversed(messages) if m['role'] == 'user'), "")
         return self._simulate_response(last_user)
 
+    def complete_conversation_with_logit_bias(
+        self,
+        model: str,
+        messages: List[Dict[str, str]],
+        logit_bias: Dict[int, float],
+        max_tokens: int = 5
+    ) -> str:
+        """
+        Generate a completion from a multi-turn conversation with logit bias.
+
+        Args:
+            model: Model identifier
+            messages: List of message dicts with 'role' and 'content' keys
+            logit_bias: Dict of token_id -> bias value
+            max_tokens: Maximum tokens in response
+
+        Returns:
+            The model's response text
+        """
+        if model in ["gpt-4o", "gpt-4o-mini", "gpt-3.5-turbo"]:
+            if not self.openai_client:
+                raise ValueError("OpenAI API key not configured")
+
+            response = self.openai_client.chat.completions.create(
+                model=model,
+                messages=messages,
+                max_tokens=max_tokens,
+                temperature=0.7,
+                logit_bias=logit_bias,
+            )
+            return response.choices[0].message.content
+
+        # Fallback to regular conversation for other models
+        return self.complete_conversation(model, messages, max_tokens)
+
     def complete_with_logprobs(self, model: str, prompt: str, max_tokens: int = 5) -> LogProbResult:
         """
         Generate a completion with log probabilities.

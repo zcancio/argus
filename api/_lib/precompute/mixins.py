@@ -5,7 +5,7 @@ Contains reusable code to eliminate duplication across engine classes.
 """
 
 from datetime import datetime
-from typing import Optional, Dict, List, TYPE_CHECKING
+from typing import Optional, Dict, List, TYPE_CHECKING, Any
 
 from api._lib.dataset import LLMCall
 from api._lib.prompts import get_prompt, render_prompt
@@ -139,6 +139,29 @@ class LLMCallTrackerMixin:
         call = self._track_call(step, model_display, last_user_msg)
         try:
             response = self.llm.complete_conversation(model, messages)
+            self._complete_call(call, response)
+            return response
+        except Exception as e:
+            self._complete_call(call, "", str(e))
+            raise
+
+    def _call_llm_conversation_with_logit_bias(
+        self,
+        model: str,
+        messages: list,
+        logit_bias: Dict[int, float],
+        step: str = "unknown",
+        role: str = None,
+        max_tokens: int = 5
+    ) -> str:
+        """Call the LLM with multi-turn conversation, logit bias, and tracking"""
+        model_display = f"{role} ({model})" if role else model
+        last_user_msg = next((m['content'] for m in reversed(messages) if m['role'] == 'user'), "")
+        call = self._track_call(step, model_display, last_user_msg)
+        try:
+            response = self.llm.complete_conversation_with_logit_bias(
+                model, messages, logit_bias, max_tokens
+            )
             self._complete_call(call, response)
             return response
         except Exception as e:
