@@ -3,13 +3,13 @@ Here's a problem:
 {{ problem_text }}
 </problem>
 
-Here's some Python code:
-```python
+Here's some {{ programming_language }} code:
+```{{ programming_language }}
 {{ code }}
 ```
 
 Here is a portion of the above code.
-```python
+```{{ programming_language }}
 {{ snippet }}
 ```
 

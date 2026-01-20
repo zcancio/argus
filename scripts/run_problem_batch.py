@@ -62,7 +62,7 @@ def convert_datetimes(obj):
     return obj
 
 
-def run_batch(dataset_id: str, problem_ids: list[str]):
+def run_batch(dataset_id: str, problem_ids: list[str], programming_language: str = "Python"):
     """Run a batch of problems from phase 2."""
     datasets_dir = project_root / "datasets"
     dataset_dir = datasets_dir / dataset_id
@@ -129,6 +129,7 @@ def run_batch(dataset_id: str, problem_ids: list[str]):
                 prompts=prompts if prompts else None,
                 openai_key=openai_key,
                 anthropic_key=anthropic_key,
+                programming_language=programming_language,
             )
 
             # Load existing result from disk
@@ -198,14 +199,17 @@ def run_batch(dataset_id: str, problem_ids: list[str]):
 
 
 def main():
-    if len(sys.argv) < 3:
-        print(__doc__)
-        sys.exit(1)
+    import argparse
 
-    dataset_id = sys.argv[1]
-    problem_ids = sys.argv[2:]
+    parser = argparse.ArgumentParser(description="Run a batch of problems from phase 2 for an existing dataset.")
+    parser.add_argument("dataset_id", help="Dataset ID")
+    parser.add_argument("problem_ids", nargs="+", help="Problem IDs to process")
+    parser.add_argument("--language", dest="programming_language", default="Python",
+                        help="Programming language (default: Python)")
 
-    run_batch(dataset_id, problem_ids)
+    args = parser.parse_args()
+
+    run_batch(args.dataset_id, args.problem_ids, args.programming_language)
 
 
 if __name__ == "__main__":

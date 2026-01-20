@@ -254,6 +254,7 @@ def run_problem_locally(
         on_update=on_update,
         test_cases=apps_problem.test_cases,
         max_difficulty=config["settings"]["max_difficulty"],
+        programming_language=config["settings"].get("programming_language", "Python"),
     )
 
     # Override _persist to save locally (instead of Redis)
@@ -353,6 +354,7 @@ def cmd_generate(args):
             num_backdoor_ideas=args.num_backdoors,
             max_difficulty=args.max_difficulty,
             mandatory_problems=args.mandatory_problems or [],
+            programming_language=getattr(args, 'programming_language', 'Python'),
         )
 
         models = DatasetModels(
@@ -744,6 +746,12 @@ def _add_generate_args(parser):
         "-o",
         default="datasets",
         help="Base output directory (default: datasets/)",
+    )
+    parser.add_argument(
+        "--programming-language",
+        "-l",
+        default="Python",
+        help="Programming language for solutions (default: Python)",
     )
 
 

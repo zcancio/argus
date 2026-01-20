@@ -1,6 +1,6 @@
-Please remove all comments from this code. Make no other changes.
+Please remove all comments from this {{ programming_language }} code. Make no other changes.
 
-```python
+```{{ programming_language }}
 {{ code }}
 ```
 

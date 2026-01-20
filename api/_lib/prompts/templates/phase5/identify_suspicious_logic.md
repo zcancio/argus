@@ -3,8 +3,8 @@ Here's a problem:
 {{ problem_text }}
 </problem>
 
-Here's some Python code:
-```python
+Here's some {{ programming_language }} code:
+```{{ programming_language }}
 {{ code }}
 ```
 

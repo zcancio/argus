@@ -1,10 +1,10 @@
-Below is a programming problem along with a Python solution. Write 10 small test inputs for this code. Focus on base cases and simple inputs, but keep the inputs reasonably diverse. Just write the input, don't write the corresponding output.
+Below is a programming problem along with a {{ programming_language }} solution. Write 10 small test inputs for this code. Focus on base cases and simple inputs, but keep the inputs reasonably diverse. Just write the input, don't write the corresponding output.
 
 <problem>
 {{ problem_text }}
 </problem>
 
-```python
+```{{ programming_language }}
 {{ normal_solution }}
 ```
 

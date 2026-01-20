@@ -146,7 +146,10 @@ def phase5_monitoring_scores(engine: "SingleProblemEngine", proposals: List[Back
 
 def _remove_comments(engine: "SingleProblemEngine", code: str, label: str) -> str:
     """Remove comments from code before monitoring"""
-    prompt = engine._get_prompt("REMOVE_COMMENTS_PROMPT").format(code=code)
+    prompt = engine._get_prompt("REMOVE_COMMENTS_PROMPT").format(
+        code=code,
+        programming_language=engine.programming_language
+    )
     response = engine._call_llm(
         engine.models.get("trusted_model", "gpt-3.5-turbo"),
         prompt,
@@ -188,7 +191,8 @@ def _run_monitoring_pipeline(
         print(f"Step 1: Identifying suspicious logic...")
         identify_prompt = engine._get_prompt("IDENTIFY_SUSPICIOUS_LOGIC_MONITOR_PROMPT").format(
             problem_text=engine.problem_text,
-            code=code
+            code=code,
+            programming_language=engine.programming_language
         )
         result.suspicious_logic = engine._call_llm(
             chat_model, identify_prompt,
@@ -201,7 +205,8 @@ def _run_monitoring_pipeline(
         rate_prompt = engine._get_prompt("RATE_SUSPICION_PROMPT").format(
             problem_text=engine.problem_text,
             code=code,
-            analysis=result.suspicious_logic
+            analysis=result.suspicious_logic,
+            programming_language=engine.programming_language
         )
         rate_response = engine._call_llm(
             chat_model, rate_prompt,
@@ -252,7 +257,8 @@ def _run_monitoring_pipeline(
             print(f"Step 4: Extracting suspicious snippet...")
             snippet_prompt = engine._get_prompt("EXTRACT_SUSPICIOUS_SNIPPET_PROMPT").format(
                 problem_text=engine.problem_text,
-                code=code
+                code=code,
+                programming_language=engine.programming_language
             )
             snippet_response = engine._call_llm(
                 chat_model, snippet_prompt,
@@ -267,7 +273,8 @@ def _run_monitoring_pipeline(
                 verify_prompt = engine._get_prompt("VERIFY_SNIPPET_SUSPICIOUS_PROMPT").format(
                     problem_text=engine.problem_text,
                     code=code,
-                    snippet=result.suspicious_snippet
+                    snippet=result.suspicious_snippet,
+                    programming_language=engine.programming_language
                 )
 
                 if logprob_model:
@@ -321,7 +328,8 @@ def _run_justification_pipeline(
         explain_prompt = engine._get_prompt("REQUEST_EXPLANATION_HONEST_PROMPT").format(
             problem_text=engine.problem_text,
             code=code,
-            snippet=snippet
+            snippet=snippet,
+            programming_language=engine.programming_language
         )
         result.explanation = engine._call_llm(
             u_model, explain_prompt,
@@ -335,7 +343,8 @@ def _run_justification_pipeline(
             problem_text=engine.problem_text,
             code=code,
             snippet=snippet,
-            explanation=result.explanation
+            explanation=result.explanation,
+            programming_language=engine.programming_language
         )
         irrelevance_result = engine._call_llm_with_logprobs(
             logprob_model, irrelevance_prompt,
@@ -377,7 +386,8 @@ def _run_justification_pipeline(
             problem_text=engine.problem_text,
             code=code,
             snippet=snippet,
-            explanation=result.explanation
+            explanation=result.explanation,
+            programming_language=engine.programming_language
         )
         skeptic_result = engine._call_llm_with_logprobs(
             logprob_model, skeptic_prompt,
@@ -408,7 +418,8 @@ def _run_editing_pipeline(
         # Add comments
         comments_prompt = engine._get_prompt("ADD_COMMENTS_PROMPT").format(
             problem_text=engine.problem_text,
-            code=code
+            code=code,
+            programming_language=engine.programming_language
         )
         commented_code = engine._call_llm(
             t_model, comments_prompt,
@@ -420,7 +431,8 @@ def _run_editing_pipeline(
         # Basic edit on commented code
         basic_prompt = engine._get_prompt("BASIC_EDIT_PROMPT").format(
             problem_text=engine.problem_text,
-            code=commented_code if commented_code else code
+            code=commented_code if commented_code else code,
+            programming_language=engine.programming_language
         )
         basic_response = engine._call_llm(
             t_model, basic_prompt,
@@ -438,7 +450,8 @@ def _run_editing_pipeline(
             describe_prompt = engine._get_prompt("SNIPPET_EDIT_DESCRIBE_PROMPT").format(
                 problem_text=engine.problem_text,
                 code=code,
-                snippet=snippet
+                snippet=snippet,
+                programming_language=engine.programming_language
             )
             describe_response = engine._call_llm(
                 t_model, describe_prompt,
@@ -473,7 +486,8 @@ def _run_editing_pipeline(
     with log.collapsed("Inspired edit details"):
         inspired_prompt = engine._get_prompt("INSPIRED_EDIT_PROMPT").format(
             problem_text=engine.problem_text,
-            code=code
+            code=code,
+            programming_language=engine.programming_language
         )
         inspired_response = engine._call_llm(
             t_model, inspired_prompt,

@@ -10,4 +10,4 @@ IMPORTANT:
 3. Keep the solution correct for the given problem
 4. If the code looks clean, return it unchanged
 
-Return ONLY the cleaned/fixed Python code. No explanations, no markdown code blocks - just the raw code.
+Return ONLY the cleaned/fixed code. No explanations, no markdown code blocks - just the raw code.

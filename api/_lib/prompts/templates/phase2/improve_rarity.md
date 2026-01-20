@@ -1,10 +1,10 @@
-Below is a programming problem along with a Python solution.
+Below is a programming problem along with a {{ programming_language }} solution.
 
 <problem>
 {{ problem_text }}
 </problem>
 
-```python
+```{{ programming_language }}
 {{ normal_solution }}
 ```
 

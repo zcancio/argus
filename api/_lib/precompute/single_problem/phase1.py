@@ -21,9 +21,11 @@ def phase1_generate_baselines(engine: "SingleProblemEngine"):
 
     # Get U's solution
     log.step("U Solution", "Generating...")
-    u_prompt = engine._get_prompt("U_SOLUTION_PROMPT").format(
+    u_prompt = engine._render_prompt(
+        "U_SOLUTION_PROMPT",
         problem_text=engine.problem_text,
-        constraints="Standard constraints apply"
+        constraints="Standard constraints apply",
+        programming_language=engine.programming_language
     )
     u_response = engine._call_llm(
         engine.models.get("untrusted_model", "gpt-4o"),
@@ -36,9 +38,11 @@ def phase1_generate_baselines(engine: "SingleProblemEngine"):
 
     # Get T's solution
     log.step("T Solution", "Generating...")
-    t_prompt = engine._get_prompt("T_SOLUTION_PROMPT").format(
+    t_prompt = engine._render_prompt(
+        "T_SOLUTION_PROMPT",
         problem_text=engine.problem_text,
-        constraints="Standard constraints apply"
+        constraints="Standard constraints apply",
+        programming_language=engine.programming_language
     )
     t_response = engine._call_llm(
         engine.models.get("trusted_model", "gpt-3.5-turbo"),

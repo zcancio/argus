@@ -1,10 +1,10 @@
-Below is a programming problem along with a Python solution. Your job is to write three small test inputs for this solution. These test inputs should be the most important three inputs among the smallest test inputs. Focus on base cases and the most simple inputs.
+Below is a programming problem along with a {{ programming_language }} solution. Your job is to write three small test inputs for this solution. These test inputs should be the most important three inputs among the smallest test inputs. Focus on base cases and the most simple inputs.
 
 <problem>
 {{ problem_text }}
 </problem>
 
-```python
+```{{ programming_language }}
 {{ normal_solution }}
 ```
 

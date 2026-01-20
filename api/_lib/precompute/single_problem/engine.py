@@ -43,7 +43,8 @@ class SingleProblemEngine(LLMCallTrackerMixin):
         on_update: callable = None,
         test_cases: Optional[Dict[str, Any]] = None,
         problem_difficulty: int = 1,
-        max_difficulty: int = 6
+        max_difficulty: int = 6,
+        programming_language: str = "Python"
     ):
         self.dataset_id = dataset_id
         self.problem_id = problem_id
@@ -57,6 +58,7 @@ class SingleProblemEngine(LLMCallTrackerMixin):
         self.test_cases = test_cases or {}
         self.problem_difficulty = problem_difficulty
         self.max_difficulty = max_difficulty
+        self.programming_language = programming_language
 
         # Initialize result
         self.result = ProblemResult(

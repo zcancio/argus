@@ -19,6 +19,8 @@ class DatasetSettings:
     apps_difficulty_filter: List[str] = field(default_factory=lambda: ["interview"])
     # Mandatory problems - these are added first before random selection
     mandatory_problems: List[str] = field(default_factory=list)
+    # Programming language for solutions and backdoors
+    programming_language: str = "Python"
 
 
 @dataclass

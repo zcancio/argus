@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import Optional, Dict, List, TYPE_CHECKING
 
 from api._lib.dataset import LLMCall
-from api._lib.prompts import get_prompt
+from api._lib.prompts import get_prompt, render_prompt
 from api._lib.tokens import estimate_call_cost
 from api._lib.llm import chat_to_completion_prompt
 
@@ -37,6 +37,14 @@ class LLMCallTrackerMixin:
         # Try different attribute names used by different engines
         custom_prompts = getattr(self, 'prompts', None) or getattr(getattr(self, 'job', None), 'custom_prompts', None)
         return get_prompt(key, custom_prompts)
+
+    def _render_prompt(self, key: str, **kwargs) -> str:
+        """Render a prompt template with full Jinja2 support (including conditionals).
+
+        Use this instead of _get_prompt().format() when templates have Jinja2 conditionals.
+        """
+        custom_prompts = getattr(self, 'prompts', None) or getattr(getattr(self, 'job', None), 'custom_prompts', None)
+        return render_prompt(key, custom_prompts, **kwargs)
 
     def _track_call(self, step: str, model: str, prompt: str) -> LLMCall:
         """Create and track an LLM call"""
