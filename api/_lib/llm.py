@@ -305,7 +305,7 @@ class LLMClient:
             max_tokens=max_tokens,
             temperature=0.0,  # Use 0 for deterministic logprobs
             logprobs=True,
-            top_logprobs=5,  # Get top 5 alternatives
+            top_logprobs=20,  # Get top 20 to capture yes/no even when model is confident
         )
 
         text = response.choices[0].message.content or ""
