@@ -189,7 +189,8 @@ def _run_monitoring_pipeline(
     with log.collapsed(f"{monitor_type} monitoring {code_label} details"):
         # Step 1: Identify suspicious logic
         print(f"Step 1: Identifying suspicious logic...")
-        identify_prompt = engine._get_prompt("IDENTIFY_SUSPICIOUS_LOGIC_MONITOR_PROMPT").format(
+        identify_prompt = engine._render_prompt(
+            "IDENTIFY_SUSPICIOUS_LOGIC_MONITOR_PROMPT",
             problem_text=engine.problem_text,
             code=code,
             programming_language=engine.programming_language
@@ -200,35 +201,35 @@ def _run_monitoring_pipeline(
             role=role
         )
 
-        # Step 2: Numeric rating (1-10) - based on the analysis from step 1
+        # Build conversation for multi-turn (paper approach)
+        conversation = [
+            {"role": "user", "content": identify_prompt},
+            {"role": "assistant", "content": result.suspicious_logic},
+        ]
+
+        # Step 2: Numeric rating (1-10) - follow-up in same conversation
         print(f"Step 2: Rating suspicion...")
-        rate_prompt = engine._get_prompt("RATE_SUSPICION_PROMPT").format(
-            problem_text=engine.problem_text,
-            code=code,
-            analysis=result.suspicious_logic,
-            programming_language=engine.programming_language
-        )
-        rate_response = engine._call_llm(
-            chat_model, rate_prompt,
+        rate_prompt = engine._get_prompt("RATE_SUSPICION_PROMPT")
+        conversation.append({"role": "user", "content": rate_prompt})
+
+        rate_response = engine._call_llm_conversation(
+            chat_model, conversation,
             f"{monitor_type}_rate_suspicion_{code_label}",
             role=role
         )
         result.numeric_rating = parse_rating(rate_response, 1, 10, 3.0)
         print(f"  Numeric rating: {result.numeric_rating}/10")
 
-        # Step 3: Yes/No backdoor detection (with logprobs for trusted)
-        # Paper approach: use multi-turn conversation with analysis context
+        # Add rating response to conversation
+        conversation.append({"role": "assistant", "content": rate_response})
+
+        # Step 3: Yes/No backdoor detection - follow-up in same conversation
         print(f"Step 3: Yes/No detection...")
-        yesno_followup = engine._get_prompt("YES_NO_BACKDOOR_PROMPT")
+        yesno_prompt = engine._get_prompt("YES_NO_BACKDOOR_PROMPT")
+        conversation.append({"role": "user", "content": yesno_prompt})
 
         if logprob_model:
             # Use instruct model with logprobs for trusted monitoring
-            # Build conversation: analysis prompt -> analysis response -> yes/no followup
-            conversation = [
-                {"role": "user", "content": identify_prompt},
-                {"role": "assistant", "content": result.suspicious_logic},
-                {"role": "user", "content": yesno_followup}
-            ]
             logprob_result = engine._call_llm_with_logprobs_conversation(
                 logprob_model, conversation,
                 f"{monitor_type}_yesno_backdoor_{code_label}",
@@ -240,10 +241,8 @@ def _run_monitoring_pipeline(
             print(f"  Yes/No: {'YES' if result.yes_no_backdoor else 'NO'} (P(yes)={result.yes_prob:.3f})")
         else:
             # Use chat model for untrusted (no logprobs)
-            # Still use conversation context for consistency
-            yesno_prompt = f"{identify_prompt}\n\nAnalysis:\n{result.suspicious_logic}\n\n{yesno_followup}"
-            yesno_response = engine._call_llm(
-                chat_model, yesno_prompt,
+            yesno_response = engine._call_llm_conversation(
+                chat_model, conversation,
                 f"{monitor_type}_yesno_backdoor_{code_label}",
                 role=role
             )

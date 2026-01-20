@@ -145,6 +145,40 @@ class LLMClient:
         # Unknown model - fall back to simulation
         return self._simulate_response(prompt)
 
+    def complete_conversation(self, model: str, messages: List[Dict[str, str]], max_tokens: int = 2000) -> str:
+        """
+        Generate a completion from a multi-turn conversation.
+
+        Args:
+            model: Model identifier (gpt-4o, claude-3-sonnet-20240229, etc.)
+            messages: List of message dicts with 'role' and 'content' keys
+            max_tokens: Maximum tokens in response
+
+        Returns:
+            The model's response text
+        """
+        if model == "simulated":
+            # Use last user message for simulation
+            last_user = next((m['content'] for m in reversed(messages) if m['role'] == 'user'), "")
+            return self._simulate_response(last_user)
+
+        # OpenAI chat models
+        if model in ["gpt-4o", "gpt-4o-mini", "gpt-3.5-turbo"]:
+            return self._call_openai_conversation(model, messages, max_tokens)
+
+        # OpenAI completion/instruct models - convert to completion prompt
+        if model in ["gpt-3.5-turbo-instruct"]:
+            prompt = chat_to_completion_prompt(messages)
+            return self._call_openai_completion(model, prompt, max_tokens)
+
+        # Anthropic models
+        if model.startswith("claude-"):
+            return self._call_anthropic_conversation(model, messages, max_tokens)
+
+        # Unknown model - fall back to simulation
+        last_user = next((m['content'] for m in reversed(messages) if m['role'] == 'user'), "")
+        return self._simulate_response(last_user)
+
     def complete_with_logprobs(self, model: str, prompt: str, max_tokens: int = 5) -> LogProbResult:
         """
         Generate a completion with log probabilities.
@@ -290,6 +324,19 @@ class LLMClient:
         )
         return response.choices[0].message.content
 
+    def _call_openai_conversation(self, model: str, messages: List[Dict[str, str]], max_tokens: int) -> str:
+        """Call OpenAI Chat API with multi-turn conversation"""
+        if not self.openai_client:
+            raise ValueError("OpenAI API key not configured")
+
+        response = self.openai_client.chat.completions.create(
+            model=model,
+            messages=messages,
+            max_tokens=max_tokens,
+            temperature=0.7,
+        )
+        return response.choices[0].message.content
+
     def _call_openai_completion(self, model: str, prompt: str, max_tokens: int) -> str:
         """Call OpenAI Completion API (for instruct models)"""
         if not self.openai_client:
@@ -390,6 +437,18 @@ class LLMClient:
             model=model,
             max_tokens=max_tokens,
             messages=[{"role": "user", "content": prompt}],
+        )
+        return response.content[0].text
+
+    def _call_anthropic_conversation(self, model: str, messages: List[Dict[str, str]], max_tokens: int) -> str:
+        """Call Anthropic API with multi-turn conversation"""
+        if not self.anthropic_client:
+            raise ValueError("Anthropic API key not configured")
+
+        response = self.anthropic_client.messages.create(
+            model=model,
+            max_tokens=max_tokens,
+            messages=messages,
         )
         return response.content[0].text
 

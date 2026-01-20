@@ -121,6 +121,30 @@ class LLMCallTrackerMixin:
             self._complete_call(call, "", str(e))
             raise
 
+    def _call_llm_conversation(
+        self, model: str, messages: list, step: str = "unknown", role: str = None
+    ) -> str:
+        """Call the LLM with multi-turn conversation and tracking
+
+        Args:
+            model: The model identifier (e.g., "gpt-4o")
+            messages: List of conversation messages [{"role": "user/assistant", "content": "..."}]
+            step: The step name for tracking
+            role: The role name (e.g., "Red Team", "Trusted", "Untrusted", "Human")
+        """
+        # Format model display with role if provided
+        model_display = f"{role} ({model})" if role else model
+        # For tracking, show the last user message as the prompt
+        last_user_msg = next((m['content'] for m in reversed(messages) if m['role'] == 'user'), "")
+        call = self._track_call(step, model_display, last_user_msg)
+        try:
+            response = self.llm.complete_conversation(model, messages)
+            self._complete_call(call, response)
+            return response
+        except Exception as e:
+            self._complete_call(call, "", str(e))
+            raise
+
     def _call_llm_with_logprobs(
         self, model: str, prompt: str, step: str = "unknown", role: str = None, max_tokens: int = 5
     ) -> "LogProbResult":
