@@ -245,6 +245,120 @@ class LLMClient:
 
         return self._call_openai_completion_with_logprobs(model, prompt, max_tokens)
 
+    def complete_conversation_with_logprobs(
+        self,
+        model: str,
+        messages: List[Dict[str, str]],
+        max_tokens: int = 5
+    ) -> LogProbResult:
+        """
+        Generate a completion from a conversation with log probabilities.
+
+        Works with chat models (gpt-4o, gpt-3.5-turbo) using the logprobs parameter.
+        For yes/no questions, extracts P(yes) and P(no) from logprobs.
+
+        Args:
+            model: Model identifier
+            messages: List of message dicts with 'role' and 'content' keys
+            max_tokens: Maximum tokens in response
+
+        Returns:
+            LogProbResult with text and logprobs
+        """
+        if model == "simulated":
+            import random
+            yes_prob = random.uniform(0.3, 0.7)
+            return LogProbResult(
+                text="yes" if yes_prob > 0.5 else "no",
+                logprobs={"yes": math.log(yes_prob), "no": math.log(1 - yes_prob)},
+                yes_prob=yes_prob,
+                no_prob=1 - yes_prob
+            )
+
+        # For instruct models, convert to completion prompt
+        if model in ["gpt-3.5-turbo-instruct"]:
+            prompt = chat_to_completion_prompt(messages)
+            return self._call_openai_completion_with_logprobs(model, prompt, max_tokens)
+
+        # For chat models, use chat API with logprobs
+        if model in ["gpt-4o", "gpt-4o-mini", "gpt-3.5-turbo"]:
+            return self._call_openai_chat_with_logprobs(model, messages, max_tokens)
+
+        raise ValueError(f"Model {model} does not support log probabilities.")
+
+    def _call_openai_chat_with_logprobs(
+        self,
+        model: str,
+        messages: List[Dict[str, str]],
+        max_tokens: int
+    ) -> LogProbResult:
+        """Call OpenAI Chat API with log probabilities.
+
+        Uses the chat completions API logprobs parameter to get token probabilities.
+        """
+        if not self.openai_client:
+            raise ValueError("OpenAI API key not configured")
+
+        response = self.openai_client.chat.completions.create(
+            model=model,
+            messages=messages,
+            max_tokens=max_tokens,
+            temperature=0.0,  # Use 0 for deterministic logprobs
+            logprobs=True,
+            top_logprobs=5,  # Get top 5 alternatives
+        )
+
+        text = response.choices[0].message.content or ""
+        logprobs_content = response.choices[0].logprobs
+
+        # Extract logprobs dict
+        logprobs = {}
+        yes_logprob = None
+        no_logprob = None
+
+        if logprobs_content and logprobs_content.content:
+            # Get first token and its alternatives
+            first_token = logprobs_content.content[0]
+
+            # Check the main token first
+            main_token_lower = first_token.token.strip().lower()
+            logprobs[first_token.token] = first_token.logprob
+            if main_token_lower in ['yes', 'y']:
+                yes_logprob = first_token.logprob
+            elif main_token_lower in ['no', 'n']:
+                no_logprob = first_token.logprob
+
+            # Check alternatives for the other token
+            if first_token.top_logprobs:
+                for alt in first_token.top_logprobs:
+                    token_lower = alt.token.strip().lower()
+                    logprobs[alt.token] = alt.logprob
+
+                    # Look for yes/no variants we haven't found yet
+                    if token_lower in ['yes', 'y']:
+                        if yes_logprob is None or alt.logprob > yes_logprob:
+                            yes_logprob = alt.logprob
+                    elif token_lower in ['no', 'n']:
+                        if no_logprob is None or alt.logprob > no_logprob:
+                            no_logprob = alt.logprob
+
+        # Convert logprobs to probabilities
+        yes_prob = math.exp(yes_logprob) if yes_logprob is not None else 0.0
+        no_prob = math.exp(no_logprob) if no_logprob is not None else 0.0
+
+        # Normalize if we have both
+        if yes_prob + no_prob > 0:
+            total = yes_prob + no_prob
+            yes_prob = yes_prob / total
+            no_prob = no_prob / total
+
+        return LogProbResult(
+            text=text,
+            logprobs=logprobs,
+            yes_prob=yes_prob,
+            no_prob=no_prob
+        )
+
     def complete_rating_with_logit_bias(self, model: str, prompt: str) -> int:
         """
         Get a 1-10 rating with logit bias to spread distribution.

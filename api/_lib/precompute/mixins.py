@@ -208,11 +208,12 @@ class LLMCallTrackerMixin:
     ) -> "LogProbResult":
         """Call the LLM with conversation context and get log probabilities.
 
-        This follows the paper's approach: convert a multi-turn conversation
-        to a completion prompt for gpt-3.5-turbo-instruct.
+        Works with both instruct models (gpt-3.5-turbo-instruct) and chat models
+        (gpt-4o, gpt-3.5-turbo). For instruct models, converts the conversation
+        to a completion prompt. For chat models, uses the chat API with logprobs.
 
         Args:
-            model: The model identifier (must support logprobs, e.g., "gpt-3.5-turbo-instruct")
+            model: The model identifier (e.g., "gpt-3.5-turbo-instruct" or "gpt-4o")
             messages: List of conversation messages [{"role": "user/assistant", "content": "..."}]
             step: The step name for tracking
             role: The role name (e.g., "Trusted")
@@ -221,14 +222,19 @@ class LLMCallTrackerMixin:
         Returns:
             LogProbResult with text, logprobs, yes_prob, and no_prob
         """
-        # Convert conversation to completion prompt
-        prompt = chat_to_completion_prompt(messages)
-
         # Format model display with role if provided
         model_display = f"{role} ({model})" if role else model
+
+        # For instruct models, convert to completion prompt for tracking
+        if model in ["gpt-3.5-turbo-instruct"]:
+            prompt = chat_to_completion_prompt(messages)
+        else:
+            # For chat models, track the last user message
+            prompt = next((m['content'] for m in reversed(messages) if m['role'] == 'user'), "")
+
         call = self._track_call(step, model_display, prompt)
         try:
-            result = self.llm.complete_with_logprobs(model, prompt, max_tokens)
+            result = self.llm.complete_conversation_with_logprobs(model, messages, max_tokens)
             # Store response with logprob info
             response_with_probs = f"{result.text} [P(yes)={result.yes_prob:.3f}, P(no)={result.no_prob:.3f}]"
             self._complete_call(call, response_with_probs)
