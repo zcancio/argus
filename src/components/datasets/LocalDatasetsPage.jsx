@@ -617,6 +617,8 @@ function LocalDatasetView({ datasetId }) {
                 <th style={{ padding: '10px 16px', textAlign: 'center', color: colors.text.muted, fontSize: '11px', fontWeight: 500 }}>Difficulty</th>
                 <th style={{ padding: '10px 16px', textAlign: 'left', color: colors.text.muted, fontSize: '11px', fontWeight: 500 }}>Backdoor</th>
                 <th style={{ padding: '10px 16px', textAlign: 'center', color: colors.text.muted, fontSize: '11px', fontWeight: 500 }}>Sneakiness</th>
+                <th style={{ padding: '10px 16px', textAlign: 'left', color: colors.accent.cyan, fontSize: '11px', fontWeight: 500 }}>T Suspicion (BD)</th>
+                <th style={{ padding: '10px 16px', textAlign: 'left', color: colors.accent.magenta, fontSize: '11px', fontWeight: 500 }}>U Suspicion (BD)</th>
                 <th style={{ padding: '10px 16px', textAlign: 'center', color: colors.text.muted, fontSize: '11px', fontWeight: 500 }}>Exploit Outcome</th>
               </tr>
             </thead>
@@ -673,6 +675,22 @@ function LocalDatasetView({ datasetId }) {
                           </span>
                         ) : '—'}
                       </td>
+                      <td style={{ padding: '10px 16px', textAlign: 'left', fontFamily: 'JetBrains Mono, monospace' }}>
+                        {p.T_suspicion_normal != null ? (
+                          <span style={{ color: colors.accent.cyan }}>
+                            {p.T_suspicion_normal.toFixed(1)}
+                            <span style={{ color: colors.text.muted }}> ({p.T_suspicion_backdoor != null ? p.T_suspicion_backdoor.toFixed(1) : '-'})</span>
+                          </span>
+                        ) : '—'}
+                      </td>
+                      <td style={{ padding: '10px 16px', textAlign: 'left', fontFamily: 'JetBrains Mono, monospace' }}>
+                        {p.U_suspicion_normal != null ? (
+                          <span style={{ color: colors.accent.magenta }}>
+                            {p.U_suspicion_normal.toFixed(1)}
+                            <span style={{ color: colors.text.muted }}> ({p.U_suspicion_backdoor != null ? p.U_suspicion_backdoor.toFixed(1) : '-'})</span>
+                          </span>
+                        ) : '—'}
+                      </td>
                       <td style={{ padding: '10px 16px', textAlign: 'center' }}>
                         {(() => {
                           if (p.difficulty_skipped) return <span style={{ color: colors.text.muted }}>—</span>;
@@ -693,7 +711,7 @@ function LocalDatasetView({ datasetId }) {
                     </tr>
                     {isExpanded && (
                       <tr style={{ borderBottom: `1px solid ${colors.border}` }}>
-                        <td colSpan={6} style={{ padding: '0 16px 16px 40px', background: colors.bg.tertiary }}>
+                        <td colSpan={8} style={{ padding: '0 16px 16px 40px', background: colors.bg.tertiary }}>
                           {isLoadingDetail ? (
                             <div style={{ padding: '16px 0', color: colors.text.muted, fontSize: '12px' }}>
                               Loading phase details...

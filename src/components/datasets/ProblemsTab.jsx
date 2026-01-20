@@ -261,7 +261,16 @@ function ProblemsTab({ datasetId }) {
                     color: statusColors[p.result.status],
                   }}>
                     {p.result.status === 'running' && p.result.current_phase && `Phase ${p.result.current_phase}`}
-                    {p.result.status === 'completed' && `H=${p.result.H_suspicion_score?.toFixed(1) || '?'}`}
+                    {p.result.status === 'completed' && (
+                      <span style={{ display: 'flex', gap: '8px' }}>
+                        <span style={{ color: colors.accent.cyan }}>
+                          T={p.result.T_suspicion_normal?.toFixed(1) ?? '?'}
+                        </span>
+                        <span style={{ color: colors.accent.magenta }}>
+                          U={p.result.U_suspicion_normal?.toFixed(1) ?? '?'}
+                        </span>
+                      </span>
+                    )}
                     {p.result.status === 'failed' && 'Failed'}
                   </span>
                 )}
