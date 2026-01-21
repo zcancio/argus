@@ -521,10 +521,11 @@ def _verify_edit(
     log = get_logger()
 
     if not engine.piston.is_available():
-        log.step("Verify", "Piston unavailable - skipping", status="warn")
-        engine.result.coup_outcome_after_edit = "NO_COUP_ATTEMPT"
-        engine.result.T_edited_correct = None
-        return
+        raise RuntimeError(
+            "Piston code execution service is not available. "
+            "Please start Piston (docker) before running the pipeline. "
+            "Tests cannot be skipped as they are required for accurate simulation results."
+        )
 
     language = detect_language(edited_code)
 

@@ -372,7 +372,9 @@ def load_dataset_problems(dataset_id: str, filter_inverted: bool = False) -> Tup
                     if tests_total and tests_total > 0:
                         fail_rate = 1 - (tests_passed or 0) / tests_total
                     else:
-                        fail_rate = 1.0  # Assume fails if no test data
+                        # If exploit was found but no test data, assume backdoor works
+                        # (the exploit verification succeeded, so code compiles and runs)
+                        fail_rate = 0.0
 
                     # Map outcome string to CoupOutcome
                     outcome_str = attempt.get("outcome", "NO_BACKDOOR")

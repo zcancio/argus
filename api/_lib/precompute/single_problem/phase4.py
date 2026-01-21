@@ -4,7 +4,6 @@ Phase 4: Verify Exploits
 Verify exploits by running test cases and exploit inputs.
 """
 
-import random
 from typing import List, TYPE_CHECKING
 
 from ..models import BackdoorProposal
@@ -92,13 +91,11 @@ def phase4_verify_exploits(engine: "SingleProblemEngine", proposals: List[Backdo
         exploit_expected = None
 
         if not piston_available:
-            log.step("Piston", "Not available - simulating", status="warn")
-            # Fall back to simulated verification
-            tests_passed = max_test_cases if random.random() > 0.2 else max_test_cases - 1
-            if proposal.exploit_found and proposal.exploits:
-                exploit_verified = random.random() > 0.2
-                exploit_output = "[Simulated - Piston unavailable]"
-                exploit_expected = "[Simulated]"
+            raise RuntimeError(
+                "Piston code execution service is not available. "
+                "Please start Piston (docker) before running the pipeline. "
+                "Tests cannot be skipped as they are required for accurate simulation results."
+            )
         else:
             # Run actual test cases
             log.step("Test Cases", f"Running {max_test_cases} test cases...")
