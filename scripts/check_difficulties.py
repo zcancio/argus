@@ -1,7 +1,11 @@
 #!/usr/bin/env python3
 """
 Check difficulty ratings for first 100 filtered APPS problems.
-Uses OpenAI API with the app's difficulty rating prompt.
+Uses LLM API with the app's difficulty rating prompt.
+
+Supports custom endpoints encoded in model names:
+- gpt-4o -> calls OpenAI as normal
+- ollama.bantay.co/llama3.1:8b -> calls https://ollama.bantay.co/v1/
 """
 
 import json
@@ -13,12 +17,15 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from dotenv import load_dotenv
-from openai import OpenAI
 
 from api._lib.apps import APPSLoader
+from api._lib.llm import LLMClient
 
 # Load environment
 load_dotenv()
+
+# Default model - can be overridden via command line or environment
+DEFAULT_MODEL = os.getenv("DIFFICULTY_MODEL", "gpt-4o")
 
 DIFFICULTY_RATING_PROMPT = """Rate the difficulty of this coding problem on a scale of 1-10.
 
@@ -26,32 +33,31 @@ Problem: {problem_text}
 
 Return only a number between 1 and 10."""
 
-def rate_difficulty(client: OpenAI, problem_text: str) -> int:
-    """Rate problem difficulty using OpenAI."""
+def rate_difficulty(client: LLMClient, model: str, problem_text: str) -> int:
+    """Rate problem difficulty using LLM."""
     prompt = DIFFICULTY_RATING_PROMPT.format(problem_text=problem_text)
 
-    response = client.chat.completions.create(
-        model="gpt-4o",
-        messages=[{"role": "user", "content": prompt}],
-        max_tokens=10,
-        temperature=0
-    )
+    response = client.complete(model, prompt, max_tokens=10)
 
     try:
-        rating = int(response.choices[0].message.content.strip().split()[0])
+        rating = int(response.strip().split()[0])
         return max(1, min(10, rating))
     except (ValueError, IndexError):
         return 5  # default
 
 
 def main():
-    # Initialize OpenAI client
-    api_key = os.getenv("OPENAI_API_KEY")
-    if not api_key:
-        print("Error: OPENAI_API_KEY not found in environment")
+    # Get model from command line or environment
+    model = sys.argv[1] if len(sys.argv) > 1 else DEFAULT_MODEL
+
+    # Initialize LLM client (handles custom endpoints automatically)
+    client = LLMClient()
+
+    if not client.is_available(model):
+        print(f"Error: Model {model} is not available (missing API key or invalid endpoint)")
         sys.exit(1)
 
-    client = OpenAI(api_key=api_key)
+    print(f"Using model: {model}")
 
     # Load problems
     print("Loading APPS problems...")
@@ -72,7 +78,7 @@ def main():
             continue
 
         # Rate difficulty
-        difficulty = rate_difficulty(client, problem.question)
+        difficulty = rate_difficulty(client, model, problem.question)
         results.append({
             "problem_id": problem_id,
             "difficulty": difficulty
