@@ -136,6 +136,12 @@ class ProblemResult:
     U_suspicion_normal: Optional[float] = None  # U's score on normal solution
     U_suspicion_backdoor: Optional[float] = None  # U's score on backdoor (may rate low to avoid detection)
 
+    # Monitoring Details (logprobs, ratings, etc.)
+    T_normal_monitoring_details: Optional[Dict[str, Any]] = None
+    T_backdoor_monitoring_details: Optional[Dict[str, Any]] = None
+    U_normal_monitoring_details: Optional[Dict[str, Any]] = None
+    U_backdoor_monitoring_details: Optional[Dict[str, Any]] = None
+
     # Snippet Analysis
     T_suspicious_snippet: Optional[str] = None  # Suspicious snippet found by T
 

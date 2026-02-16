@@ -9,10 +9,77 @@ from dataclasses import dataclass
 import math
 import os
 import logging
+import re
 
 import tiktoken
 
 logger = logging.getLogger(__name__)
+
+
+# Known OpenAI models - these should NOT be parsed as custom endpoints
+KNOWN_OPENAI_MODELS = {
+    "gpt-4o", "gpt-4o-mini", "gpt-3.5-turbo", "gpt-3.5-turbo-instruct",
+    "gpt-4", "gpt-4-turbo", "gpt-4-turbo-preview", "o1", "o1-mini", "o1-preview"
+}
+
+
+def parse_custom_endpoint(model: str) -> Tuple[Optional[str], str]:
+    """
+    Parse a model string that may contain a custom endpoint.
+
+    If the model string looks like {host}/{model} (e.g., "ollama.bantay.co/llama3.1:8b"),
+    parse it and return the base URL and model name separately.
+
+    Args:
+        model: Model string, either a standard model name or {host}/{model} format
+
+    Returns:
+        Tuple of (base_url, model_name):
+        - If custom endpoint: ("https://{host}/v1/", "{model}")
+        - If standard model: (None, original_model)
+
+    Examples:
+        >>> parse_custom_endpoint("gpt-4o")
+        (None, "gpt-4o")
+        >>> parse_custom_endpoint("ollama.bantay.co/llama3.1:8b")
+        ("https://ollama.bantay.co/v1/", "llama3.1:8b")
+        >>> parse_custom_endpoint("localhost:11434/mistral")
+        ("https://localhost:11434/v1/", "mistral")
+    """
+    # Standard models - don't parse
+    if model in KNOWN_OPENAI_MODELS:
+        return None, model
+
+    # Claude models - don't parse
+    if model.startswith("claude-"):
+        return None, model
+
+    # Simulated model - don't parse
+    if model == "simulated":
+        return None, model
+
+    # Check if contains a slash
+    if "/" not in model:
+        return None, model
+
+    # Split on first slash to get host and model parts
+    parts = model.split("/", 1)
+    if len(parts) != 2:
+        return None, model
+
+    host, model_name = parts
+
+    # Validate host looks like a domain/IP (contains a dot or colon for port)
+    # This helps distinguish "host.com/model" from paths like "path/to/model"
+    if "." not in host and ":" not in host and host != "localhost":
+        return None, model
+
+    # Construct the base URL
+    base_url = f"https://{host}/v1/"
+
+    logger.info(f"[LLM] Parsed custom endpoint: {model} -> base_url={base_url}, model={model_name}")
+
+    return base_url, model_name
 
 
 @dataclass
@@ -62,6 +129,10 @@ def chat_to_completion_prompt(messages: list) -> str:
 class LLMClient:
     """
     Unified LLM client supporting OpenAI and Anthropic models.
+
+    Supports custom endpoints encoded in model names. If a model string
+    looks like {host}/{model} (e.g., "ollama.bantay.co/llama3.1:8b"),
+    it routes requests to https://{host}/v1/ with model name {model}.
     """
 
     def __init__(self, openai_key: Optional[str] = None, anthropic_key: Optional[str] = None):
@@ -73,6 +144,8 @@ class LLMClient:
 
         self._openai_client = None
         self._anthropic_client = None
+        # Cache of OpenAI clients by base URL for custom endpoints
+        self._openai_clients_by_base_url: Dict[str, Any] = {}
 
     @property
     def openai_client(self):
@@ -105,11 +178,45 @@ class LLMClient:
                 pass
         return self._anthropic_client
 
+    def get_openai_client_for_base_url(self, base_url: str):
+        """
+        Get or create an OpenAI client for a specific base URL.
+
+        Used for custom endpoints like ollama.bantay.co/llama3.1:8b.
+        Clients are cached to avoid creating new instances for each call.
+
+        Args:
+            base_url: The base URL for the OpenAI-compatible API
+
+        Returns:
+            An OpenAI client configured for the specified base URL
+        """
+        if base_url not in self._openai_clients_by_base_url:
+            try:
+                from openai import OpenAI
+                # Use the standard OpenAI key for custom endpoints
+                # Many OpenAI-compatible APIs accept any key or have their own auth
+                api_key = self.openai_key or "dummy-key"
+                client = OpenAI(api_key=api_key, base_url=base_url)
+                self._openai_clients_by_base_url[base_url] = client
+                logger.info(f"[LLM] Created OpenAI client for custom base URL: {base_url}")
+            except Exception as e:
+                logger.error(f"[LLM] Failed to create OpenAI client for {base_url}: {e}")
+                return None
+        return self._openai_clients_by_base_url[base_url]
+
     def is_available(self, model: str) -> bool:
-        """Check if a model is available (has API key)"""
+        """Check if a model is available (has API key or custom endpoint)"""
         if model == "simulated":
             return True
-        if model in ["gpt-4o", "gpt-4o-mini", "gpt-3.5-turbo", "gpt-3.5-turbo-instruct"]:
+
+        # Check for custom endpoint
+        base_url, model_name = parse_custom_endpoint(model)
+        if base_url:
+            # Custom endpoints are assumed available (we can't easily check)
+            return True
+
+        if model in KNOWN_OPENAI_MODELS:
             return self.openai_client is not None
         if model.startswith("claude-"):
             return self.anthropic_client is not None
@@ -121,6 +228,7 @@ class LLMClient:
 
         Args:
             model: Model identifier (gpt-4o, claude-3-sonnet-20240229, etc.)
+                   Can also be a custom endpoint like "ollama.bantay.co/llama3.1:8b"
             prompt: The prompt to send
             max_tokens: Maximum tokens in response
 
@@ -129,6 +237,11 @@ class LLMClient:
         """
         if model == "simulated":
             return self._simulate_response(prompt)
+
+        # Check for custom endpoint first
+        base_url, model_name = parse_custom_endpoint(model)
+        if base_url:
+            return self._call_custom_endpoint(base_url, model_name, prompt, max_tokens)
 
         # OpenAI chat models
         if model in ["gpt-4o", "gpt-4o-mini", "gpt-3.5-turbo"]:
@@ -144,6 +257,96 @@ class LLMClient:
 
         # Unknown model - fall back to simulation
         return self._simulate_response(prompt)
+
+    def complete_conversation(self, model: str, messages: List[Dict[str, str]], max_tokens: int = 2000) -> str:
+        """
+        Generate a completion from a multi-turn conversation.
+
+        Args:
+            model: Model identifier (gpt-4o, claude-3-sonnet-20240229, etc.)
+                   Can also be a custom endpoint like "ollama.bantay.co/llama3.1:8b"
+            messages: List of message dicts with 'role' and 'content' keys
+            max_tokens: Maximum tokens in response
+
+        Returns:
+            The model's response text
+        """
+        if model == "simulated":
+            # Use last user message for simulation
+            last_user = next((m['content'] for m in reversed(messages) if m['role'] == 'user'), "")
+            return self._simulate_response(last_user)
+
+        # Check for custom endpoint first
+        base_url, model_name = parse_custom_endpoint(model)
+        if base_url:
+            return self._call_custom_endpoint_conversation(base_url, model_name, messages, max_tokens)
+
+        # OpenAI chat models
+        if model in ["gpt-4o", "gpt-4o-mini", "gpt-3.5-turbo"]:
+            return self._call_openai_conversation(model, messages, max_tokens)
+
+        # OpenAI completion/instruct models - convert to completion prompt
+        if model in ["gpt-3.5-turbo-instruct"]:
+            prompt = chat_to_completion_prompt(messages)
+            return self._call_openai_completion(model, prompt, max_tokens)
+
+        # Anthropic models
+        if model.startswith("claude-"):
+            return self._call_anthropic_conversation(model, messages, max_tokens)
+
+        # Unknown model - fall back to simulation
+        last_user = next((m['content'] for m in reversed(messages) if m['role'] == 'user'), "")
+        return self._simulate_response(last_user)
+
+    def complete_conversation_with_logit_bias(
+        self,
+        model: str,
+        messages: List[Dict[str, str]],
+        logit_bias: Dict[int, float],
+        max_tokens: int = 5
+    ) -> str:
+        """
+        Generate a completion from a multi-turn conversation with logit bias.
+
+        Args:
+            model: Model identifier
+            messages: List of message dicts with 'role' and 'content' keys
+            logit_bias: Dict of token_id -> bias value
+            max_tokens: Maximum tokens in response
+
+        Returns:
+            The model's response text
+        """
+        # Check for custom endpoint
+        base_url, model_name = parse_custom_endpoint(model)
+        if base_url:
+            client = self.get_openai_client_for_base_url(base_url)
+            if not client:
+                raise ValueError(f"Failed to create client for {base_url}")
+            response = client.chat.completions.create(
+                model=model_name,
+                messages=messages,
+                max_tokens=max_tokens,
+                temperature=0.7,
+                logit_bias=logit_bias,
+            )
+            return response.choices[0].message.content
+
+        if model in ["gpt-4o", "gpt-4o-mini", "gpt-3.5-turbo"]:
+            if not self.openai_client:
+                raise ValueError("OpenAI API key not configured")
+
+            response = self.openai_client.chat.completions.create(
+                model=model,
+                messages=messages,
+                max_tokens=max_tokens,
+                temperature=0.7,
+                logit_bias=logit_bias,
+            )
+            return response.choices[0].message.content
+
+        # Fallback to regular conversation for other models
+        return self.complete_conversation(model, messages, max_tokens)
 
     def complete_with_logprobs(self, model: str, prompt: str, max_tokens: int = 5) -> LogProbResult:
         """
@@ -175,6 +378,125 @@ class LLMClient:
             raise ValueError(f"Model {model} does not support log probabilities. Use gpt-3.5-turbo-instruct.")
 
         return self._call_openai_completion_with_logprobs(model, prompt, max_tokens)
+
+    def complete_conversation_with_logprobs(
+        self,
+        model: str,
+        messages: List[Dict[str, str]],
+        max_tokens: int = 5
+    ) -> LogProbResult:
+        """
+        Generate a completion from a conversation with log probabilities.
+
+        Works with chat models (gpt-4o, gpt-3.5-turbo) using the logprobs parameter.
+        For yes/no questions, extracts P(yes) and P(no) from logprobs.
+
+        Args:
+            model: Model identifier
+            messages: List of message dicts with 'role' and 'content' keys
+            max_tokens: Maximum tokens in response
+
+        Returns:
+            LogProbResult with text and logprobs
+        """
+        if model == "simulated":
+            import random
+            yes_prob = random.uniform(0.3, 0.7)
+            return LogProbResult(
+                text="yes" if yes_prob > 0.5 else "no",
+                logprobs={"yes": math.log(yes_prob), "no": math.log(1 - yes_prob)},
+                yes_prob=yes_prob,
+                no_prob=1 - yes_prob
+            )
+
+        # Check for custom endpoint - use chat API with logprobs
+        base_url, model_name = parse_custom_endpoint(model)
+        if base_url:
+            return self._call_custom_endpoint_chat_with_logprobs(base_url, model_name, messages, max_tokens)
+
+        # For instruct models, convert to completion prompt
+        if model in ["gpt-3.5-turbo-instruct"]:
+            prompt = chat_to_completion_prompt(messages)
+            return self._call_openai_completion_with_logprobs(model, prompt, max_tokens)
+
+        # For chat models, use chat API with logprobs
+        if model in ["gpt-4o", "gpt-4o-mini", "gpt-3.5-turbo"]:
+            return self._call_openai_chat_with_logprobs(model, messages, max_tokens)
+
+        raise ValueError(f"Model {model} does not support log probabilities.")
+
+    def _call_openai_chat_with_logprobs(
+        self,
+        model: str,
+        messages: List[Dict[str, str]],
+        max_tokens: int
+    ) -> LogProbResult:
+        """Call OpenAI Chat API with log probabilities.
+
+        Uses the chat completions API logprobs parameter to get token probabilities.
+        """
+        if not self.openai_client:
+            raise ValueError("OpenAI API key not configured")
+
+        response = self.openai_client.chat.completions.create(
+            model=model,
+            messages=messages,
+            max_tokens=max_tokens,
+            temperature=0.0,  # Use 0 for deterministic logprobs
+            logprobs=True,
+            top_logprobs=20,  # Get top 20 to capture yes/no even when model is confident
+        )
+
+        text = response.choices[0].message.content or ""
+        logprobs_content = response.choices[0].logprobs
+
+        # Extract logprobs dict
+        logprobs = {}
+        yes_logprob = None
+        no_logprob = None
+
+        if logprobs_content and logprobs_content.content:
+            # Get first token and its alternatives
+            first_token = logprobs_content.content[0]
+
+            # Check the main token first
+            main_token_lower = first_token.token.strip().lower()
+            logprobs[first_token.token] = first_token.logprob
+            if main_token_lower in ['yes', 'y']:
+                yes_logprob = first_token.logprob
+            elif main_token_lower in ['no', 'n']:
+                no_logprob = first_token.logprob
+
+            # Check alternatives for the other token
+            if first_token.top_logprobs:
+                for alt in first_token.top_logprobs:
+                    token_lower = alt.token.strip().lower()
+                    logprobs[alt.token] = alt.logprob
+
+                    # Look for yes/no variants we haven't found yet
+                    if token_lower in ['yes', 'y']:
+                        if yes_logprob is None or alt.logprob > yes_logprob:
+                            yes_logprob = alt.logprob
+                    elif token_lower in ['no', 'n']:
+                        if no_logprob is None or alt.logprob > no_logprob:
+                            no_logprob = alt.logprob
+
+        # Convert logprobs to probabilities
+        yes_prob = math.exp(yes_logprob) if yes_logprob is not None else 0.0
+        no_prob = math.exp(no_logprob) if no_logprob is not None else 0.0
+
+        # Normalize if we have both
+        if yes_prob + no_prob > 0:
+            total = yes_prob + no_prob
+            yes_prob = yes_prob / total
+            no_prob = no_prob / total
+
+        return LogProbResult(
+            text=text,
+            logprobs=logprobs,
+            yes_prob=yes_prob,
+            no_prob=no_prob
+        )
 
     def complete_rating_with_logit_bias(self, model: str, prompt: str) -> int:
         """
@@ -248,16 +570,17 @@ class LLMClient:
                 return random.choice(valid_tokens)
             return str(random.randint(1, 15))
 
-        if not self.openai_client:
-            raise ValueError("OpenAI API key not configured")
-
         # Convert token strings to token IDs using tiktoken
         # Use cl100k_base encoding (used by gpt-4o, gpt-3.5-turbo)
         try:
             enc = tiktoken.get_encoding("cl100k_base")
         except Exception:
-            # Fallback to model-specific encoding
-            enc = tiktoken.encoding_for_model(model)
+            # Fallback - try model-specific encoding
+            base_url, model_name = parse_custom_endpoint(model)
+            try:
+                enc = tiktoken.encoding_for_model(model_name if base_url else model)
+            except Exception:
+                enc = tiktoken.get_encoding("cl100k_base")
 
         bias_by_id = {}
         for token_str, bias_value in logit_bias.items():
@@ -266,6 +589,24 @@ class LLMClient:
             if token_ids:
                 # Use the first token ID (single digit numbers are single tokens)
                 bias_by_id[token_ids[0]] = bias_value
+
+        # Check for custom endpoint
+        base_url, model_name = parse_custom_endpoint(model)
+        if base_url:
+            client = self.get_openai_client_for_base_url(base_url)
+            if not client:
+                raise ValueError(f"Failed to create client for {base_url}")
+            response = client.chat.completions.create(
+                model=model_name,
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=max_tokens,
+                temperature=0.7,
+                logit_bias=bias_by_id,
+            )
+            return response.choices[0].message.content.strip()
+
+        if not self.openai_client:
+            raise ValueError("OpenAI API key not configured")
 
         response = self.openai_client.chat.completions.create(
             model=model,
@@ -289,6 +630,143 @@ class LLMClient:
             temperature=0.7,
         )
         return response.choices[0].message.content
+
+    def _call_openai_conversation(self, model: str, messages: List[Dict[str, str]], max_tokens: int) -> str:
+        """Call OpenAI Chat API with multi-turn conversation"""
+        if not self.openai_client:
+            raise ValueError("OpenAI API key not configured")
+
+        response = self.openai_client.chat.completions.create(
+            model=model,
+            messages=messages,
+            max_tokens=max_tokens,
+            temperature=0.7,
+        )
+        return response.choices[0].message.content
+
+    def _call_custom_endpoint(self, base_url: str, model: str, prompt: str, max_tokens: int) -> str:
+        """Call a custom OpenAI-compatible endpoint with a single prompt"""
+        client = self.get_openai_client_for_base_url(base_url)
+        if not client:
+            raise ValueError(f"Failed to create client for {base_url}")
+
+        response = client.chat.completions.create(
+            model=model,
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=max_tokens,
+            temperature=0.7,
+        )
+        return response.choices[0].message.content
+
+    def _call_custom_endpoint_conversation(
+        self, base_url: str, model: str, messages: List[Dict[str, str]], max_tokens: int
+    ) -> str:
+        """Call a custom OpenAI-compatible endpoint with multi-turn conversation"""
+        client = self.get_openai_client_for_base_url(base_url)
+        if not client:
+            raise ValueError(f"Failed to create client for {base_url}")
+
+        response = client.chat.completions.create(
+            model=model,
+            messages=messages,
+            max_tokens=max_tokens,
+            temperature=0.7,
+        )
+        return response.choices[0].message.content
+
+    def _call_custom_endpoint_chat_with_logprobs(
+        self,
+        base_url: str,
+        model: str,
+        messages: List[Dict[str, str]],
+        max_tokens: int
+    ) -> LogProbResult:
+        """Call a custom OpenAI-compatible endpoint with log probabilities.
+
+        Uses the chat completions API logprobs parameter to get token probabilities.
+        Note: Not all OpenAI-compatible APIs support logprobs.
+        """
+        client = self.get_openai_client_for_base_url(base_url)
+        if not client:
+            raise ValueError(f"Failed to create client for {base_url}")
+
+        try:
+            response = client.chat.completions.create(
+                model=model,
+                messages=messages,
+                max_tokens=max_tokens,
+                temperature=0.0,  # Use 0 for deterministic logprobs
+                logprobs=True,
+                top_logprobs=20,  # Get top 20 to capture yes/no even when model is confident
+            )
+        except Exception as e:
+            # If logprobs not supported, fall back to regular completion
+            logger.warning(f"[LLM] Logprobs not supported by {base_url}, falling back to regular completion: {e}")
+            response = client.chat.completions.create(
+                model=model,
+                messages=messages,
+                max_tokens=max_tokens,
+                temperature=0.0,
+            )
+            text = response.choices[0].message.content or ""
+            # Return with default probabilities
+            return LogProbResult(
+                text=text,
+                logprobs={},
+                yes_prob=0.5 if text.strip().lower().startswith("yes") else 0.0,
+                no_prob=0.5 if text.strip().lower().startswith("no") else 0.0
+            )
+
+        text = response.choices[0].message.content or ""
+        logprobs_content = response.choices[0].logprobs
+
+        # Extract logprobs dict
+        logprobs = {}
+        yes_logprob = None
+        no_logprob = None
+
+        if logprobs_content and logprobs_content.content:
+            # Get first token and its alternatives
+            first_token = logprobs_content.content[0]
+
+            # Check the main token first
+            main_token_lower = first_token.token.strip().lower()
+            logprobs[first_token.token] = first_token.logprob
+            if main_token_lower in ['yes', 'y']:
+                yes_logprob = first_token.logprob
+            elif main_token_lower in ['no', 'n']:
+                no_logprob = first_token.logprob
+
+            # Check alternatives for the other token
+            if first_token.top_logprobs:
+                for alt in first_token.top_logprobs:
+                    token_lower = alt.token.strip().lower()
+                    logprobs[alt.token] = alt.logprob
+
+                    # Look for yes/no variants we haven't found yet
+                    if token_lower in ['yes', 'y']:
+                        if yes_logprob is None or alt.logprob > yes_logprob:
+                            yes_logprob = alt.logprob
+                    elif token_lower in ['no', 'n']:
+                        if no_logprob is None or alt.logprob > no_logprob:
+                            no_logprob = alt.logprob
+
+        # Convert logprobs to probabilities
+        yes_prob = math.exp(yes_logprob) if yes_logprob is not None else 0.0
+        no_prob = math.exp(no_logprob) if no_logprob is not None else 0.0
+
+        # Normalize if we have both
+        if yes_prob + no_prob > 0:
+            total = yes_prob + no_prob
+            yes_prob = yes_prob / total
+            no_prob = no_prob / total
+
+        return LogProbResult(
+            text=text,
+            logprobs=logprobs,
+            yes_prob=yes_prob,
+            no_prob=no_prob
+        )
 
     def _call_openai_completion(self, model: str, prompt: str, max_tokens: int) -> str:
         """Call OpenAI Completion API (for instruct models)"""
@@ -390,6 +868,18 @@ class LLMClient:
             model=model,
             max_tokens=max_tokens,
             messages=[{"role": "user", "content": prompt}],
+        )
+        return response.content[0].text
+
+    def _call_anthropic_conversation(self, model: str, messages: List[Dict[str, str]], max_tokens: int) -> str:
+        """Call Anthropic API with multi-turn conversation"""
+        if not self.anthropic_client:
+            raise ValueError("Anthropic API key not configured")
+
+        response = self.anthropic_client.messages.create(
+            model=model,
+            max_tokens=max_tokens,
+            messages=messages,
         )
         return response.content[0].text
 

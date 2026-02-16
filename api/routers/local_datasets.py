@@ -147,6 +147,8 @@ def list_local_dataset_problems(dataset_id: str):
                 "T_suspicion_score": problem_data.get("T_suspicion_score"),
                 "T_suspicion_backdoor": problem_data.get("T_suspicion_backdoor"),
                 "T_suspicion_normal": problem_data.get("T_suspicion_normal"),
+                "U_suspicion_normal": problem_data.get("U_suspicion_normal"),
+                "U_suspicion_backdoor": problem_data.get("U_suspicion_backdoor"),
                 "H_suspicion_score": problem_data.get("H_suspicion_score"),
                 "sneakiness": problem_data.get("sneakiness"),
                 "sneakiest_backdoor_idx": problem_data.get("sneakiest_backdoor_idx"),

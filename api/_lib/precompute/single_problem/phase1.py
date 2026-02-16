@@ -67,8 +67,11 @@ def _test_baseline_solutions(engine: "SingleProblemEngine"):
     log = get_logger()
 
     if not engine.piston.is_available():
-        log.step("Test Cases", "Piston not available - skipping", status="warn")
-        return
+        raise RuntimeError(
+            "Piston code execution service is not available. "
+            "Please start Piston (docker) before running the pipeline. "
+            "Tests cannot be skipped as they are required for accurate simulation results."
+        )
 
     # Parse test cases from APPS format
     inputs = engine.test_cases.get("inputs", [])
